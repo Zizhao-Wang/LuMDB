@@ -15,7 +15,7 @@ log_file="shcdb_${num_entries}_variable_val_etc.log"
 cgexec -g memory:kv128 ../KV_stores/leveldb/release/db_bench \
         --db=/wzz/nvm/level8B  \
         --num=$num_entries \
-        --benchmarks=fillrandom,stats \
+        --benchmarks=filletc,stats \
         --bloom_bits=10 \
         --cache_size=8388608  \
         --open_files=40000  \
