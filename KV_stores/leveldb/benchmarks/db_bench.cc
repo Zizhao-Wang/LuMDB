@@ -228,7 +228,7 @@ class variable_Buffer{
   variable_Buffer& operator=(variable_Buffer& other) = delete;
   variable_Buffer(variable_Buffer& other) = delete;
 
-  void Set(int k,int key_size) {
+  void Set(uint64_t k,int key_size) {
     // std::snprintf(buffer_ + FLAGS_key_prefix, sizeof(buffer_) - FLAGS_key_prefix, "%016d", k);
     assert(key_size <= sizeof(buffer_) - FLAGS_key_prefix);
     char format[20];
@@ -277,7 +277,7 @@ class Stats {
   double start_;
   double finish_;
   double seconds_;
-  int done_;
+  uint64_t done_;
   int next_report_;
   int64_t bytes_;
   double last_op_finish_;
@@ -344,7 +344,7 @@ class Stats {
         next_report_ += 50000;
       else
         next_report_ += 100000;
-      std::fprintf(stderr, "... finished %d ops%30s\r", done_, "");
+      std::fprintf(stderr, "... finished %lu ops%30s\r", done_, "");
       std::fflush(stderr);
     }
   }
@@ -371,6 +371,7 @@ class Stats {
     std::fprintf(stdout, "%-12s : %11.3f micros/op;%s%s\n",
                  name.ToString().c_str(), seconds_ * 1e6 / done_,
                  (extra.empty() ? "" : " "), extra.c_str());
+    std::fprintf(stdout, "%lu operations have been finished (%.3f MB data have been written into db)\n", done_, bytes_/1048576.0);
     if (FLAGS_histogram) {
       std::fprintf(stdout, "Microseconds per op:\n%s\n",
                    hist_.ToString().c_str());
@@ -944,11 +945,11 @@ class Benchmark {
         while (getline(line_stream, cell, ',')) {
             row_data.push_back(cell);
         }
-        if (row_data.size() < 5) {
+        if (row_data.size() != 4) {
             fprintf(stderr, "Invalid CSV row format\n");
             continue;
         }
-        const int k = std::stoi(row_data[0]); 
+        const uint64_t k = std::stoull(row_data[0]); 
         int key_size = std::stoi(row_data[1]);
         // const int v = std::stoi(row_data[3]); 
         int val_size = std::stoi(row_data[2]);
@@ -956,11 +957,13 @@ class Benchmark {
 
         key_buffer.Set(k, key_size);
         // key_buffer.PrintBuffer();
+
         if(row_data[3] == "PUT"){
           batch.Put(key_buffer.slice(), gen.Generate(val_size));
-        }else if(row_data[3]=="DELETE"){
-          batch.Delete(key_buffer.slice());
+        }else {
+          continue;
         }
+
         bytes += val_size + key_buffer.slice().size();
         thread->stats.FinishedSingleOp();
       }

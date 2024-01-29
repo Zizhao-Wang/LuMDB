@@ -1,20 +1,20 @@
-# rm -rf /mnt/nvm/*
-# rm  /mnt/ssd/*.log
+sudo rm -rf /mnt/nvme/level8B*
+sudo rm  /mnt/ssd/*.log
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
-ulimit -n 800000
+sudo bash -c 'ulimit -n 800000'
 
 
 BASE_VALUE_SIZE=128
 billion=1000000000
 range_dividers=(1 4 8)
-num_entries=100
+num_entries=1000000000
 
 log_file="shcdb_${num_entries}_variable_val_etc.log"
 
 # cgexec -g memory:kv128 
 
-../KV_stores/leveldb/build/db_bench \
+sudo ../KV_stores/leveldb/build/db_bench \
     --db=/mnt/nvme/level8B  \
     --num=$num_entries \
     --benchmarks=filletc,stats \
