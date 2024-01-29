@@ -951,13 +951,16 @@ class Benchmark {
         const int k = std::stoi(row_data[0]); 
         int key_size = std::stoi(row_data[1]);
         // const int v = std::stoi(row_data[3]); 
-        int val_size = std::stoi(row_data[3]);
+        int val_size = std::stoi(row_data[2]);
         // std::cout << "k: " << k << ", key_size: " << key_size << ", v: " << v << ", val_size: " << val_size << std::endl;
 
         key_buffer.Set(k, key_size);
         // key_buffer.PrintBuffer();
-
-        // batch.Put(key_buffer.slice(), gen.Generate(val_size));
+        if(row_data[3] == "PUT"){
+          batch.Put(key_buffer.slice(), gen.Generate(val_size));
+        }else if(row_data[3]=="DELETE"){
+          batch.Delete(key_buffer.slice());
+        }
         bytes += val_size + key_buffer.slice().size();
         thread->stats.FinishedSingleOp();
       }

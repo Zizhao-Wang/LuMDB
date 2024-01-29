@@ -4,21 +4,21 @@
 # Create cgroup for kv
 CGROUP_PATH=/sys/fs/cgroup/memory
 
-for cg in kv4 kv16 kv64 kv80; do
+for cg in kv32; do
     if [ ! -d "$CGROUP_PATH/$cg" ]; then
         mkdir $CGROUP_PATH/$cg
     fi
 done
 
 # Limit the memory and cpu resources
-echo 4G > $CGROUP_PATH/kv4/memory.limit_in_bytes
-echo 16G > $CGROUP_PATH/kv16/memory.limit_in_bytes
-echo 64G > $CGROUP_PATH/kv64/memory.limit_in_bytes
-echo 80G > $CGROUP_PATH/kv80/memory.limit_in_bytes
-echo 0 > $CGROUP_PATH/kv4/memory.swappiness
-echo 0 > $CGROUP_PATH/kv16/memory.swappiness
-echo 0 > $CGROUP_PATH/kv64/memory.swappiness
-echo 0 > $CGROUP_PATH/kv80/memory.swappiness
+# echo 4G > $CGROUP_PATH/kv4/memory.limit_in_bytes
+# echo 16G > $CGROUP_PATH/kv16/memory.limit_in_bytes
+echo 32G > $CGROUP_PATH/kv32/memory.limit_in_bytes
+# echo 80G > $CGROUP_PATH/kv80/memory.limit_in_bytes
+# echo 0 > $CGROUP_PATH/kv4/memory.swappiness
+# echo 0 > $CGROUP_PATH/kv16/memory.swappiness
+echo 0 > $CGROUP_PATH/kv32/memory.swappiness
+# echo 0 > $CGROUP_PATH/kv80/memory.swappiness
 
 
 

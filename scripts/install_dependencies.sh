@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 定义需要检查的包列表
-packages=("cpufrequtils" "libgflags-dev" "pkg-config" "libzbd-dev")
+packages=("cpufrequtils" "libgflags-dev" "pkg-config" )
 
 # 遍历并检查每个包是否安装
 for pkg in "${packages[@]}"; do

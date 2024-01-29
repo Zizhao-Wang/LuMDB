@@ -14,8 +14,8 @@ log_file="shcdb_${num_entries}_variable_val_etc.log"
 
 # cgexec -g memory:kv128 
 
-../KV_stores/leveldb/build/db_bench \
-    --db=/mnt/nvme/level8B  \
+gdb --args ../KV_stores/leveldb/build/db_bench \
+    --db=/mnt/nvm/level8B  \
     --num=$num_entries \
     --benchmarks=filletc,stats \
     --bloom_bits=10 \
