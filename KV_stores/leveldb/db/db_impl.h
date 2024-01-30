@@ -18,6 +18,8 @@
 #include "port/port.h"
 #include "port/thread_annotations.h"
 
+
+
 namespace leveldb {
 
 class MemTable;
@@ -72,6 +74,7 @@ class DBImpl : public DB {
   void RecordReadSample(Slice key);
 
  private:
+  double user_io;
   friend class DB;
   struct CompactionState;
   struct Writer;
@@ -99,6 +102,7 @@ class DBImpl : public DB {
     int64_t micros;
     int64_t bytes_read;
     int64_t bytes_written;
+    ino64_t user_bytes_written;
   };
 
   Iterator* NewInternalIterator(const ReadOptions&,

@@ -146,6 +146,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       tmp_batch_(new WriteBatch),
       background_compaction_scheduled_(false),
       manual_compaction_(nullptr),
+      user_io(0.0),
       versions_(new VersionSet(dbname_, &options_, table_cache_,
                                &internal_comparator_)) {}
 
@@ -542,7 +543,10 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros;
   stats.bytes_written = meta.file_size;
+  user_io += (double)meta.file_size;
+  // stats_[0].user_bytes_written += meta.file_size;
   stats_[level].Add(stats);
+  // fprintf(stderr, "bytes into level %d: %lu\n",level,stats_[0].bytes_written);
   return s;
 }
 
@@ -1428,7 +1432,6 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
                   "--------------------------------------------------\n");
     value->append(buf);
     double total_io = 0;
-    double user_io = 0;
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
@@ -1439,10 +1442,10 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
                       stats_[level].bytes_written / 1048576.0);
         value->append(buf);
       }
-      if (level == 0) user_io = stats_[level].bytes_written / 1048576.0;
       total_io += stats_[level].bytes_written / 1048576.0;
     }
-    snprintf(buf, sizeof(buf), "WriteAmplification: %2.4f\n", total_io / user_io);
+    double user_ios_mb = user_io/ 1048576.0;
+    snprintf(buf, sizeof(buf), "user_io:%.3f total_ios: %.3f WriteAmplification: %2.4f\n", user_ios_mb, total_io, total_io/ user_ios_mb);
     value->append(buf);
     return true;
   } else if (in == "sstables") {

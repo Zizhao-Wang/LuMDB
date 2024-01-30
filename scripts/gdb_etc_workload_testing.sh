@@ -8,7 +8,8 @@ sudo ulimit -n 800000
 BASE_VALUE_SIZE=128
 billion=1000000000
 range_dividers=(1 4 8)
-num_entries=1000000000
+num_entries=100000
+stats_interval=$((num_entries / 10))
 
 log_file="shcdb_${num_entries}_variable_val_etc.log"
 
@@ -23,6 +24,7 @@ sudo gdb --args ../KV_stores/leveldb/build/db_bench \
     --open_files=40000  \
     --histogram=1 \
     --write_buffer_size=67108864  \
+    --stats_interval=$stats_interval \
     --max_file_size=67108864   \
     | tee $log_file  \
 

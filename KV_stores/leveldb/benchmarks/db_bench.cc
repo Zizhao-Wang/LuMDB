@@ -134,6 +134,8 @@ static bool FLAGS_print_wa = true;
 // Use the db with the following name.
 static const char* FLAGS_db = nullptr;
 
+static const char* FLAGS_data_file = nullptr;
+
 // ZSTD compression level to try out
 static int FLAGS_zstd_compression_level = 1;
 
@@ -197,6 +199,9 @@ class RandomGenerator {
   }
 
   Slice Generate(size_t len) {
+    if(len>data_.size()){
+      len = data_.size()-1;
+    }
     if (pos_ + len > data_.size()) {
       pos_ = 0;
       assert(len < data_.size());
@@ -204,6 +209,18 @@ class RandomGenerator {
     pos_ += len;
     return Slice(data_.data() + pos_ - len, len);
   }
+
+  // Slice Generate(size_t len) {
+  //   if (len > data_.size()) {
+  //       len = data_.size(); 
+  //   }
+  //   if (pos_ + len > data_.size()) {
+  //       pos_ = 0; 
+  //   }
+  //   pos_ += len;
+  //   return Slice(data_.data() + pos_ - len, len);
+  // }
+
 };
 
 class KeyBuffer {
@@ -611,6 +628,8 @@ class Stats {
             stats = "(failed)";
           }
           fprintf(stdout, "\n%s\n", stats.c_str());
+          // fprintf(stdout, "%lu operations have been finished (%.3f MB data have been written into db)\n", done_, bytes_/1048576.0);
+          fflush(stdout);
         }
       }
       fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
@@ -1185,7 +1204,7 @@ class Benchmark {
         key.Set(k);
         batch.Put(key.slice(), gen.Generate(value_size_));
         bytes += value_size_ + key.slice().size();
-        thread->stats.FinishedSingleOp();
+        thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
@@ -1209,7 +1228,7 @@ class Benchmark {
     int64_t bytes = 0;
     variable_Buffer key_buffer;
 
-    std::ifstream csv_file("/home/wangzizhao/workloads/etc_data1.csv");
+    std::ifstream csv_file(FLAGS_data_file);
     std::string line;
     if (!csv_file.is_open()) {
         fprintf(stderr,"Unable to open CSV file\n");
@@ -1247,7 +1266,7 @@ class Benchmark {
         batch.Put(key_buffer.slice(), gen.Generate(val_size));
 
         bytes += val_size + key_buffer.slice().size();
-        thread->stats.FinishedSingleOp();
+        thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
@@ -1512,6 +1531,8 @@ int main(int argc, char** argv) {
       FLAGS_open_files = n;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
+    }else if (strncmp(argv[i], "--data_file=", 12) == 0) {
+      FLAGS_data_file = argv[i] + 12;
     } else {
       std::fprintf(stderr, "Invalid flag '%s'\n", argv[i]);
       std::exit(1);
