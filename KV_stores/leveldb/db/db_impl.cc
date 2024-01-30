@@ -1427,6 +1427,8 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
                   "Level  Files Size(MB) Time(sec) Read(MB) Write(MB)\n"
                   "--------------------------------------------------\n");
     value->append(buf);
+    double total_io = 0;
+    double user_io = 0;
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
@@ -1437,7 +1439,11 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
                       stats_[level].bytes_written / 1048576.0);
         value->append(buf);
       }
+      if (level == 0) user_io = stats_[level].bytes_written / 1048576.0;
+      total_io += stats_[level].bytes_written / 1048576.0;
     }
+    snprintf(buf, sizeof(buf), "WriteAmplification: %2.4f\n", total_io / user_io);
+    value->append(buf);
     return true;
   } else if (in == "sstables") {
     *value = versions_->current()->DebugString();

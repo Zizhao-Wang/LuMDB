@@ -8,7 +8,7 @@ sudo bash -c 'ulimit -n 800000'
 BASE_VALUE_SIZE=128
 billion=1000000000
 range_dividers=(1 4 8)
-num_entries=1000000000
+num_entries=10000000
 
 log_file="shcdb_${num_entries}_variable_val_etc.log"
 
@@ -22,6 +22,7 @@ sudo ../KV_stores/leveldb/build/db_bench \
     --cache_size=8388608  \
     --open_files=40000  \
     --histogram=1 \
+    --stats_interval= $num_entries \
     --write_buffer_size=67108864  \
     --max_file_size=67108864   \
     | tee $log_file  \

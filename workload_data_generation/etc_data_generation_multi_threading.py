@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import genextreme, genpareto, zipf
 from concurrent.futures import ThreadPoolExecutor
+import logging
+
+logging.basicConfig(filename='./error.log', level=logging.DEBUG)
 
 # GEV分布的参数，用于生成key的size
 gev_params_key = {'c': 0.078688, 'loc': 30.7984, 'scale': 8.20449}
@@ -27,18 +30,21 @@ def generate_operations(operations, op_probabilities, num_keys):
     return np.random.choice(operations, size=num_keys, p=op_probabilities)
 
 def generate_batch_data(a, num_keys, operations, op_probabilities):
+    try:
+        # 您的程序代码
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            keys_future = executor.submit(generate_keys, a, num_keys)
+            key_sizes_future = executor.submit(generate_key_sizes, num_keys)
+            value_sizes_future = executor.submit(generate_value_sizes,num_keys)   
+            operations_col_future = executor.submit(generate_operations,operations, op_probabilities, num_keys)
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        keys_future = executor.submit(generate_keys, a, num_keys)
-        key_sizes_future = executor.submit(generate_key_sizes, num_keys)
-        value_sizes_future = executor.submit(generate_value_sizes,num_keys)   
-        operations_col_future = executor.submit(generate_operations,operations, op_probabilities, num_keys)
-
-        keys = keys_future.result()
-        key_sizes = key_sizes_future.result()
-        value_sizes = value_sizes_future.result()
-        # values = generate_values(value_sizes)
-        operations_col = operations_col_future.result()
+            keys = keys_future.result()
+            key_sizes = key_sizes_future.result()
+            value_sizes = value_sizes_future.result()
+            # values = generate_values(value_sizes)
+            operations_col = operations_col_future.result()
+    except Exception as e:
+        logging.exception("An error occurred: " + str(e))
 
     return pd.DataFrame({
         'Key': keys,
@@ -50,6 +56,7 @@ def generate_batch_data(a, num_keys, operations, op_probabilities):
 
 def generate_data(total_keys, a, operations, op_probabilities, batch_size):
     batches = total_keys // batch_size
+    print(f'{batches} batches will be processsed.')
     for batch in range(batches):
         data = generate_batch_data(a, batch_size, operations, op_probabilities)
         mode = 'w' if batch == 0 else 'a'
@@ -61,7 +68,7 @@ def generate_data(total_keys, a, operations, op_probabilities, batch_size):
 if __name__ == "__main__":
     num_files = 1
     total_keys = 1000000000  # 1 billion keys to generate
-    batch_size = 100000  # Number of keys per batch
+    batch_size = 1000000000  # Number of keys per batch
     a = 1.5
     operations = ['GET', 'PUT', 'DELETE']
     op_probabilities = [0.7, 0.2, 0.1]
