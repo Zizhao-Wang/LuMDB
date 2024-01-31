@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -1408,16 +1409,23 @@ class Benchmark {
             fprintf(stderr, "Invalid CSV row format\n");
             continue;
         }
-        const uint64_t k = std::stoull(row_data[0]);
+        try {
 
-        // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
-        char key[100];
-        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          const uint64_t k = std::stoull(row_data[0]);
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          batch.Put(key, gen.Generate(value_size_));
+          bytes += value_size_ + strlen(key);
+          thread->stats.FinishedSingleOp(db_);
 
-        batch.Put(key, gen.Generate(value_size_));
-        bytes += value_size_ + strlen(key);
+        } catch (const std::out_of_range& e) {
+          // If the converted number is out of range of uint64_t, skip this loop
+          fprintf(stderr, "Warning: Number out of range and will be skipped:%s \n",row_data[0].c_str()); 
+          continue;
+        }
 
-        thread->stats.FinishedSingleOp(db_);
+        
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
