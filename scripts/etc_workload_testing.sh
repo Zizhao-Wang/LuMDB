@@ -15,7 +15,7 @@ stats_interval=$((num_entries / 10))
 
 # cgexec -g memory:kv128 
 
-for a in 1.1 1.2 1.3 1.4 1.5;  do  
+for a in 1.5 1.01;  do  
 
     data_file="/home/wangzizhao/workloads/etc_data_zipf${a}.csv" # 构建数据文件路径
     log_file="shcdb_${num_entries}_variable_val_etc_${a}.log" # 构建日志文件名
@@ -28,6 +28,7 @@ for a in 1.1 1.2 1.3 1.4 1.5;  do
         --cache_size=8388608  \
         --open_files=40000  \
         --histogram=1 \
+        --print_wa=true \
         --stats_interval=$stats_interval \
         --write_buffer_size=67108864  \
         --max_file_size=67108864 \

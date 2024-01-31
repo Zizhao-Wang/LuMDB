@@ -1,3 +1,4 @@
+../KV_stores/leveldb/build/db_bench --db=/mnt/nvme/level8B --num=500000000 --benchmarks=filletc,stats --bloom_bits=10 --cache_size=8388608 --open_files=40000 --histogram=1 --print_wa=true --stats_interval=50000000 --write_buffer_size=67108864 --max_file_size=67108864 --data_file=/home/wangzizhao/workloads/etc_data_zipf1.5.csv 
 Keys:       16 bytes each
 Values:     100 bytes each (50 bytes after compression)
 Entries:    500000000
@@ -7,3 +8,25 @@ WARNING: Optimization is disabled: benchmarks unnecessarily slow
 WARNING: Assertions are enabled; benchmarks unnecessarily slow
 WARNING: Snappy compression is not enabled
 ------------------------------------------------
+2024-01-31 17:58:42 ... thread 0: (50000000,50000000) ops and (94390.9,94390.9) ops/second in (529.712176,529.712176) seconds
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        0        0         6        0       650
+  1        1       54       161      650     15971
+  2        2       87       238    36383     20814
+  3        3      170         4      507       416
+user_io:16638.256 total_ios: 37850.949 WriteAmplification: 2.2749
+
+2024-01-31 18:07:26 ... thread 0: (50000000,100000000) ops and (95261.3,94824.1) ops/second in (524.872358,1054.584534) seconds
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        0        0        41        0      4119
+  1        1       54       302     4119     29394
+  2        1       63       467    69740     41090
+  3        6      332        18     1993      1699
+user_io:33331.245 total_ios: 76301.678 WriteAmplification: 2.2892
+

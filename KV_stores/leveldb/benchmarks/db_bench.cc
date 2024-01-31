@@ -26,6 +26,12 @@
 #include "util/random.h"
 #include "util/trace.h"
 #include "util/testutil.h"
+#include "gflags/gflags.h"
+
+
+using GFLAGS_NAMESPACE::ParseCommandLineFlags;
+using GFLAGS_NAMESPACE::RegisterFlagValidator;
+using GFLAGS_NAMESPACE::SetUsageMessage;
 
 // Comma-separated list of operations to run in the specified order
 //   Actual benchmarks:
@@ -50,7 +56,30 @@
 //      stats       -- Print DB stats
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
-static const char* FLAGS_benchmarks =
+
+// static const char* FLAGS_benchmarks =
+//     "fillseq,"
+//     "fillsync,"
+//     "fillrandom,"
+//     "overwrite,"
+//     "readrandom,"
+//     "readrandom,"  // Extra run to allow previous compactions to quiesce
+//     "readseq,"
+//     "readreverse,"
+//     "compact,"
+//     "readrandom,"
+//     "readseq,"
+//     "readreverse,"
+//     "fill100K,"
+//     "crc32c,"
+//     "snappycomp,"
+//     "snappyuncomp,"
+//     "zstdcomp,"
+//     "zstduncomp,";
+
+
+DEFINE_string(
+    benchmarks,
     "fillseq,"
     "fillsync,"
     "fillrandom,"
@@ -68,81 +97,128 @@ static const char* FLAGS_benchmarks =
     "snappycomp,"
     "snappyuncomp,"
     "zstdcomp,"
-    "zstduncomp,";
+    "zstduncomp,"
+    , "");
+
+DEFINE_int32(key_prefix,0, "Common key prefix length.");
+
+// Use the data_file with the following name.
+// static const char* FLAGS_data_file = nullptr;
+DEFINE_string(data_file, "", "Use the db with the following name.");
+
+DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
 
 // Number of key/values to place in database
-static int FLAGS_num = 1000000;
+DEFINE_int64(num, 1000000, "Number of key/values to place in database");
+DEFINE_int64(range, 0, "key range space");
+
+DEFINE_int64(writes, -1, "Number of write");
+
+DEFINE_int32(prefix_length, 16,
+             "Prefix length to pass into NewFixedPrefixTransform");
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
-static int FLAGS_reads = -1;
+DEFINE_int64(reads, -1, "");
+
+DEFINE_int64(ycsb_ops_num, 1000000, "YCSB operations num");
+
+// YCSB workload type
+static leveldb::YCSBLoadType FLAGS_ycsb_type = leveldb::kYCSB_A;
 
 // Number of concurrent threads to run.
-static int FLAGS_threads = 1;
+DEFINE_int32(threads, 1, "Number of concurrent threads to run.");
+DEFINE_int32(duration, 0, "Time in seconds for the random-ops tests to run."
+             " When 0 then num & reads determine the test duration");
 
 // Size of each value
-static int FLAGS_value_size = 100;
+DEFINE_int32(value_size, 100, "Size of each value");
+
+DEFINE_int32(read_write_ratio, 100, "read_write_ratio");
 
 // Arrange to generate values that shrink to this fraction of
 // their original size after compression
-static double FLAGS_compression_ratio = 0.5;
+DEFINE_double(compression_ratio, 0.5, "Arrange to generate values that shrink"
+              " to this fraction of their original size after compression");
 
 // Print histogram of operation timings
-static bool FLAGS_histogram = false;
-
-// Count the number of string comparisons performed
-static bool FLAGS_comparisons = false;
+DEFINE_bool(histogram, false, "Print histogram of operation timings");
+DEFINE_bool(print_wa, false, "Print write amplification every stats interval");
+DEFINE_bool(comparisons, false, "Count the number of string comparisons performed");
 
 // Number of bytes to buffer in memtable before compacting
 // (initialized to default value by "main")
-static int FLAGS_write_buffer_size = 0;
+DEFINE_int64(write_buffer_size, 1048576,
+             "Number of bytes to buffer in all memtables before compacting");
 
 // Number of bytes written to each file.
 // (initialized to default value by "main")
-static int FLAGS_max_file_size = 0;
+DEFINE_int64(max_file_size, 256 << 20, "");
 
 // Approximate size of user data packed per block (before compression.
 // (initialized to default value by "main")
-static int FLAGS_block_size = 0;
-
+DEFINE_int32(block_size, 4096,  "");
 // Number of bytes to use as a cache of uncompressed data.
 // Negative means use default settings.
-static int FLAGS_cache_size = -1;
-
+DEFINE_int64(cache_size, 8 << 20, "");
 // Maximum number of files to keep open at the same time (use default if == 0)
-static int FLAGS_open_files = 0;
+DEFINE_int32(open_files, 0,
+             "Maximum number of files to keep open at the same time"
+             " (use default if == 0)");
 
 // Bloom filter bits per key.
 // Negative means use default settings.
-static int FLAGS_bloom_bits = -1;
-
-// Common key prefix length.
-static int FLAGS_key_prefix = 0;
+DEFINE_int32(bloom_bits, 10, "");
 
 // If true, do not destroy the existing database.  If you set this
 // flag and also specify a benchmark that wants a fresh database, that
 // benchmark will fail.
-static bool FLAGS_use_existing_db = false;
+DEFINE_bool(use_existing_db, false, "");
 
 // If true, reuse existing log/MANIFEST files when re-opening a database.
-static bool FLAGS_reuse_logs = false;
+DEFINE_bool(reuse_logs, false, "");
 
-// If true, use compression.
-static bool FLAGS_compression = true;
 
-static bool FLAGS_print_wa = true;
-
+DEFINE_int32(seek_nexts, 50,
+             "How many times to call Next() after Seek() in "
+             "RangeQuery");
+             
 // Use the db with the following name.
-static const char* FLAGS_db = nullptr;
+// static const char* FLAGS_db = nullptr;
+DEFINE_string(db, "", "Use the db with the following name.");
 
-static const char* FLAGS_data_file = nullptr;
+DEFINE_string(logpath, "", "");
 
-// ZSTD compression level to try out
-static int FLAGS_zstd_compression_level = 1;
+DEFINE_int64(partition, 2000, "");
 
-static int FLAGS_stats_interval = -1;
+DEFINE_bool(compression, true, "");
 
-// report time interval
-static uint64_t FLAGS_report_interval=20; 
+DEFINE_bool(hugepage, false, "");
+
+DEFINE_int32(stats_interval, 1000000, "");
+
+DEFINE_bool(log, true, "");
+
+DEFINE_int32(low_pool, 2, "");
+DEFINE_int32(high_pool, 1, "");
+
+DEFINE_int32(log_buffer_size, 65536, "");
+
+DEFINE_int64(batch_size, 1, "Batch size");
+
+DEFINE_bool(mem_append, false, "mem table use append mode");
+DEFINE_bool(direct_io, false, "enable direct io");
+DEFINE_bool(no_close, false, "close file after pwrite");
+DEFINE_bool(skiplistrep, true, "use skiplist as memtable");
+DEFINE_bool(log_dio, true, "log use direct io");
+DEFINE_bool(bg_cancel, false, "allow bg compaction to be canceled");
+
+DEFINE_int32(io_record_pid, 0, "");
+DEFINE_int32(rwdelay, 10, "delay in us");
+DEFINE_int32(sleep, 100, "sleep for write in readwhilewriting2");
+DEFINE_int64(report_interval, 20, "report time interval");
+
+
+
 
 namespace leveldb {
 
@@ -894,7 +970,7 @@ class Benchmark {
     PrintHeader();
     Open();
 
-    const char* benchmarks = FLAGS_benchmarks;
+    const char* benchmarks = FLAGS_benchmarks.c_str();
     while (benchmarks != nullptr) {
       const char* sep = strchr(benchmarks, ',');
       Slice name;
@@ -1297,7 +1373,7 @@ class Benchmark {
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-        const int k = seq ? i + j : thread->trace->Next(FLAGS_num);
+        const int k = seq ? i + j : thread->trace->Next() % FLAGS_range;
         key.Set(k);
         batch.Put(key.slice(), gen.Generate(value_size_));
         bytes += value_size_ + key.slice().size();
@@ -1517,70 +1593,86 @@ int main(int argc, char** argv) {
   FLAGS_open_files = leveldb::Options().max_open_files;
   std::string default_db_path;
 
-  for (int i = 1; i < argc; i++) {
-    double d;
-    int n;
-    char junk;
-    if (leveldb::Slice(argv[i]).starts_with("--benchmarks=")) {
-      FLAGS_benchmarks = argv[i] + strlen("--benchmarks=");
-    } else if (sscanf(argv[i], "--compression_ratio=%lf%c", &d, &junk) == 1) {
-      FLAGS_compression_ratio = d;
-    } else if (sscanf(argv[i], "--histogram=%d%c", &n, &junk) == 1 &&
-               (n == 0 || n == 1)) {
-      FLAGS_histogram = n;
-    } else if (sscanf(argv[i], "--comparisons=%d%c", &n, &junk) == 1 &&
-               (n == 0 || n == 1)) {
-      FLAGS_comparisons = n;
-    } else if (sscanf(argv[i], "--use_existing_db=%d%c", &n, &junk) == 1 &&
-               (n == 0 || n == 1)) {
-      FLAGS_use_existing_db = n;
-    } else if (sscanf(argv[i], "--reuse_logs=%d%c", &n, &junk) == 1 &&
-               (n == 0 || n == 1)) {
-      FLAGS_reuse_logs = n;
-    } else if (sscanf(argv[i], "--compression=%d%c", &n, &junk) == 1 &&
-               (n == 0 || n == 1)) {
-      FLAGS_compression = n;
-    } else if (sscanf(argv[i], "--num=%d%c", &n, &junk) == 1) {
-      FLAGS_num = n;
-    } else if (sscanf(argv[i], "--reads=%d%c", &n, &junk) == 1) {
-      FLAGS_reads = n;
-    }else if (sscanf(argv[i], "--stats_interval=%d%c", &n, &junk) == 1) {
-      FLAGS_stats_interval = n;
-    } else if (sscanf(argv[i], "--threads=%d%c", &n, &junk) == 1) {
-      FLAGS_threads = n;
-    } else if (sscanf(argv[i], "--value_size=%d%c", &n, &junk) == 1) {
-      FLAGS_value_size = n;
-    } else if (sscanf(argv[i], "--write_buffer_size=%d%c", &n, &junk) == 1) {
-      FLAGS_write_buffer_size = n;
-    } else if (sscanf(argv[i], "--max_file_size=%d%c", &n, &junk) == 1) {
-      FLAGS_max_file_size = n;
-    } else if (sscanf(argv[i], "--block_size=%d%c", &n, &junk) == 1) {
-      FLAGS_block_size = n;
-    } else if (sscanf(argv[i], "--key_prefix=%d%c", &n, &junk) == 1) {
-      FLAGS_key_prefix = n;
-    } else if (sscanf(argv[i], "--cache_size=%d%c", &n, &junk) == 1) {
-      FLAGS_cache_size = n;
-    } else if (sscanf(argv[i], "--bloom_bits=%d%c", &n, &junk) == 1) {
-      FLAGS_bloom_bits = n;
-    } else if (sscanf(argv[i], "--open_files=%d%c", &n, &junk) == 1) {
-      FLAGS_open_files = n;
-    } else if (strncmp(argv[i], "--db=", 5) == 0) {
-      FLAGS_db = argv[i] + 5;
-    }else if (strncmp(argv[i], "--data_file=", 12) == 0) {
-      FLAGS_data_file = argv[i] + 12;
-    } else {
-      std::fprintf(stderr, "Invalid flag '%s'\n", argv[i]);
-      std::exit(1);
-    }
+  // for (int i = 1; i < argc; i++) {
+  //   double d;
+  //   int n;
+  //   char junk;
+  //   if (leveldb::Slice(argv[i]).starts_with("--benchmarks=")) {
+  //     FLAGS_benchmarks = argv[i] + strlen("--benchmarks=");
+  //   } else if (sscanf(argv[i], "--compression_ratio=%lf%c", &d, &junk) == 1) {
+  //     FLAGS_compression_ratio = d;
+  //   } else if (sscanf(argv[i], "--histogram=%d%c", &n, &junk) == 1 &&
+  //              (n == 0 || n == 1)) {
+  //     FLAGS_histogram = n;
+  //   } else if (sscanf(argv[i], "--comparisons=%d%c", &n, &junk) == 1 &&
+  //              (n == 0 || n == 1)) {
+  //     FLAGS_comparisons = n;
+  //   } else if (sscanf(argv[i], "--use_existing_db=%d%c", &n, &junk) == 1 &&
+  //              (n == 0 || n == 1)) {
+  //     FLAGS_use_existing_db = n;
+  //   } else if (sscanf(argv[i], "--reuse_logs=%d%c", &n, &junk) == 1 &&
+  //              (n == 0 || n == 1)) {
+  //     FLAGS_reuse_logs = n;
+  //   } else if (sscanf(argv[i], "--compression=%d%c", &n, &junk) == 1 &&
+  //              (n == 0 || n == 1)) {
+  //     FLAGS_compression = n;
+  //   } else if (sscanf(argv[i], "--num=%lu%c", &n, &junk) == 1) {
+  //     FLAGS_num = n;
+  //   }else if (sscanf(argv[i], "--range=%lu%c", &n, &junk) == 1) {
+  //     FLAGS_range = n;
+  //   } else if (sscanf(argv[i], "--reads=%d%c", &n, &junk) == 1) {
+  //     FLAGS_reads = n;
+  //   }else if (sscanf(argv[i], "--stats_interval=%d%c", &n, &junk) == 1) {
+  //     FLAGS_stats_interval = n;
+  //   } else if (sscanf(argv[i], "--threads=%d%c", &n, &junk) == 1) {
+  //     FLAGS_threads = n;
+  //   } else if (sscanf(argv[i], "--value_size=%d%c", &n, &junk) == 1) {
+  //     FLAGS_value_size = n;
+  //   } else if (sscanf(argv[i], "--write_buffer_size=%d%c", &n, &junk) == 1) {
+  //     FLAGS_write_buffer_size = n;
+  //   } else if (sscanf(argv[i], "--max_file_size=%d%c", &n, &junk) == 1) {
+  //     FLAGS_max_file_size = n;
+  //   } else if (sscanf(argv[i], "--block_size=%d%c", &n, &junk) == 1) {
+  //     FLAGS_block_size = n;
+  //   } else if (sscanf(argv[i], "--key_prefix=%d%c", &n, &junk) == 1) {
+  //     FLAGS_key_prefix = n;
+  //   } else if (sscanf(argv[i], "--cache_size=%d%c", &n, &junk) == 1) {
+  //     FLAGS_cache_size = n;
+  //   } else if (sscanf(argv[i], "--bloom_bits=%d%c", &n, &junk) == 1) {
+  //     FLAGS_bloom_bits = n;
+  //   } else if (sscanf(argv[i], "--open_files=%d%c", &n, &junk) == 1) {
+  //     FLAGS_open_files = n;
+  //   } else if (strncmp(argv[i], "--db=", 5) == 0) {
+  //     FLAGS_db = argv[i] + 5;
+  //   }else if (strncmp(argv[i], "--data_file=", 12) == 0) {
+  //     FLAGS_data_file = argv[i] + 12;
+  //   } else {
+  //     std::fprintf(stderr, "Invalid flag '%s'\n", argv[i]);
+  //     std::exit(1);
+  //   }
+  // }
+
+  for (int i = 0; i < argc; ++i) {
+    printf("%s ", argv[i]);
   }
+  printf("\n");
+  ParseCommandLineFlags(&argc, &argv, true);
 
   leveldb::g_env = leveldb::Env::Default();
 
   // Choose a location for the test database if none given with --db=<path>
-  if (FLAGS_db == nullptr) {
+  if (FLAGS_db == "") {
     leveldb::g_env->GetTestDirectory(&default_db_path);
     default_db_path += "/dbbench";
     FLAGS_db = default_db_path.c_str();
+  }
+
+  if(FLAGS_range == 0){
+    FLAGS_range = FLAGS_num;
+  }
+
+  if (FLAGS_logpath == "") {
+    FLAGS_logpath = FLAGS_db;
   }
 
   leveldb::Benchmark benchmark;
