@@ -15,7 +15,7 @@ stats_interval=$((num_entries / 10))
 
 # cgexec -g memory:kv128 
 
-for a in 1.01 1.1 1.2 1.3 1.4 1.5;  do  
+for a in 1.1 1.2 1.3 1.4 1.5;  do  
 
     data_file="/home/wangzizhao/workloads/etc_data_zipf${a}.csv" # 构建数据文件路径
     log_file="shcdb_${num_entries}_variable_val_etc_${a}.log" # 构建日志文件名
