@@ -9,21 +9,8 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 range_dividers=(1)
 
-convert_to_billion_format() {
-    local num=$1
-    local integer_part=$((num / billion))
-    local decimal_part=$((num % billion))
+declare -A value_size_to_scale=( [256]="1.5" [512]="0.75" [1024]="0.375" [2048]="0.1875" )
 
-    if ((decimal_part == 0)); then
-        echo "${integer_part}B"
-    else
-        # Convert decimal part to the format of "x billionths"
-        local formatted_decimal=$(echo "scale=9; $decimal_part / $billion" | bc | sed 's/0*$//' | sed 's/\.$//')
-        # Extract only the fractional part after the decimal point
-        formatted_decimal=$(echo $formatted_decimal | cut -d'.' -f2)
-        echo "${integer_part}.${formatted_decimal}B"
-    fi
-}
 
 for i in {2..2}; do
     base_num=$(($billion * $i))
@@ -36,7 +23,7 @@ for i in {2..2}; do
         if [ ! -d "$dir2" ]; then
             mkdir $dir2
         fi
-        for value_size in 128; do
+        for value_size in 256 512 1024 2048; do
             dir3="${dir2}/value_size_$value_size"
             if [ ! -d "$dir3" ]; then
                 mkdir $dir3
@@ -45,11 +32,11 @@ for i in {2..2}; do
             current_range=$(($num_entries / $divider))
             stats_interva=$((num_entries / 10))
 
-            num_format=$(convert_to_billion_format $num_entries)
+            num_format=${value_size_to_scale[$value_size]} 
 
             for zipf_a in 1.01 1.1 1.2 1.3 1.4 1.5; do
-                log_file="leveldb_${num_format}_val_${value_size}_zipf_{$zipf_a}.log"
-                data_file="/home/wangzizhao/workloads/etc_keys_zipf${zipf_a}.csv" # 构建数据文件路径
+                log_file="leveldb_${num_format}B_val_${value_size}_zipf_{$zipf_a}.log"
+                data_file="/home/wangzizhao/workloads/zipf_keys{num_format}B_zipf${zipf_a}.csv" # 构建数据文件路径
                 cd $dir3
                 # 如果日志文件存在，则跳过当前迭代
                 if [ -f "$log_file" ]; then
@@ -62,8 +49,8 @@ for i in {2..2}; do
                 echo "current_range: $divider"
                 echo "value_size:$value_size"
                 echo "stats_interval: $stats_interva"
-                echo "$num_format"
-                echo "zipf_distrivution: $zipf_a"
+                echo "$num_format B"
+                echo "zipf_distrivution: $num_format"
 
                 sudo ../../../../KV_stores/leveldb/build/db_bench \
                 --db=/mnt/nvme/level8B \
@@ -77,7 +64,6 @@ for i in {2..2}; do
                 --log=1  \
                 --cache_size=8388608 \
                 --open_files=40000 \
-                --zipf_dis=$zipf_a \
                 --stats_interval=$stats_interva \
                 --histogram=1 \
                 --write_buffer_size=67108864 \
