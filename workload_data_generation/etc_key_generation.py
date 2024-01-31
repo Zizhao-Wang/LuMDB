@@ -12,7 +12,7 @@ key_range = (1, num_keys)
 operations = ['GET', 'PUT', 'DELETE']  
 op_probabilities = [0.8, 0.15, 0.05] 
 
-a_values = [1.01, 1.1, 1.2, 1.3, 1.4, 1.5]  # 您想要测试的a值列表
+a_values = [1.3] # 您想要测试的a值列表
 for a in tqdm(a_values): 
     # Key大小分布的GEV参数
     # gev_params_key = {'c': 0.078688, 'loc': 30.7984, 'scale': 8.20449}

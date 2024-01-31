@@ -177,6 +177,8 @@ DEFINE_bool(use_existing_db, false, "");
 // If true, reuse existing log/MANIFEST files when re-opening a database.
 DEFINE_bool(reuse_logs, false, "");
 
+// parameters of zipf distribution
+DEFINE_double(zipf_dis, 1.01, "");
 
 DEFINE_int32(seek_nexts, 50,
              "How many times to call Next() after Seek() in "
@@ -333,8 +335,8 @@ class variable_Buffer{
     // std::snprintf(buffer_ + FLAGS_key_prefix, sizeof(buffer_) - FLAGS_key_prefix, "%016d", k);
     assert(key_size <= sizeof(buffer_) - FLAGS_key_prefix);
     char format[20];
-    std::snprintf(format, sizeof(format), "%%0%dd", key_size);
-    std::snprintf(buffer_ + FLAGS_key_prefix, sizeof(buffer_) - FLAGS_key_prefix, format, k);
+    std::snprintf(format, sizeof(format), "%%0%dllu", key_size);
+    std::snprintf(buffer_ + FLAGS_key_prefix, sizeof(buffer_) - FLAGS_key_prefix, format, (unsigned long long)k);
     this->key_sizes = key_size;
   }
 
@@ -1316,18 +1318,23 @@ class Benchmark {
         return;
     }
     std::getline(csv_file, line);
-    
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
+
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
         // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         if (!std::getline(csv_file, line)) { // 从文件中读取一行
             fprintf(stderr, "Error reading key from file\n");
             return;
         }
-        std::stringstream line_stream(line);
-        std::string cell;
-        std::vector<std::string> row_data;
+        line_stream << line;
         while (getline(line_stream, cell, ',')) {
             row_data.push_back(cell);
         }
@@ -1370,13 +1377,46 @@ class Benchmark {
     Status s;
     int64_t bytes = 0;
     KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-        const int k = seq ? i + j : thread->trace->Next() % FLAGS_range;
-        key.Set(k);
-        batch.Put(key.slice(), gen.Generate(value_size_));
-        bytes += value_size_ + key.slice().size();
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+            fprintf(stderr, "Error reading key from file\n");
+            return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+            row_data.push_back(cell);
+        }
+        if (row_data.size() != 1) {
+            fprintf(stderr, "Invalid CSV row format\n");
+            continue;
+        }
+        const uint64_t k = std::stoull(row_data[0]);
+
+        // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+        char key[100];
+        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+
+        batch.Put(key, gen.Generate(value_size_));
+        bytes += value_size_ + strlen(key);
+
         thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);
