@@ -86,6 +86,8 @@ for i in {2..2}; do
                 --print_wa=true \
                 | tee $log_file  \
 
+                sleep 3
+                
                 sudo rm -rf /mnt/nvm/*
                 sudo rm  /mnt/ssd/*.log
             done

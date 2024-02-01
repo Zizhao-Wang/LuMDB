@@ -1393,24 +1393,23 @@ class Benchmark {
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-        line_stream.clear();
-        line_stream.str("");
-        row_data.clear();
-        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
-        if (!std::getline(csv_file, line)) { // 从文件中读取一行
-            fprintf(stderr, "Error reading key from file\n");
-            return;
-        }
-        line_stream << line;
-        while (getline(line_stream, cell, ',')) {
-            row_data.push_back(cell);
-        }
-        if (row_data.size() != 1) {
-            fprintf(stderr, "Invalid CSV row format\n");
-            continue;
-        }
         try {
-
+          line_stream.clear();
+          line_stream.str("");
+          row_data.clear();
+          // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+          if (!std::getline(csv_file, line)) { // 从文件中读取一行
+              fprintf(stderr, "Error reading key from file\n");
+              return;
+          }
+          line_stream << line;
+          while (getline(line_stream, cell, ',')) {
+              row_data.push_back(cell);
+          }
+          if (row_data.size() != 1) {
+              fprintf(stderr, "Invalid CSV row format\n");
+              continue;
+          }
           const uint64_t k = std::stoull(row_data[0]);
           // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
           char key[100];
@@ -1424,8 +1423,6 @@ class Benchmark {
           fprintf(stderr, "Warning: Number out of range and will be skipped:%s \n",row_data[0].c_str()); 
           continue;
         }
-
-        
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
