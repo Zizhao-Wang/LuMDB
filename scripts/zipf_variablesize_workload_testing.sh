@@ -9,7 +9,7 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 range_dividers=(1)
 
-declare -A value_size_to_scale=( [256]="1.5" [512]="0.75" [1024]="0.375" [2048]="0.1875" )
+declare -A value_size_to_scale=( [256]="1.0" [512]="0.5" [1024]="0.25" [2048]="0.125" )
 
 
 for i in {2..2}; do
@@ -50,7 +50,7 @@ for i in {2..2}; do
                 echo "value_size:$value_size"
                 echo "stats_interval: $stats_interva"
                 echo "$num_format B"
-                echo "zipf_distrivution: $num_format"
+                echo "zipf_distrivution: $zipf_a"
 
                 sudo ../../../../KV_stores/leveldb/build/db_bench \
                 --db=/mnt/nvme/level8B \
