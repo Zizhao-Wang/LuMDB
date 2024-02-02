@@ -23,7 +23,7 @@ for i in {2..2}; do
         if [ ! -d "$dir2" ]; then
             mkdir $dir2
         fi
-        for value_size in 256; do
+        for value_size in 256 512 1024 2048; do
             dir3="${dir2}/value_size_$value_size"
             if [ ! -d "$dir3" ]; then
                 mkdir $dir3
@@ -36,16 +36,14 @@ for i in {2..2}; do
 
             for zipf_a in 1.01 1.1 1.2 1.3 1.4 1.5; do
                 log_file="leveldb_${num_format}B_val_${value_size}_zipf_{$zipf_a}.log"
-                data_file="/home/wangzizhao/workloads/zipf_keys${num_format}B_zipf${zipf_a}.csv" # 构建数据文件路径
+                data_file="/home/wangzizhao/workloads/zipf_keys{num_format}B_zipf${zipf_a}.csv" # 构建数据文件路径
                 cd $dir3
-
                 # 如果日志文件存在，则跳过当前迭代
                 if [ -f "$log_file" ]; then
                     echo "Log file $log_file already exists. Skipping this iteration."
                     cd ../../..
                     continue
                 fi
-                
                 echo "base_num: $base_num"
                 echo "num_entries: $num_entries"
                 echo "current_range: $divider"
@@ -54,7 +52,7 @@ for i in {2..2}; do
                 echo "$num_format B"
                 echo "zipf_distrivution: $zipf_a"
 
-                sudo ../../../../KV_stores/leveldb/build/db_bench \
+                sudo gdb --args ../../../../KV_stores/leveldb/build/db_bench \
                 --db=/mnt/nvme/level8B \
                 --num=$num_entries \
                 --value_size=$value_size \
@@ -73,6 +71,7 @@ for i in {2..2}; do
                 --max_file_size=67108864   \
                 --print_wa=true \
                 | tee $log_file  \
+
                 sleep 3
                 
                 sudo rm -rf /mnt/nvm/*

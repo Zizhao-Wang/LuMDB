@@ -12,7 +12,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <stdexcept>
 
 #include "leveldb/cache.h"
 #include "leveldb/comparator.h"
@@ -1393,7 +1392,6 @@ class Benchmark {
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-        try {
           line_stream.clear();
           line_stream.str("");
           row_data.clear();
@@ -1418,11 +1416,7 @@ class Benchmark {
           bytes += value_size_ + strlen(key);
           thread->stats.FinishedSingleOp(db_);
 
-        } catch (const std::out_of_range& e) {
-          // If the converted number is out of range of uint64_t, skip this loop
-          fprintf(stderr, "Warning: Number out of range and will be skipped:%s \n",row_data[0].c_str()); 
-          continue;
-        }
+        
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
