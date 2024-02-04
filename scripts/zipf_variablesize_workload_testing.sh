@@ -23,7 +23,7 @@ for i in {2..2}; do
         if [ ! -d "$dir2" ]; then
             mkdir $dir2
         fi
-        for value_size in 256; do
+        for value_size in 512 1024 2048; do
             dir3="${dir2}/value_size_$value_size"
             if [ ! -d "$dir3" ]; then
                 mkdir $dir3
@@ -73,8 +73,9 @@ for i in {2..2}; do
                 --max_file_size=67108864   \
                 --print_wa=true \
                 | tee $log_file  \
+
                 sleep 3
-                
+
                 sudo rm -rf /mnt/nvm/*
                 sudo rm  /mnt/ssd/*.log
             done
