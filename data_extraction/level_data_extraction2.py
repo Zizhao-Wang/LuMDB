@@ -24,10 +24,10 @@ def extract_level_data(log_filename):
         theoretical_max_size['Level ' + str(i)] = theoretical_max_size['Level ' + str(i - 1)] * 10
 
     # 定义记录点的初始值和增量
-    initial_record_point = Decimal('0.2')
-    record_point_increment = Decimal('0.2')
+    initial_record_point = Decimal('0.0')
+    record_point_increment = Decimal('1.0')
     # 定义最大记录点值，这个值应根据您日志文件中的最大记录点来设置
-    max_record_point = Decimal('2.2')
+    max_record_point = Decimal('10.0')
 
     # 为每个Level的每个记录点初始化数据
     record_point = initial_record_point
@@ -113,7 +113,7 @@ def process_log_files(log_dir, output_dir):
 
 # 用于示例的日志文件目录和输出目录
 log_dir = '/home/wangzizhao/WorkloadAnalysis/scripts/2B_leveldb/divider_1'  # 确保这是您的日志文件目录
-output_dir = '/home/wangzizhao/WorkloadAnalysis/data_extraction/leveldb_wa_data'  # 确保这是您的输出目录
+output_dir = '/home/wangzizhao/WorkloadAnalysis/data_extraction/leveldb_wa_extradata2'  # 确保这是您的输出目录
 
 # 调用函数处理日志文件并输出结果
 process_log_files(log_dir, output_dir)
