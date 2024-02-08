@@ -27,7 +27,8 @@ def extract_level_data(log_filename):
     initial_record_point = Decimal('0.0')
     record_point_increment = Decimal('1.0')
     # 定义最大记录点值，这个值应根据您日志文件中的最大记录点来设置
-    max_record_point = Decimal('10.0')
+    max_record_point = Decimal('9.0')
+    max_record_point2 = Decimal('10.0')
 
     # 为每个Level的每个记录点初始化数据
     record_point = initial_record_point
@@ -48,19 +49,29 @@ def extract_level_data(log_filename):
     with open(log_filename, 'r') as file:
         current_record_point = initial_record_point
         in_data_section = False
+        # 添加计数器来跟踪已处理的记录点数量
+        processed_record_points = Decimal('0.0')
+
         for line in file:
             if "--------------------------------------------------" in line:
+                # 在增加新的记录点前检查是否已达到max_record_point的限制
+                if processed_record_points >= max_record_point2:
+                    # 如果已处理的记录点数量达到预设的最大值，则停止处理新的记录点
+                    print(f"test:{processed_record_points}")
+                    break
                 in_data_section = True
                 continue
             if line.startswith("user_io:"):
                 in_data_section = False
                 current_record_point += record_point_increment
+                # 更新已处理的记录点计数器
+                processed_record_points += record_point_increment
                 continue
             if in_data_section:
                 match = re.match(r'\s*(\d)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)', line)
                 if match:
                     level = 'Level ' + match.group(1)
-                    index = int((current_record_point - initial_record_point) / record_point_increment)
+                    index = int((current_record_point - initial_record_point) / record_point_increment)                   
                     # 更新当前记录点的数据
                     level_data[level][index] = {
                         'Files': int(match.group(2)),
@@ -69,9 +80,8 @@ def extract_level_data(log_filename):
                         'Read(MB)': int(match.group(5)),
                         'Write(MB)': int(match.group(6)),
                         'Keys Written': float(current_record_point),
-                        'Theoretical Max Size(MB)': theoretical_max_size[level],  # 更新理论最大值
+                        'Theoretical Max Size(MB)': theoretical_max_size[level],
                     }
-
     return level_data
 
 
@@ -105,10 +115,10 @@ def process_log_files(log_dir, output_dir):
                 # 写入提取的数据到输出文件
                 with open(output_path, 'w') as out_file:
                     for level, records in level_data.items():
-                        out_file.write(f"{level}:\n")
+                        out_file.write(f"#Write amplification{level}:\n")
                         for record in records:
                             out_file.write(f"{record['Keys Written']}\t{record['Theoretical Max Size(MB)']}\t{record['Theoretical Max Size(MB)']+record['Write(MB)']}\n")
-                        out_file.write("\n")
+                        out_file.write("e\n\n")
                 print(f"数据已写入：{output_path}")
 
 # 用于示例的日志文件目录和输出目录
