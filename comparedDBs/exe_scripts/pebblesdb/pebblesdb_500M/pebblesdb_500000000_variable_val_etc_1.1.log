@@ -1,0 +1,340 @@
+smartctl 6.6 2016-05-31 r4324 [x86_64-linux-5.4.0-149-generic] (local build)
+Copyright (C) 2002-16, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Number:                       Samsung SSD 980 500GB
+Serial Number:                      S64DNU0WC14076H
+Firmware Version:                   3B4QFXO7
+PCI Vendor/Subsystem ID:            0x144d
+IEEE OUI Identifier:                0x002538
+Total NVM Capacity:                 500,107,862,016 [500 GB]
+Unallocated NVM Capacity:           0
+Controller ID:                      5
+Number of Namespaces:               1
+Namespace 1 Size/Capacity:          500,107,862,016 [500 GB]
+Namespace 1 Utilization:            476,547,182,592 [476 GB]
+Namespace 1 Formatted LBA Size:     512
+Local Time is:                      Sat Feb 24 19:36:29 2024 CST
+Firmware Updates (0x16):            3 Slots, no Reset required
+Optional Admin Commands (0x0017):   Security Format Frmw_DL *Other*
+Optional NVM Commands (0x0055):     Comp DS_Mngmt Sav/Sel_Feat *Other*
+Maximum Data Transfer Size:         512 Pages
+Warning  Comp. Temp. Threshold:     82 Celsius
+Critical Comp. Temp. Threshold:     85 Celsius
+Namespace 1 Features (0x10):        *Other*
+
+Supported Power States
+St Op     Max   Active     Idle   RL RT WL WT  Ent_Lat  Ex_Lat
+ 0 +     5.24W       -        -    0  0  0  0        0       0
+ 1 +     4.49W       -        -    1  1  1  1        0       0
+ 2 +     2.19W       -        -    2  2  2  2        0     500
+ 3 -   0.0500W       -        -    3  3  3  3      210    1200
+ 4 -   0.0050W       -        -    4  4  4  4     1000    9000
+
+Supported LBA Sizes (NSID 0x1)
+Id Fmt  Data  Metadt  Rel_Perf
+ 0 +     512       0         0
+
+=== START OF SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+SMART/Health Information (NVMe Log 0x02, NSID 0x1)
+Critical Warning:                   0x00
+Temperature:                        67 Celsius
+Available Spare:                    100%
+Available Spare Threshold:          10%
+Percentage Used:                    11%
+Data Units Read:                    2,888,074 [1.47 TB]
+Data Units Written:                 89,924,308 [46.0 TB]
+Host Read Commands:                 11,581,029
+Host Write Commands:                75,947,760
+Controller Busy Time:               1,625
+Power Cycles:                       1
+Power On Hours:                     134
+Unsafe Shutdowns:                   0
+Media and Data Integrity Errors:    0
+Error Information Log Entries:      0
+Warning  Comp. Temperature Time:    0
+Critical Comp. Temperature Time:    0
+Temperature Sensor 1:               67 Celsius
+Temperature Sensor 2:               97 Celsius
+
+Read Error Information Log failed: NVMe Status 0x02
+
+../pebblesdb/release/db_bench --db=/mnt/nvme/level8B --num=500000000 --benchmarks=filletc,stats --bloom_bits=10 --cache_size=8388608 --open_files=800000 --histogram=1 --print_wa=true --stats_interval=50000000 --write_buffer_size=67108864 --max_file_size=67108864 --data_file=/home/wangzizhao/workloads/etc_data_zipf1.1.csv 
+Keys:       16 bytes each
+Values:     300 bytes each (150 bytes after compression)
+Entries:    500000000
+RawSize:    150680.5 MB (estimated)
+FileSize:   79155.0 MB (estimated)
+WARNING: Snappy compression is not enabled
+------------------------------------------------
+Recover Time : 18446744073709547783
+InitializeFileLevelBloomFilter Time: 1
+InitializeTableCacheFileMetaData Time: 1
+PebblesDB Open Time: 16522
+Write buffer: 65536.00 KB
+Recover Time : 18446744073709548520
+InitializeFileLevelBloomFilter Time: 2
+InitializeTableCacheFileMetaData Time: 2
+PebblesDB Open Time: 15894
+Entering ETC workload testing:
+2024/02/24-19:41:47  ... thread 0: (50000000,50000000) ops and (157010.8,157010.8) ops/second in (318.449344,318.449344) seconds
+50000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        6      329       236        0     16716
+  1        4      176       126    16387      8597
+  2        9      451       112     8525      7823
+  3       15      328       107     7565      7068
+  4       49     1291       112     7980      7465
+  5      158     2324       117     7022      6604
+  6      332     1757        87     3373      3236
+WriteAmplification: 3.4404
+
+2024/02/24-19:49:33  ... thread 0: (50000000,100000000) ops and (107503.9,127624.5) ops/second in (465.099570,783.548914) seconds
+100000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2      110       575        0     33487
+  1        4      233       318    33377     17078
+  2       12      447       264    17008     15757
+  3       40      843       275    15494     14332
+  4      100     1925       288    15501     14412
+  5      318     4177       307    14259     13321
+  6      980     4627       364    10403     10018
+WriteAmplification: 3.5359
+
+2024/02/24-19:57:21  ... thread 0: (50000000,150000000) ops and (106695.9,119792.0) ops/second in (468.621590,1252.170504) seconds
+150000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        6      329       904        0     50312
+  1        8      246       521    50021     25333
+  2       17      683       422    25300     23478
+  3       36      995       428    23035     21261
+  4      168     3496       458    22792     21154
+  5      325     3386       470    20032     18611
+  6     1791     8821       781    21869     20854
+WriteAmplification: 3.5976
+
+2024/02/24-20:05:38  ... thread 0: (50000000,200000000) ops and (100720.8,114377.7) ops/second in (496.421805,1748.592309) seconds
+200000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        9      493      1228        0     67137
+  1        0        0       735    66681     33560
+  2       35     1058       587    33773     31332
+  3       34      871       602    30652     28208
+  4      141     2655       633    30164     27894
+  5      572     6278       707    28475     26373
+  6     2444    11888      1107    30368     28855
+WriteAmplification: 3.6248
+
+2024/02/24-20:14:11  ... thread 0: (50000000,250000000) ops and (97463.1,110540.9) ops/second in (513.014632,2261.606941) seconds
+250000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3      164      1555        0     83908
+  1        9      361       959    83781     41957
+  2       22      535       764    41869     38872
+  3      102     1854       780    38919     35753
+  4      203     3705       811    37317     34445
+  5      546     6029       881    33949     31337
+  6     3125    15598      1506    40346     38157
+WriteAmplification: 3.6281
+
+2024/02/24-20:22:47  ... thread 0: (50000000,300000000) ops and (96746.2,107974.9) ops/second in (516.816018,2778.422959) seconds
+300000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        7      384      1872        0    100679
+  1       14      329      1167   100333     50168
+  2       43     1091       937    50111     46498
+  3       37      596       933    46207     42345
+  4      252     3524      1012    45687     42054
+  5      784     7713      1148    42352     39067
+  6     3650    19422      1958    53948     50885
+WriteAmplification: 3.6919
+
+2024/02/24-20:31:41  ... thread 0: (50000000,350000000) ops and (93659.2,105667.6) ops/second in (533.850176,3312.273135) seconds
+350000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2      110      2196        0    117505
+  1       15      338      1376   117441     58590
+  2       17      598      1116    58579     54390
+  3       77      976      1126    54802     50150
+  4      285     3634      1203    53140     48804
+  5      986     8829      1380    49650     45777
+  6     4226    23301      2367    66046     62226
+WriteAmplification: 3.7228
+
+2024/02/24-20:40:26  ... thread 0: (50000000,400000000) ops and (95238.0,104240.7) ops/second in (525.000666,3837.273801) seconds
+400000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3      164      2524        0    134276
+  1        4      206      1582   134156     66819
+  2       27      621      1298    66939     62126
+  3      124     1824      1305    62529     57172
+  4      373     4897      1389    59824     54809
+  5      862     7656      1537    54743     50397
+  6     4985    27453      2778    77434     72848
+WriteAmplification: 3.7121
+
+2024/02/24-20:49:23  ... thread 0: (50000000,450000000) ops and (93156.5,102880.5) ops/second in (536.731339,4374.005140) seconds
+450000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3      164      2860        0    151047
+  1       11      244      1789   150928     75089
+  2       18      326      1475    75172     69815
+  3      169     2179      1495    70746     64495
+  4      379     4766      1563    67054     61326
+  5      894     7457      1777    61855     56898
+  6     5654    32139      3301    92399     86758
+WriteAmplification: 3.7434
+
+2024/02/24-20:57:41  ... thread 0: (50000000,500000000) ops and (100318.5,102618.5) ops/second in (498.412414,4872.417554) seconds
+500000000 operations have been finished (0.000 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        0        0      3168        0    167872
+  1        7      257      1985   167917     83509
+  2       19      378      1646    83651     77640
+  3      248     2896      1668    78549     71526
+  4      273     3212      1720    73781     67383
+  5     1273     9459      2031    69809     64146
+  6     6255    35750      3702   104133     97716
+WriteAmplification: 3.7516
+
+filletc      :       9.745 micros/op 102618 ops/sec;   35.5 MB/s
+Microseconds per op:
+Count: 500000000 Average: 9.7448  StdDev: 8.02
+Min: 1  Median: 2.5918  Max: 4704377
+Percentiles: P50: 2.59 P75: 3.66 P99: 67.99 P99.9: 98.20 P99.99: 152.45
+------------------------------------------------------
+[       0,       1 ]  2175546   0.435%   0.435% 
+(       1,       2 ] 128489639  25.698%  26.133% #####
+(       2,       3 ] 201635240  40.327%  66.460% ########
+(       3,       4 ] 64851295  12.970%  79.430% ###
+(       4,       6 ] 60720194  12.144%  91.574% ##
+(       6,      10 ] 23505209   4.701%  96.275% #
+(      10,      15 ]  3999159   0.800%  97.075% 
+(      15,      22 ]  1176400   0.235%  97.311% 
+(      22,      34 ]   376586   0.075%  97.386% 
+(      34,      51 ]   221512   0.044%  97.430% 
+(      51,      76 ] 11550005   2.310%  99.740% 
+(      76,     110 ]  1224110   0.245%  99.985% 
+(     110,     170 ]    35482   0.007%  99.992% 
+(     170,     250 ]    19607   0.004%  99.996% 
+(     250,     380 ]     1041   0.000%  99.996% 
+(     380,     580 ]      385   0.000%  99.996% 
+(     580,     870 ]      370   0.000%  99.996% 
+(     870,    1300 ]      387   0.000%  99.996% 
+(    1300,    1900 ]      433   0.000%  99.997% 
+(    1900,    2900 ]      804   0.000%  99.997% 
+(    2900,    4400 ]     2355   0.000%  99.997% 
+(    4400,    6600 ]     2318   0.000%  99.998% 
+(    6600,    9900 ]      719   0.000%  99.998% 
+(    9900,   14000 ]      343   0.000%  99.998% 
+(   14000,   22000 ]      488   0.000%  99.998% 
+(   22000,   33000 ]     1162   0.000%  99.998% 
+(   33000,   50000 ]     1383   0.000%  99.998% 
+(   50000,   75000 ]      966   0.000%  99.999% 
+(   75000,  110000 ]     1036   0.000%  99.999% 
+(  110000,  170000 ]     1326   0.000%  99.999% 
+(  170000,  250000 ]     1276   0.000%  99.999% 
+(  250000,  380000 ]     1355   0.000% 100.000% 
+(  380000,  570000 ]     1102   0.000% 100.000% 
+(  570000,  860000 ]      550   0.000% 100.000% 
+(  860000, 1200000 ]      166   0.000% 100.000% 
+( 1200000, 1900000 ]       45   0.000% 100.000% 
+( 1900000, 2900000 ]        4   0.000% 100.000% 
+( 2900000, 4300000 ]        1   0.000% 100.000% 
+( 4300000, 6500000 ]        1   0.000% 100.000% 
+
+smartctl 6.6 2016-05-31 r4324 [x86_64-linux-5.4.0-149-generic] (local build)
+Copyright (C) 2002-16, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Number:                       Samsung SSD 980 500GB
+Serial Number:                      S64DNU0WC14076H
+Firmware Version:                   3B4QFXO7
+PCI Vendor/Subsystem ID:            0x144d
+IEEE OUI Identifier:                0x002538
+Total NVM Capacity:                 500,107,862,016 [500 GB]
+Unallocated NVM Capacity:           0
+Controller ID:                      5
+Number of Namespaces:               1
+Namespace 1 Size/Capacity:          500,107,862,016 [500 GB]
+Namespace 1 Utilization:            476,560,216,064 [476 GB]
+Namespace 1 Formatted LBA Size:     512
+Local Time is:                      Sat Feb 24 20:57:42 2024 CST
+Firmware Updates (0x16):            3 Slots, no Reset required
+Optional Admin Commands (0x0017):   Security Format Frmw_DL *Other*
+Optional NVM Commands (0x0055):     Comp DS_Mngmt Sav/Sel_Feat *Other*
+Maximum Data Transfer Size:         512 Pages
+Warning  Comp. Temp. Threshold:     82 Celsius
+Critical Comp. Temp. Threshold:     85 Celsius
+Namespace 1 Features (0x10):        *Other*
+
+Supported Power States
+St Op     Max   Active     Idle   RL RT WL WT  Ent_Lat  Ex_Lat
+ 0 +     5.24W       -        -    0  0  0  0        0       0
+ 1 +     4.49W       -        -    1  1  1  1        0       0
+ 2 +     2.19W       -        -    2  2  2  2        0     500
+ 3 -   0.0500W       -        -    3  3  3  3      210    1200
+ 4 -   0.0050W       -        -    4  4  4  4     1000    9000
+
+Supported LBA Sizes (NSID 0x1)
+Id Fmt  Data  Metadt  Rel_Perf
+ 0 +     512       0         0
+
+=== START OF SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+SMART/Health Information (NVMe Log 0x02, NSID 0x1)
+Critical Warning:                   0x00
+Temperature:                        65 Celsius
+Available Spare:                    100%
+Available Spare Threshold:          10%
+Percentage Used:                    11%
+Data Units Read:                    2,894,650 [1.48 TB]
+Data Units Written:                 91,223,149 [46.7 TB]
+Host Read Commands:                 11,611,583
+Host Write Commands:                76,874,919
+Controller Busy Time:               1,695
+Power Cycles:                       1
+Power On Hours:                     135
+Unsafe Shutdowns:                   0
+Media and Data Integrity Errors:    0
+Error Information Log Entries:      0
+Warning  Comp. Temperature Time:    0
+Critical Comp. Temperature Time:    0
+Temperature Sensor 1:               65 Celsius
+Temperature Sensor 2:               96 Celsius
+
+Read Error Information Log failed: NVMe Status 0x02
+
