@@ -7,12 +7,12 @@ from tqdm import tqdm
 # 设定参数
 num_files = 1  
 num_keys_per_file = 1000 
-num_keys = 500000000  
+num_keys = 1000000000  
 key_range = (1, num_keys)  
 operations = ['GET', 'PUT', 'DELETE']  
 op_probabilities = [0.8, 0.15, 0.05] 
 
-a_values = [1.01, 1.4]  # 您想要测试的a值列表
+a_values = [1.01, 1.1, 1.2,1.3, 1.4]  # 您想要测试的a值列表
 for a in tqdm(a_values): 
     # Key大小分布的GEV参数
     gev_params_key = {'c': 0.078688, 'loc': 30.7984, 'scale': 8.20449}
@@ -46,7 +46,7 @@ for a in tqdm(a_values):
         # 'Operation': operations_col
     })
     # 保存到CSV文件，如果您需要不同的格式或者直接输出到屏幕，请调整这部分代码
-    data.to_csv(f'/home/wangzizhao/workloads/etc_data_zipf{a}.csv', index=False)
+    data.to_csv(f'/home/wangzizhao/workloads/etc_data_num1B_zipf{a}.csv', index=False)
 
 # 打印前5条数据以检查
 print(data.head())

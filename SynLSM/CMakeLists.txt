@@ -190,6 +190,7 @@ target_sources(leveldb
     "util/options.cc"
     "util/random.h"
     "util/status.cc"
+    "util/trace.cc"
 
   # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".
   $<$<VERSION_GREATER:CMAKE_VERSION,3.2>:PUBLIC>
@@ -288,7 +289,7 @@ target_link_libraries(leveldb Threads::Threads)
 add_executable(leveldbutil
   "db/leveldbutil.cc"
 )
-target_link_libraries(leveldbutil leveldb)
+target_link_libraries(leveldbutil leveldb gflags)
 
 if(LEVELDB_BUILD_TESTS)
   enable_testing()
@@ -350,7 +351,7 @@ if(LEVELDB_BUILD_TESTS)
         "util/logging_test.cc"
     )
   endif(NOT BUILD_SHARED_LIBS)
-  target_link_libraries(leveldb_tests leveldb gmock gtest gtest_main)
+  target_link_libraries(leveldb_tests leveldb gmock gtest gtest_main gflags)
   target_compile_definitions(leveldb_tests
     PRIVATE
       ${LEVELDB_PLATFORM_NAME}=1
@@ -376,7 +377,7 @@ if(LEVELDB_BUILD_TESTS)
 
         "${test_file}"
     )
-    target_link_libraries("${test_target_name}" leveldb gmock gtest)
+    target_link_libraries("${test_target_name}" leveldb gmock gtest gflags)
     target_compile_definitions("${test_target_name}"
       PRIVATE
         ${LEVELDB_PLATFORM_NAME}=1
@@ -424,7 +425,7 @@ if(LEVELDB_BUILD_BENCHMARKS)
 
         "${bench_file}"
     )
-    target_link_libraries("${bench_target_name}" leveldb gmock gtest benchmark)
+    target_link_libraries("${bench_target_name}" leveldb gmock gtest benchmark gflags)
     target_compile_definitions("${bench_target_name}"
       PRIVATE
         ${LEVELDB_PLATFORM_NAME}=1
