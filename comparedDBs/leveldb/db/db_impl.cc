@@ -922,6 +922,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   std::string current_user_key;
   bool has_current_user_key = false;
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
+
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
     // Prioritize immutable compaction work
     if (has_imm_.load(std::memory_order_relaxed)) {
@@ -980,6 +981,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
       last_sequence_for_key = ikey.sequence;
     }
+    
 #if 0
     Log(options_.info_log,
         "  Compact: %s, seq %d, type: %d %d, drop: %d, is_base: %d, "
@@ -1012,6 +1014,12 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
           break;
         }
       }
+    }
+
+    if (isHotData(ikey)) {
+        compact->hot_data_count++;
+    } else {
+        compact->cold_data_count++;
     }
 
     input->Next();
