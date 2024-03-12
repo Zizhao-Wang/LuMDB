@@ -1016,7 +1016,7 @@ class Compaction {
 
   explicit Compaction(unsigned level);
 
-  unsigned level_;
+  unsigned level_;  // 需要被compaction的level，根据相应的规则
   uint64_t min_output_file_size_;
   uint64_t max_output_file_size_;
   Version* input_version_;

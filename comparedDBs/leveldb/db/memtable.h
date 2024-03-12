@@ -27,7 +27,7 @@ class MemTable {
   MemTable& operator=(const MemTable&) = delete;
 
   // Increase reference count.
-  void Ref() { ++refs_; }
+  void Ref() { ++refs_; } 
 
   // Drop reference count.  Delete if no more references exist.
   void Unref() {
@@ -36,7 +36,7 @@ class MemTable {
     if (refs_ <= 0) {
       delete this;
     }
-  }
+  } 
 
   // Returns an estimate of the number of bytes of data in use by this
   // data structure. It is safe to call when MemTable is being modified.

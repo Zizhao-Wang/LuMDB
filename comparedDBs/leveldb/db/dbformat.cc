@@ -30,6 +30,7 @@ std::string ParsedInternalKey::DebugString() const {
   return ss.str();
 }
 
+// function definition in InternalKey
 std::string InternalKey::DebugString() const {
   ParsedInternalKey parsed;
   if (ParseInternalKey(rep_, &parsed)) {
