@@ -897,11 +897,16 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
 
+  new_CompactionStats new_compact_statistics;
+
   Log(options_.info_log, "Compacting %d@%d + %d@%d files",
       compact->compaction->num_input_files(0), compact->compaction->level(),
       compact->compaction->num_input_files(1),
       compact->compaction->level() + 1);
+  // new_compact_statistics.
+  
 
+  // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
   assert(versions_->NumLevelFiles(compact->compaction->level()) > 0);
   assert(compact->builder == nullptr);
   assert(compact->outfile == nullptr);
@@ -1016,11 +1021,11 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       }
     }
 
-    if (isHotData(ikey)) {
-        compact->hot_data_count++;
-    } else {
-        compact->cold_data_count++;
-    }
+    // if (isHotData(ikey)) {
+    //     compact->hot_data_count++;
+    // } else {
+    //     compact->cold_data_count++;
+    // }
 
     input->Next();
   }

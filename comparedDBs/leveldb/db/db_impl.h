@@ -91,7 +91,7 @@ class DBImpl : public DB {
   // Per level compaction stats.  stats_[level] stores the stats for
   // compactions that produced data for the specified "level".
   struct CompactionStats {
-    CompactionStats() : micros(0), bytes_read(0), bytes_written(0), bytes_read_hot(0), bytes_written_hot(0), number_of_compactions(0) {}
+    CompactionStats() : micros(0), bytes_read(0), bytes_written(0){}
 
     void Add(const CompactionStats& c) {
       this->micros += c.micros;
@@ -102,6 +102,30 @@ class DBImpl : public DB {
     int64_t micros;
     int64_t bytes_read;
     int64_t bytes_written;
+  };
+
+
+    struct new_CompactionStats {
+    new_CompactionStats() : micros(0), bytes_read(0), bytes_written(0), bytes_read_hot(0), bytes_written_hot(0), number_of_compactions(0), user_bytes_written(0) {}
+
+    void Add(const new_CompactionStats& c) {
+      this->micros += c.micros;
+      this->bytes_read += c.bytes_read;
+      this->bytes_written += c.bytes_written;
+
+      // Note: Assuming user_bytes_written should be accumulated as well.
+      this->bytes_read_hot += c.bytes_read_hot;
+      this->bytes_written_hot += c.bytes_written_hot;
+      this->number_of_compactions += c.number_of_compactions;
+      this->user_bytes_written += c.user_bytes_written;
+      
+    }
+
+    int64_t micros;
+    int64_t bytes_read;
+    int64_t bytes_written;
+
+    // Newly added fields
     int64_t bytes_read_hot;
     int64_t bytes_written_hot;
     int32_t number_of_compactions;
