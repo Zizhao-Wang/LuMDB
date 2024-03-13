@@ -1430,7 +1430,6 @@ Status DBImpl::MakeRoomForWrite(bool force) {
 bool DBImpl::GetProperty(const Slice& property, std::string* value) {
   value->clear();
 
-
   MutexLock l(&mutex_);
   Slice in = property;
   Slice prefix("leveldb.");
@@ -1478,10 +1477,10 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
     }
-    fprintf(stderr, "entering io_statistics\n");
-    fflush(stdout);
-    // snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
-    // value->append(buf);
+    // fprintf(stderr, "entering io_statistics\n");
+    // fflush(stdout);
+    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
+    value->append(buf);
     return true;
   } else if (in == "sstables") {
     *value = versions_->current()->DebugString();
