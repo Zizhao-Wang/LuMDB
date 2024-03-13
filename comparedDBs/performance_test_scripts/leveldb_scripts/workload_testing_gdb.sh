@@ -6,7 +6,7 @@ sudo bash -c 'ulimit -n 800000'
 
 
 BASE_VALUE_SIZE=128
-billion=1000000000
+billion=100000
 range_dividers=(1)
 
 convert_to_billion_format() {

@@ -619,7 +619,7 @@ class Stats {
 
     // std::string cur_time = Env::Default()->TimeToString(now/1000000);
     fprintf(stdout,
-            "%s ... thread %d: (%llu,%llu) ops and "
+            "%s ... thread %d: (%lu,%lu) ops and "
             "(%.1f,%.1f) ops/second in (%.6f,%.6f) seconds\n",
             getCurrentTime().c_str(), 
             id_,
@@ -705,11 +705,14 @@ class Stats {
           if (!db->GetProperty("leveldb.stats", &stats)) {
             stats = "(failed)";
           }
+          fprintf(stdout, "test\n");
+          fflush(stdout);
           fprintf(stdout, "\n%s\n", stats.c_str());
           fprintf(stdout, "%lu operations have been finished (user has been written %.3f MB data into db.)\n", done_, bytes_/1048576.0);
           fflush(stdout);
         }
       }
+
       fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
       fflush(stderr);
     }
@@ -879,8 +882,8 @@ class Benchmark {
     std::fprintf(stdout, "  threads: %d\n", FLAGS_threads);
     std::fprintf(stdout, "  duration: %d\n", FLAGS_duration);
     std::fprintf(stdout, "  print_wa: %d\n", FLAGS_print_wa);
-    std::fprintf(stdout, "  num_entries: %d\n",FLAGS_num);
-    std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks);
+    std::fprintf(stdout, "  num_entries: %ld\n",FLAGS_num);
+    std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks.c_str());
     std::fprintf(stdout, "------------------------------------------------\n");
   }
 
@@ -1612,7 +1615,7 @@ class Benchmark {
 
   void HeapProfile() {
     char fname[100];
-    std::snprintf(fname, sizeof(fname), "%s/heap-%04d", FLAGS_db,
+    std::snprintf(fname, sizeof(fname), "%s/heap-%04d", FLAGS_db.c_str(),
                   ++heap_counter_);
     WritableFile* file;
     Status s = g_env->NewWritableFile(fname, &file);

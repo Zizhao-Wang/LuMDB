@@ -202,6 +202,7 @@ class DBImpl : public DB {
 
   // State below is protected by mutex_
   port::Mutex mutex_;
+
   std::atomic<bool> shutting_down_;
   port::CondVar background_work_finished_signal_ GUARDED_BY(mutex_);
   MemTable* mem_;
@@ -233,7 +234,7 @@ class DBImpl : public DB {
   Status bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
-  new_CompactionStats new_stats_[config::kNumLevels] GUARDED_BY(mutex_);
+  // new_CompactionStats new_stats_[config::kNumLevels] GUARDED_BY(mutex_);
 };
 
 // Sanitize db options.  The caller should delete result.info_log if

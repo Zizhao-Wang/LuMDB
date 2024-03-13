@@ -546,11 +546,11 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
 
   // newly added source codes
-  new_CompactionStats new_stats;
-  new_stats.micros = env_->NowMicros() - start_micros;
-  new_stats.bytes_written = meta.file_size;
-  new_stats.user_bytes_written = meta.file_size;
-  new_stats_[level].Add(new_stats);
+  // new_CompactionStats new_stats;
+  // new_stats.micros = env_->NowMicros() - start_micros;
+  // new_stats.bytes_written = meta.file_size;
+  // new_stats.user_bytes_written = meta.file_size;
+  // new_stats_[level].Add(new_stats);
   
   
   // fprintf(stderr, "bytes into level %d: %lu\n",level,stats_[0].bytes_written);
@@ -914,7 +914,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       compact->compaction->num_input_files(1),
       compact->compaction->level() + 1);
 
-  new_stats_[compact->compaction->level()].number_of_compactions++;
+  // new_stats_[compact->compaction->level()].number_of_compactions++;
   
 
   // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
@@ -927,6 +927,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     compact->smallest_snapshot = snapshots_.oldest()->sequence_number();
   }
 
+  // 制作一个迭代器
   Iterator* input = versions_->MakeInputIterator(compact->compaction);
 
   // Release mutex while we're actually doing the compaction work
@@ -1429,11 +1430,14 @@ Status DBImpl::MakeRoomForWrite(bool force) {
 bool DBImpl::GetProperty(const Slice& property, std::string* value) {
   value->clear();
 
+
   MutexLock l(&mutex_);
   Slice in = property;
   Slice prefix("leveldb.");
+  
   if (!in.starts_with(prefix)) return false;
   in.remove_prefix(prefix.size());
+
 
   if (in.starts_with("num-files-at-level")) {
     in.remove_prefix(strlen("num-files-at-level"));
@@ -1449,14 +1453,16 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
       return true;
     }
   } else if (in == "stats") {
+    double user_io = 0;
+    double total_io = 0;
     char buf[200];
     std::snprintf(buf, sizeof(buf),
                   "                               Compactions\n"
                   "Level  Files Size(MB) Time(sec) Read(MB) Write(MB)\n"
                   "--------------------------------------------------\n");
     value->append(buf);
-    double user_io = 0;
-    double total_io = 0;
+    fprintf(stderr, "entering io_statistics1\n");
+    fflush(stdout);
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
@@ -1468,12 +1474,14 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
         value->append(buf);
       }
       total_io += stats_[level].bytes_written / 1048576.0;
-      if(level = 0){
+      if(level == 0){
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
     }
-    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
-    value->append(buf);
+    fprintf(stderr, "entering io_statistics\n");
+    fflush(stdout);
+    // snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
+    // value->append(buf);
     return true;
   } else if (in == "sstables") {
     *value = versions_->current()->DebugString();
