@@ -1247,6 +1247,7 @@ class Benchmark {
     if (FLAGS_comparisons) {
       options.comparator = &count_comparator_;
     }
+    options.
     options.max_open_files = FLAGS_open_files;
     options.filter_policy = filter_policy_;
     options.reuse_logs = FLAGS_reuse_logs;

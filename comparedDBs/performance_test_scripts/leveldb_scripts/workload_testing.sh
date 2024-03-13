@@ -69,14 +69,8 @@ for i in {2..2}; do
                 --write_buffer_size=67108864 \
                 --max_file_size=67108864   \
                 --print_wa=true \
-                | tee $log_file  \
-
-                sleep 3
-                
-                sudo rm -rf /mnt/nvm/*
-                sudo rm  /mnt/ssd/*.log
+                | tee $log_file  
             done
-            cd ../../..
         done
 done
 

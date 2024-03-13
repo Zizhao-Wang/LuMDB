@@ -546,11 +546,11 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
 
   // newly added source codes
-  // new_CompactionStats new_stats;
-  // new_stats.micros = env_->NowMicros() - start_micros;
-  // new_stats.bytes_written = meta.file_size;
-  // new_stats.user_bytes_written = meta.file_size;
-  // new_stats_[level].Add(new_stats);
+  new_CompactionStats new_stats;
+  new_stats.micros = env_->NowMicros() - start_micros;
+  new_stats.bytes_written = meta.file_size;
+  new_stats.user_bytes_written = meta.file_size;
+  new_stats_[level].Add(new_stats);
   
   
   // fprintf(stderr, "bytes into level %d: %lu\n",level,stats_[0].bytes_written);
@@ -914,7 +914,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       compact->compaction->num_input_files(1),
       compact->compaction->level() + 1);
 
-  // new_stats_[compact->compaction->level()].number_of_compactions++;
+  new_stats_[compact->compaction->level()].number_of_compactions++;
   
 
   // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
@@ -1428,15 +1428,13 @@ Status DBImpl::MakeRoomForWrite(bool force) {
 }
 
 bool DBImpl::GetProperty(const Slice& property, std::string* value) {
+  
   value->clear();
-
   MutexLock l(&mutex_);
   Slice in = property;
   Slice prefix("leveldb.");
-  
   if (!in.starts_with(prefix)) return false;
   in.remove_prefix(prefix.size());
-
 
   if (in.starts_with("num-files-at-level")) {
     in.remove_prefix(strlen("num-files-at-level"));
