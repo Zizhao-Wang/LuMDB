@@ -1469,10 +1469,10 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
       }
       total_io += stats_[level].bytes_written / 1048576.0;
       if(level = 0){
-        user_io += stats_[level].bytes_read / 1048576.0;
+        user_io = stats_[level].bytes_written/ 1048576.0;
       }
     }
-    snprintf(buf, sizeof(buf), "user_io:%.3f total_ios: %.3f WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
+    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
     value->append(buf);
     return true;
   } else if (in == "sstables") {

@@ -1,4 +1,4 @@
-# Install script for directory: /home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb
+# Install script for directory: /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -42,64 +42,60 @@ if(NOT DEFINED CMAKE_OBJDUMP)
   set(CMAKE_OBJDUMP "/usr/bin/objdump")
 endif()
 
-if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/libleveldb.a")
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/libleveldb.a")
 endif()
 
-if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/leveldb" TYPE FILE FILES
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/c.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/cache.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/comparator.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/db.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/dumpfile.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/env.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/export.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/filter_policy.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/iterator.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/options.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/slice.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/status.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/table_builder.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/table.h"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/write_batch.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/c.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/cache.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/comparator.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/db.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/dumpfile.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/env.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/export.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/filter_policy.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/iterator.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/options.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/slice.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/status.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/table_builder.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/table.h"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/write_batch.h"
     )
 endif()
 
-if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets.cmake")
-    file(DIFFERENT _cmake_export_file_changed FILES
+    file(DIFFERENT EXPORT_FILE_CHANGED FILES
          "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets.cmake"
-         "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles/Export/f90a79f6c24c38ae6b0a9cccec147da8/leveldbTargets.cmake")
-    if(_cmake_export_file_changed)
-      file(GLOB _cmake_old_config_files "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets-*.cmake")
-      if(_cmake_old_config_files)
-        string(REPLACE ";" ", " _cmake_old_config_files_text "${_cmake_old_config_files}")
-        message(STATUS "Old export file \"$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets.cmake\" will be replaced.  Removing files [${_cmake_old_config_files_text}].")
-        unset(_cmake_old_config_files_text)
-        file(REMOVE ${_cmake_old_config_files})
+         "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets.cmake")
+    if(EXPORT_FILE_CHANGED)
+      file(GLOB OLD_CONFIG_FILES "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets-*.cmake")
+      if(OLD_CONFIG_FILES)
+        message(STATUS "Old export file \"$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets.cmake\" will be replaced.  Removing files [${OLD_CONFIG_FILES}].")
+        file(REMOVE ${OLD_CONFIG_FILES})
       endif()
-      unset(_cmake_old_config_files)
     endif()
-    unset(_cmake_export_file_changed)
   endif()
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles/Export/f90a79f6c24c38ae6b0a9cccec147da8/leveldbTargets.cmake")
-  if(CMAKE_INSTALL_CONFIG_NAME MATCHES "^([Rr][Ee][Ll][Ee][Aa][Ss][Ee])$")
-    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles/Export/f90a79f6c24c38ae6b0a9cccec147da8/leveldbTargets-release.cmake")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets.cmake")
+  if("${CMAKE_INSTALL_CONFIG_NAME}" MATCHES "^([Rr][Ee][Ll][Ee][Aa][Ss][Ee])$")
+    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets-release.cmake")
   endif()
 endif()
 
-if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/cmake/leveldbConfig.cmake"
-    "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/cmake/leveldbConfigVersion.cmake"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/cmake/leveldbConfig.cmake"
+    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/cmake/leveldbConfigVersion.cmake"
     )
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/googletest/cmake_install.cmake")
-  include("/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/benchmark/cmake_install.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/googletest/cmake_install.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/benchmark/cmake_install.cmake")
 
 endif()
 
@@ -111,5 +107,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/wangzizhao/WorkloadAnalysis/comparedDBs/leveldb/release/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

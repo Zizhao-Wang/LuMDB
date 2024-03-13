@@ -706,7 +706,7 @@ class Stats {
             stats = "(failed)";
           }
           fprintf(stdout, "\n%s\n", stats.c_str());
-          // fprintf(stdout, "%lu operations have been finished (%.3f MB data have been written into db)\n", done_, bytes_/1048576.0);
+          fprintf(stdout, "%lu operations have been finished (user has been written %.3f MB data into db.)\n", done_, bytes_/1048576.0);
           fflush(stdout);
         }
       }
@@ -875,6 +875,12 @@ class Benchmark {
         (((kKeySize + FLAGS_value_size * FLAGS_compression_ratio) * num_) /
          1048576.0));
     PrintWarnings();
+    std::fprintf(stdout, "some command parameters have been selected:\n");
+    std::fprintf(stdout, "  threads: %d\n", FLAGS_threads);
+    std::fprintf(stdout, "  duration: %d\n", FLAGS_duration);
+    std::fprintf(stdout, "  print_wa: %d\n", FLAGS_print_wa);
+    std::fprintf(stdout, "  num_entries: %d\n",FLAGS_num);
+    std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks);
     std::fprintf(stdout, "------------------------------------------------\n");
   }
 
