@@ -1564,7 +1564,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
-        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.0f %8.0f %9.0f  %14d %12d %15d %14d %10 d\n",
+        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.0f %8.0f %9.0f %14d %12d %15d %14d %10d\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
                       stats_[level].bytes_read / 1048576.0,
@@ -1581,7 +1581,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
     }
-    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
+    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f", user_io, total_io, total_io/ user_io);
     value->append(buf);
     return true;
     //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
