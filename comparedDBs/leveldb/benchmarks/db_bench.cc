@@ -705,14 +705,11 @@ class Stats {
           if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
             stats = "(failed)";
           }
-          fprintf(stdout, "test\n");
-          fflush(stdout);
-          fprintf(stdout, "\n%s\n", stats.c_str());
+          fprintf(stdout, "%s\n", stats.c_str());
           fprintf(stdout, "%lu operations have been finished (user has been written %.3f MB data into db.)\n", done_, bytes_/1048576.0);
           fflush(stdout);
         }
       }
-
       fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
       fflush(stderr);
     }
@@ -1297,7 +1294,7 @@ class Benchmark {
         batch.Put(key.slice(), gen.Generate(value_size_));
         bytes += value_size_ + key.slice().size();
         thread->stats.FinishedSingleOp(db_);
-        if(thread->stats.done_ % FLAGS_stats_interval){
+        if(thread->stats.done_ % FLAGS_stats_interval == 0){
           thread->stats.AddBytes(bytes);
           bytes = 0;
         }
