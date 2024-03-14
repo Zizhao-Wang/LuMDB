@@ -104,10 +104,19 @@ class DBImpl : public DB {
   };
 
 
-    struct new_CompactionStats {
-    new_CompactionStats() : micros(0), bytes_read(0), bytes_written(0), bytes_read_hot(0), bytes_written_hot(0), number_of_compactions(0), user_bytes_written(0) {}
+    struct new_LeveldataStats {
+    new_LeveldataStats()
+    : micros(0), 
+      bytes_read(0), 
+      bytes_written(0), 
+      bytes_read_hot(0), 
+      bytes_written_hot(0), 
+      number_of_compactions(0), 
+      user_bytes_written(0), 
+      moved_directly_from_last_level_bytes(0), 
+      moved_from_this_level_bytes(0) {}
 
-    void Add(const new_CompactionStats& c) {
+    void Add(const new_LeveldataStats& c) {
       this->micros += c.micros;
       this->bytes_read += c.bytes_read;
       this->bytes_written += c.bytes_written;
@@ -129,6 +138,8 @@ class DBImpl : public DB {
     int64_t bytes_written_hot;
     int32_t number_of_compactions;
     int64_t user_bytes_written;
+    int64_t moved_directly_from_last_level_bytes;
+    int64_t moved_from_this_level_bytes;
   };
 
   Iterator* NewInternalIterator(const ReadOptions&,
@@ -234,7 +245,7 @@ class DBImpl : public DB {
   Status bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
-  new_CompactionStats new_stats_[config::kNumLevels] GUARDED_BY(mutex_);
+  new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
 };
 
 // Sanitize db options.  The caller should delete result.info_log if

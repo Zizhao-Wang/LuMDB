@@ -546,11 +546,11 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
 
   // newly added source codes
-  new_CompactionStats new_stats;
+  new_LeveldataStats new_stats;
   new_stats.micros = env_->NowMicros() - start_micros;
   new_stats.bytes_written = meta.file_size;
   new_stats.user_bytes_written = meta.file_size;
-  new_stats_[level].Add(new_stats);
+  level_stats_[level].Add(new_stats);
   
   
   // fprintf(stderr, "bytes into level %d: %lu\n",level,stats_[0].bytes_written);
@@ -757,6 +757,11 @@ void DBImpl::BackgroundCompaction() {
         static_cast<unsigned long long>(f->number), c->level() + 1,
         static_cast<unsigned long long>(f->file_size),
         status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+    // newly added source codes
+    level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+    level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
+    
   } else {
     CompactionState* compact = new CompactionState(c);
     status = DoCompactionWork(compact);
@@ -905,7 +910,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
 
-  new_CompactionStats new_compact_statistics;
+  new_LeveldataStats new_compact_statistics;
 
   // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
   // compact->compaction->num_input_files(1) 示与当前级别有重叠的下一个级别（level + 1）中参与压缩的文件数量。
@@ -914,7 +919,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       compact->compaction->num_input_files(1),
       compact->compaction->level() + 1);
 
-  new_stats_[compact->compaction->level()].number_of_compactions++;
+  level_stats_[compact->compaction->level()].number_of_compactions++;
   
 
   // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
