@@ -2162,6 +2162,11 @@ class ModelDB : public DB {
   bool GetProperty(const Slice& property, std::string* value) override {
     return false;
   }
+
+  bool GetProperty_with_whole_lsm(const Slice& property, std::string* value) override {
+    return false;
+  }
+
   void GetApproximateSizes(const Range* r, int n, uint64_t* sizes) override {
     for (int i = 0; i < n; i++) {
       sizes[i] = 0;

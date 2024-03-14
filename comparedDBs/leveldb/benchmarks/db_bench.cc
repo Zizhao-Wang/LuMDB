@@ -702,7 +702,7 @@ class Stats {
         PrintSpeed(); 
         if (FLAGS_print_wa && db) {
           std::string stats;
-          if (!db->GetProperty("leveldb.stats", &stats)) {
+          if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
             stats = "(failed)";
           }
           fprintf(stdout, "test\n");

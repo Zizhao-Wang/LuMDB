@@ -1267,6 +1267,7 @@ Compaction* VersionSet::PickCompaction() {
   Compaction* c;
   int level;
 
+  // Version* v = current_;  current_是当前可用的活动的version
   // We prefer compactions triggered by too much data in a level over
   // the compactions triggered by seeks.
   const bool size_compaction = (current_->compaction_score_ >= 1);
@@ -1290,11 +1291,22 @@ Compaction* VersionSet::PickCompaction() {
       // Wrap-around to the beginning of the key space
       c->inputs_[0].push_back(current_->files_[level][0]);
     }
+
+    //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
+    c->compaction_type = 1;
+
   } else if (seek_compaction) {
     level = current_->file_to_compact_level_;
     c = new Compaction(options_, level);
     c->inputs_[0].push_back(current_->file_to_compact_);
+
+    //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
+    c->compaction_type = 2;
+
   } else {
+
+    //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
+    c->compaction_type = 4;
     return nullptr;
   }
 
@@ -1313,6 +1325,11 @@ Compaction* VersionSet::PickCompaction() {
   }
 
   SetupOtherInputs(c);
+
+  //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
+  if(c->IsTrivialMove()){
+    c->compaction_type = 3;
+  }
 
   return c;
 }
@@ -1498,7 +1515,8 @@ Compaction::Compaction(const Options* options, int level)
       input_version_(nullptr),
       grandparent_index_(0),
       seen_key_(false),
-      overlapped_bytes_(0) {
+      overlapped_bytes_(0),
+      compaction_type(0) {
   for (int i = 0; i < config::kNumLevels; i++) {
     level_ptrs_[i] = 0;
   }
@@ -1579,5 +1597,12 @@ void Compaction::ReleaseInputs() {
     input_version_ = nullptr;
   }
 }
+
+
+//  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
+int Compaction::get_compaction_type() {
+  return compaction_type;
+}
+
 
 }  // namespace leveldb

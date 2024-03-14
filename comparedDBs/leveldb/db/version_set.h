@@ -357,6 +357,10 @@ class Compaction {
   // is successful.
   void ReleaseInputs();
 
+  //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
+  int get_compaction_type();
+
+
  private:
   friend class Version;
   friend class VersionSet;
@@ -386,6 +390,16 @@ class Compaction {
   // higher level than the ones involved in this compaction (i.e. for
   // all L >= level_ + 2).
   size_t level_ptrs_[config::kNumLevels];
+
+  //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's Compaction Type Recording ~~~~~~~~~~~~~~~~~~~~~~
+  //record compaction type
+  // - 0 ==> Manual Compaction: This type is triggered by direct user action. It's not automatic and requires explicit command to run.
+  // - 1 ==> Size Compaction: This is the standard, automated compaction triggered when the total size of SSTables at a certain level exceeds our predetermined threshold.
+  // - 2 ==> Seek Compaction: Triggered when a file has been seeked too many times. It's an optimization to reduce read latency.
+  // - 3 ==> Trivial Move: A lightweight operation where a file can simply be moved to the next level without merging or splitting, significantly reducing compaction overhead.
+  // - 4 ==> None compaction
+  int compaction_type;
+
 };
 
 }  // namespace leveldb

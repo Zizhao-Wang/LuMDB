@@ -56,6 +56,19 @@ class DBImpl : public DB {
   // Compact any files in the named level that overlap [*begin,*end]
   void TEST_CompactRange(int level, const Slice* begin, const Slice* end);
 
+
+  // ██╗    ██╗███████╗███████╗
+  // ██║    ██║╚══███╔╝╚══███╔╝
+  // ██║ █╗ ██║  ███╔╝   ███╔╝ 
+  // ██║███╗██║ ███╔╝   ███╔╝  
+  // ╚███╔███╔╝███████╗███████╗
+  //  ╚══╝╚══╝ ╚══════╝╚══════╝
+  //  This function is an extension of the GetProperty from LevelDB, crafted by WZZ.
+  //  It is designed to fetch comprehensive LSM (Log-Structured Merge-tree) related information,
+  //  providing insights not just on the requested level, but across the entire LSM tree.
+  //  This enhanced visibility is crucial for debugging and fine-tuning the store's performance and storage efficiency.
+  bool GetProperty_with_whole_lsm(const Slice& property, std::string* value);
+
   // Force current memtable contents to be compacted.
   Status TEST_CompactMemTable();
 
@@ -114,7 +127,11 @@ class DBImpl : public DB {
       number_of_compactions(0), 
       user_bytes_written(0), 
       moved_directly_from_last_level_bytes(0), 
-      moved_from_this_level_bytes(0) {}
+      moved_from_this_level_bytes(0),
+      number_size_compaction(0),
+      number_seek_compaction(0),
+      number_manual_compaction(0),
+      number_TrivialMove(0) {}
 
     void Add(const new_LeveldataStats& c) {
       this->micros += c.micros;
@@ -140,6 +157,10 @@ class DBImpl : public DB {
     int64_t user_bytes_written;
     int64_t moved_directly_from_last_level_bytes;
     int64_t moved_from_this_level_bytes;
+    int32_t number_size_compaction;
+    int32_t number_seek_compaction;
+    int32_t number_manual_compaction;
+    int32_t number_TrivialMove;
   };
 
   Iterator* NewInternalIterator(const ReadOptions&,

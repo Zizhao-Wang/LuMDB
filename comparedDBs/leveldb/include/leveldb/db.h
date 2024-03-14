@@ -123,6 +123,19 @@ class LEVELDB_EXPORT DB {
   //     bytes of memory in use by the DB.
   virtual bool GetProperty(const Slice& property, std::string* value) = 0;
 
+  // ██╗    ██╗███████╗███████╗
+  // ██║    ██║╚══███╔╝╚══███╔╝
+  // ██║ █╗ ██║  ███╔╝   ███╔╝ 
+  // ██║███╗██║ ███╔╝   ███╔╝  
+  // ╚███╔███╔╝███████╗███████╗
+  //  ╚══╝╚══╝ ╚══════╝╚══════╝
+  //  This function is an extension of the GetProperty from LevelDB, crafted by WZZ.
+  //  It is designed to fetch comprehensive LSM (Log-Structured Merge-tree) related information,
+  //  providing insights not just on the requested level, but across the entire LSM tree.
+  //  This enhanced visibility is crucial for debugging and fine-tuning the store's performance and storage efficiency.
+  virtual bool GetProperty_with_whole_lsm(const Slice& property, std::string* value) = 0;
+
+
   // For each i in [0,n-1], store in "sizes[i]", the approximate
   // file system space used by keys in "[range[i].start .. range[i].limit)".
   //

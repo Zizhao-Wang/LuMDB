@@ -734,6 +734,10 @@ void DBImpl::BackgroundCompaction() {
         m->level, (m->begin ? m->begin->DebugString().c_str() : "(begin)"),
         (m->end ? m->end->DebugString().c_str() : "(end)"),
         (m->done ? "(end)" : manual_end.DebugString().c_str()));
+    
+    // newly added source codes
+    level_stats_[m->level].number_manual_compaction++;
+
   } else {
     c = versions_->PickCompaction();
   }
@@ -741,7 +745,7 @@ void DBImpl::BackgroundCompaction() {
   Status status;
   if (c == nullptr) {
     // Nothing to do
-  } else if (!is_manual && c->IsTrivialMove()) {
+  } else if (!is_manual && c->IsTrivialMove()) { 
     // Move file to next level
     assert(c->num_input_files(0) == 1);
     FileMetaData* f = c->input(0, 0);
@@ -761,8 +765,20 @@ void DBImpl::BackgroundCompaction() {
     // newly added source codes
     level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
     level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
+    level_stats_[c->level()].number_TrivialMove++;
     
   } else {
+
+    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+    if(c->get_compaction_type() == 1){
+      level_stats_[c->level()].number_size_compaction++;
+    }
+    else if(c->get_compaction_type()==2){
+      level_stats_[c->level()].number_seek_compaction++;
+    }
+    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
+
     CompactionState* compact = new CompactionState(c);
     status = DoCompactionWork(compact);
     if (!status.ok()) {
@@ -771,6 +787,7 @@ void DBImpl::BackgroundCompaction() {
     CleanupCompaction(compact);
     c->ReleaseInputs();
     RemoveObsoleteFiles();
+
   }
   delete c;
 
@@ -1233,11 +1250,14 @@ Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {
 
 Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   Writer w(&mutex_);
-  w.batch = updates;
-  w.sync = options.sync;
-  w.done = false;
-
+  w.batch = updates; // 记录要写入的数据
+  w.sync = options.sync; // 记录要写入的选项，只有是否同步一个选项
+  w.done = false;    // 写入的状态，完成或者未完成，当前肯定是未完成
+      
+  // mutex_是leveldb的全局锁，在DBImpl有且只有这一个互斥锁(还有一个文件锁除外)，所有操作都要基于这一个锁实现互斥
+  // 是不是感觉有点不可思议？MutexLock是个自动锁，他的构造函数负责加锁，析构函数负责解锁
   MutexLock l(&mutex_);
+
   writers_.push_back(&w);
   while (!w.done && &w != writers_.front()) {
     w.cv.Wait();
@@ -1485,6 +1505,87 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
     snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
     value->append(buf);
     return true;
+  } else if (in == "sstables") {
+    *value = versions_->current()->DebugString();
+    return true;
+  } else if (in == "approximate-memory-usage") {
+    size_t total_usage = options_.block_cache->TotalCharge();
+    if (mem_) {
+      total_usage += mem_->ApproximateMemoryUsage();
+    }
+    if (imm_) {
+      total_usage += imm_->ApproximateMemoryUsage();
+    }
+    char buf[50];
+    std::snprintf(buf, sizeof(buf), "%llu",
+                  static_cast<unsigned long long>(total_usage));
+    value->append(buf);
+    return true;
+  }
+
+  return false;
+}
+
+
+bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* value) {
+  
+  value->clear();
+  MutexLock l(&mutex_);
+  Slice in = property;
+  Slice prefix("leveldb.");
+  if (!in.starts_with(prefix)) return false;
+  in.remove_prefix(prefix.size());
+
+  if (in.starts_with("num-files-at-level")) {
+    in.remove_prefix(strlen("num-files-at-level"));
+    uint64_t level;
+    bool ok = ConsumeDecimalNumber(&in, &level) && in.empty();
+    if (!ok || level >= config::kNumLevels) {
+      return false;
+    } else {
+      char buf[100];
+      std::snprintf(buf, sizeof(buf), "%d",
+                    versions_->NumLevelFiles(static_cast<int>(level)));
+      *value = buf;
+      return true;
+    }
+  } else if (in == "stats") {
+
+    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+    // I modified this part for print more details of a whole LSM
+    double user_io = 0;
+    double total_io = 0;
+    char buf[250];
+    std::snprintf(buf, sizeof(buf),
+                  "                               Compactions\n"
+                  "Level  Files Size(MB) Time(sec) Read(MB) Write(MB) manual_compaction size_compaction seek_compaction trivial_move compactions\n"
+                  "--------------------------------------------------\n");
+    value->append(buf);
+    for (int level = 0; level < config::kNumLevels; level++) {
+      int files = versions_->NumLevelFiles(level);
+      if (stats_[level].micros > 0 || files > 0) {
+        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.0f %8.0f %9.0f %d %d %d %d %d\n",
+                      level, files, versions_->NumLevelBytes(level) / 1048576.0,
+                      stats_[level].micros / 1e6,
+                      stats_[level].bytes_read / 1048576.0,
+                      stats_[level].bytes_written / 1048576.0,
+                      level_stats_[level].number_manual_compaction,
+                      level_stats_[level].number_size_compaction,
+                      level_stats_[level].number_seek_compaction,
+                      level_stats_[level].number_TrivialMove,
+                      level_stats_[level].number_of_compactions);
+        value->append(buf);
+      }
+      total_io += stats_[level].bytes_written / 1048576.0;
+      if(level == 0){
+        user_io = stats_[level].bytes_written/ 1048576.0;
+      }
+    }
+    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
+    value->append(buf);
+    return true;
+    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
   } else if (in == "sstables") {
     *value = versions_->current()->DebugString();
     return true;
