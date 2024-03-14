@@ -1581,7 +1581,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
     }
-    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f\n", user_io, total_io, total_io/ user_io);
+    snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f", user_io, total_io, total_io/ user_io);
     value->append(buf);
     return true;
     //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~

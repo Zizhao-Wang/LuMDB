@@ -1297,6 +1297,10 @@ class Benchmark {
         batch.Put(key.slice(), gen.Generate(value_size_));
         bytes += value_size_ + key.slice().size();
         thread->stats.FinishedSingleOp(db_);
+        if(thread->stats.done_ % FLAGS_stats_interval){
+          thread->stats.AddBytes(bytes);
+          bytes = 0;
+        }
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
@@ -1423,9 +1427,7 @@ class Benchmark {
           snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
           batch.Put(key, gen.Generate(value_size_));
           bytes += value_size_ + strlen(key);
-          thread->stats.FinishedSingleOp(db_);
-
-        
+          thread->stats.FinishedSingleOp(db_); 
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
