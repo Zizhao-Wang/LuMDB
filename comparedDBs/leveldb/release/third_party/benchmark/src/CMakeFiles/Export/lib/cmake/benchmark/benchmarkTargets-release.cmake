@@ -12,8 +12,8 @@ set_target_properties(benchmark::benchmark PROPERTIES
   IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/lib/libbenchmark.a"
   )
 
-list(APPEND _cmake_import_check_targets benchmark::benchmark )
-list(APPEND _cmake_import_check_files_for_benchmark::benchmark "${_IMPORT_PREFIX}/lib/libbenchmark.a" )
+list(APPEND _IMPORT_CHECK_TARGETS benchmark::benchmark )
+list(APPEND _IMPORT_CHECK_FILES_FOR_benchmark::benchmark "${_IMPORT_PREFIX}/lib/libbenchmark.a" )
 
 # Import target "benchmark::benchmark_main" for configuration "Release"
 set_property(TARGET benchmark::benchmark_main APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
@@ -22,8 +22,8 @@ set_target_properties(benchmark::benchmark_main PROPERTIES
   IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/lib/libbenchmark_main.a"
   )
 
-list(APPEND _cmake_import_check_targets benchmark::benchmark_main )
-list(APPEND _cmake_import_check_files_for_benchmark::benchmark_main "${_IMPORT_PREFIX}/lib/libbenchmark_main.a" )
+list(APPEND _IMPORT_CHECK_TARGETS benchmark::benchmark_main )
+list(APPEND _IMPORT_CHECK_FILES_FOR_benchmark::benchmark_main "${_IMPORT_PREFIX}/lib/libbenchmark_main.a" )
 
 # Commands beyond this point should not need to know the version.
 set(CMAKE_IMPORT_FILE_VERSION)

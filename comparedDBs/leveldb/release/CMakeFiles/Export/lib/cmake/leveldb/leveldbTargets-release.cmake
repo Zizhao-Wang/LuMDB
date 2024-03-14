@@ -12,8 +12,8 @@ set_target_properties(leveldb::leveldb PROPERTIES
   IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/lib/libleveldb.a"
   )
 
-list(APPEND _cmake_import_check_targets leveldb::leveldb )
-list(APPEND _cmake_import_check_files_for_leveldb::leveldb "${_IMPORT_PREFIX}/lib/libleveldb.a" )
+list(APPEND _IMPORT_CHECK_TARGETS leveldb::leveldb )
+list(APPEND _IMPORT_CHECK_FILES_FOR_leveldb::leveldb "${_IMPORT_PREFIX}/lib/libleveldb.a" )
 
 # Commands beyond this point should not need to know the version.
 set(CMAKE_IMPORT_FILE_VERSION)
