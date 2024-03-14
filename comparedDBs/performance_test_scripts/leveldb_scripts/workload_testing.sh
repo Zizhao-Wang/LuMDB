@@ -25,7 +25,7 @@ convert_to_billion_format() {
     fi
 }
 
-for i in {2..2}; do
+for i in {10..10}; do
     base_num=$(($billion * $i))
     dir1="${i}B_leveldb_testing"
     if [ ! -d "$dir1" ]; then
@@ -34,7 +34,7 @@ for i in {2..2}; do
         cd $dir1
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 10))
+            stats_interva=$((num_entries / 100))
 
             num_format=$(convert_to_billion_format $num_entries)
 
