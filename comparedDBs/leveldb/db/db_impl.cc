@@ -1555,16 +1555,16 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     // I modified this part for print more details of a whole LSM
     double user_io = 0;
     double total_io = 0;
-    char buf[250];
+    char buf[270];
     std::snprintf(buf, sizeof(buf),
                   "                               Compactions\n"
-                  "Level  Files Size(MB) Time(sec) Read(MB) Write(MB) manual_compaction size_compaction seek_compaction trivial_move compactions\n"
+                  "Level  Files Size(MB) Time(sec) Read(MB) Write(MB) manual_compaction size_compaction seek_compaction compactions trivial_move t_llevel_bytes t_nlevel_bytes\n"
                   "--------------------------------------------------\n");
     value->append(buf);
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
-        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.0f %8.0f %9.0f %17d %15d %15d %12d %11d\n",
+        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.0f %8.0f %9.0f %17d %15d %15d %11d %12d %14ld %14ld\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
                       stats_[level].bytes_read / 1048576.0,
@@ -1572,8 +1572,10 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
                       level_stats_[level].number_manual_compaction,
                       level_stats_[level].number_size_compaction,
                       level_stats_[level].number_seek_compaction,
+                      level_stats_[level].number_of_compactions,
                       level_stats_[level].number_TrivialMove,
-                      level_stats_[level].number_of_compactions);
+                      level_stats_[level].moved_directly_from_last_level_bytes,
+                      level_stats_[level].moved_from_this_level_bytes);
         value->append(buf);
       }
       total_io += stats_[level].bytes_written / 1048576.0;

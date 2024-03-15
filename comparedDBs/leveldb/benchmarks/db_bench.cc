@@ -706,7 +706,7 @@ class Stats {
             stats = "(failed)";
           }
           fprintf(stdout, "%s\n", stats.c_str());
-          fprintf(stdout, "%lu operations have been finished (user has been written %.3f MB data into db.)\n", done_, bytes_/1048576.0);
+          fprintf(stdout, "%lu operations have been finished (user has been written %.3f MB data into db.)\n\n\n", done_, bytes_/1048576.0);
           fflush(stdout);
         }
       }
@@ -849,7 +849,7 @@ class Benchmark {
   Cache* cache_;
   const FilterPolicy* filter_policy_;
   DB* db_;
-  int num_;
+  int64_t num_;
   int value_size_;
   int entries_per_batch_;
   WriteOptions write_options_;
@@ -866,7 +866,7 @@ class Benchmark {
         stdout, "Values:     %d bytes each (%d bytes after compression)\n",
         FLAGS_value_size,
         static_cast<int>(FLAGS_value_size * FLAGS_compression_ratio + 0.5));
-    std::fprintf(stdout, "Entries:    %d\n", num_);
+    std::fprintf(stdout, "Entries:    %ld\n", num_);
     std::fprintf(stdout, "RawSize:    %.1f MB (estimated)\n",
                  ((static_cast<int64_t>(kKeySize + FLAGS_value_size) * num_) /
                   1048576.0));
@@ -996,6 +996,8 @@ class Benchmark {
       value_size_ = FLAGS_value_size;
       entries_per_batch_ = 1;
       write_options_ = WriteOptions();
+      // fprintf(stdout, "num_ = %ld in Run()", num_);
+      // fflush(stdout);
 
       void (Benchmark::*method)(ThreadState*) = nullptr;
       bool fresh_db = false;
@@ -1275,9 +1277,13 @@ class Benchmark {
   }
 
   void DoWrite(ThreadState* thread, bool seq) {
+    // fprintf(stdout, "DoWrite number: %ld\n",num_);
+    // fflush(stdout);
+    // exit(0);
+
     if (num_ != FLAGS_num) {
       char msg[100];
-      std::snprintf(msg, sizeof(msg), "(%d ops)", num_);
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
       thread->stats.AddMessage(msg);
     }
 
@@ -1286,10 +1292,10 @@ class Benchmark {
     Status s;
     int64_t bytes = 0;
     KeyBuffer key;
-    for (int i = 0; i < num_; i += entries_per_batch_) {
+    for (int64_t i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
-      for (int j = 0; j < entries_per_batch_; j++) {
-        const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+      for (int64_t j = 0; j < entries_per_batch_; j++) {
+        const int64_t k = seq ? i + j : (thread->trace->Next()% FLAGS_range);
         key.Set(k);
         batch.Put(key.slice(), gen.Generate(value_size_));
         bytes += value_size_ + key.slice().size();
@@ -1311,7 +1317,7 @@ class Benchmark {
   void DoWrite2(ThreadState* thread, bool seq) {
     if (num_ != FLAGS_num) {
       char msg[100];
-      std::snprintf(msg, sizeof(msg), "(%d ops)", num_);
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
       thread->stats.AddMessage(msg);
     }
 
@@ -1378,7 +1384,7 @@ class Benchmark {
   void DoWrite_zipf(ThreadState* thread, bool seq) {
     if (num_ != FLAGS_num) {
       char msg[100];
-      std::snprintf(msg, sizeof(msg), "(%d ops)", num_);
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
       thread->stats.AddMessage(msg);
     }
 
@@ -1475,7 +1481,7 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
     }
     char msg[100];
-    std::snprintf(msg, sizeof(msg), "(%d of %d found)", found, num_);
+    std::snprintf(msg, sizeof(msg), "(%d of %ld found)", found, num_);
     thread->stats.AddMessage(msg);
   }
 
@@ -1519,7 +1525,7 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
     }
     char msg[100];
-    snprintf(msg, sizeof(msg), "(%d of %d found)", found, num_);
+    snprintf(msg, sizeof(msg), "(%d of %ld found)", found, num_);
     thread->stats.AddMessage(msg);
   }
 
@@ -1538,7 +1544,7 @@ class Benchmark {
     }
     delete iter;
     char msg[100];
-    std::snprintf(msg, sizeof(msg), "(%d of %d found)", found, num_);
+    std::snprintf(msg, sizeof(msg), "(%d of %ld found)", found, num_);
     thread->stats.AddMessage(msg);
   }
 
