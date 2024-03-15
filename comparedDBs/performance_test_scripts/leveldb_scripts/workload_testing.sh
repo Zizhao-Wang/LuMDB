@@ -39,7 +39,7 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
 
             for zipf_a in 1.01; do
-                log_file="leveldb_10B_${num_format}_val_${value_size}_uniform.log"
+                log_file="leveldb2_${num_format}_val_${value_size}_uniform.log"
                 data_file="/home/wangzizhao/workloads/etc_keys_zipf${zipf_a}.csv" # 构建数据文件路径
                 # 如果日志文件存在，则跳过当前迭代
                 if [ -f "$log_file" ]; then

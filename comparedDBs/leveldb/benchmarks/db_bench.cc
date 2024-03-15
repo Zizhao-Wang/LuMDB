@@ -196,7 +196,7 @@ DEFINE_bool(compression, true, "");
 
 DEFINE_bool(hugepage, false, "");
 
-DEFINE_int32(stats_interval, 1000000, "");
+DEFINE_int64(stats_interval, 1000000, "");
 
 DEFINE_bool(log, true, "");
 
@@ -1291,14 +1291,15 @@ class Benchmark {
     WriteBatch batch;
     Status s;
     int64_t bytes = 0;
-    KeyBuffer key;
+
     for (int64_t i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int64_t j = 0; j < entries_per_batch_; j++) {
         const int64_t k = seq ? i + j : (thread->trace->Next()% FLAGS_range);
-        key.Set(k);
-        batch.Put(key.slice(), gen.Generate(value_size_));
-        bytes += value_size_ + key.slice().size();
+        char key[100];
+        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+        batch.Put(key, gen.Generate(value_size_));
+        bytes += value_size_ + strlen(key);
         thread->stats.FinishedSingleOp(db_);
         if(thread->stats.done_ % FLAGS_stats_interval == 0){
           thread->stats.AddBytes(bytes);
