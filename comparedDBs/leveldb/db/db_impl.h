@@ -129,7 +129,11 @@ class DBImpl : public DB {
       moved_directly_from_last_level_bytes(0), 
       moved_from_this_level_bytes(0),
       number_size_compaction(0),
+      number_size_compaction_initiator_files(0),
+      number_size_compaction_participant_files(0),
       number_seek_compaction(0),
+      number_seek_compaction_initiator_files(0),
+      number_seek_compaction_participant_files(0),
       number_manual_compaction(0),
       number_TrivialMove(0) {}
 
@@ -157,8 +161,19 @@ class DBImpl : public DB {
     int64_t user_bytes_written;
     int64_t moved_directly_from_last_level_bytes;
     int64_t moved_from_this_level_bytes;
+
+    // Count of size compactions performed.
+    // Number of files that initiated size compactions.
+    // These are the files that directly triggered a size compaction due to exceeding certain thresholds.
     int32_t number_size_compaction;
+    int32_t number_size_compaction_initiator_files;
+    int32_t number_size_compaction_participant_files;
+
+    // Count of seek compactions performed.
     int32_t number_seek_compaction;
+    int32_t number_seek_compaction_initiator_files;
+    int32_t number_seek_compaction_participant_files;
+
     int32_t number_manual_compaction;
     int32_t number_TrivialMove;
   };

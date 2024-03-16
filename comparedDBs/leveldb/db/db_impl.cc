@@ -936,8 +936,18 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       compact->compaction->num_input_files(1),
       compact->compaction->level() + 1);
 
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  // record the number of files that involved in every compaction!
   level_stats_[compact->compaction->level()].number_of_compactions++;
-  
+  if(compact->compaction->get_compaction_type() == 1){ // size compaction
+    level_stats_[compact->compaction->level()].number_size_compaction_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_files(1);
+  }
+  else if(compact->compaction->get_compaction_type() == 2){ // seek compaction 
+    level_stats_[compact->compaction->level()].number_seek_compaction_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_files(1);
+  }
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
 
   // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
   assert(versions_->NumLevelFiles(compact->compaction->level()) > 0);
@@ -1555,23 +1565,29 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     // I modified this part for print more details of a whole LSM
     double user_io = 0;
     double total_io = 0;
-    char buf[270];
+    char buf[250];
     std::snprintf(buf, sizeof(buf),
                   "                               Compactions\n"
-                  "Level  Files Size(MB) Time(sec) Read(MB) Write(MB) manual_compaction size_compaction seek_compaction compactions trivial_move t_llevel_bytes t_nlevel_bytes\n"
+                  "Level Files Size(M) Time(s) R_H(M) R_C(M) W_H(M) W_C(M) m_comp si_comp ifile pfile se_comp ifiles pfiles comps triv_move t_last_b t_next_b\n"
                   "--------------------------------------------------\n");
     value->append(buf);
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
-        std::snprintf(buf, sizeof(buf), "%3d %8d %8.0f %9.0f %8.0f %9.0f %17d %15d %15d %11d %12d %14ld %14ld\n",
+        std::snprintf(buf, sizeof(buf), "%3d %5d %7.0f %7.0f %6.0f %6.0f %6.0f %6.0f %6d %7d %5d %5d %7d %5d %5d %5d %9d %8ld %8ld\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
-                      stats_[level].bytes_read / 1048576.0,
-                      stats_[level].bytes_written / 1048576.0,
+                      level_stats_[level].bytes_read_hot / 1048576.0,
+                      stats_[level].bytes_read / 1048576.0,            
+                      level_stats_[level].bytes_written_hot / 1048576.0,
+                      stats_[level].bytes_written / 1048576.0,                      
                       level_stats_[level].number_manual_compaction,
                       level_stats_[level].number_size_compaction,
+                      level_stats_[level].number_size_compaction_initiator_files,
+                      level_stats_[level].number_size_compaction_participant_files,
                       level_stats_[level].number_seek_compaction,
+                      level_stats_[level].number_seek_compaction_initiator_files,
+                      level_stats_[level].number_seek_compaction_participant_files,
                       level_stats_[level].number_of_compactions,
                       level_stats_[level].number_TrivialMove,
                       level_stats_[level].moved_directly_from_last_level_bytes,
