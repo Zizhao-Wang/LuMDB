@@ -1273,8 +1273,10 @@ Compaction* VersionSet::PickCompaction() {
   const bool seek_compaction = (current_->file_to_compact_ != nullptr);
   if (size_compaction) {
     level = current_->compaction_level_;
-    assert(level >= 0);
-    assert(level + 1 < config::kNumLevels);
+    assert(level >= 0); // 确保选定的层级有效
+    assert(level + 1 < config::kNumLevels);// 确保有下一个层级存在，因为压缩操作可能会涉及到数据移动到下一层级
+    
+    // 创建一个新的压缩任务（Compaction），指定压缩操作的层级
     c = new Compaction(options_, level);
 
     // Pick the first file that comes after compact_pointer_[level]
@@ -1311,13 +1313,19 @@ Compaction* VersionSet::PickCompaction() {
     return nullptr;
   }
 
+  // 将当前数据库的版本（Version）赋值给压缩任务（Compaction）对象的input_version_。
+  // 这意味着当前的压缩任务将会基于这个版本的数据进行。
   c->input_version_ = current_;
+  // 增加input_version_的引用计数，确保在压缩过程中该版本数据不会被删除或修改。
   c->input_version_->Ref();
 
   // Files in level 0 may overlap each other, so pick up all overlapping ones
   if (level == 0) {
+    // 获取当前选定进行压缩的文件集的最小和最大键。
     InternalKey smallest, largest;
     GetRange(c->inputs_[0], &smallest, &largest);
+
+    
     // Note that the next call will discard the file we placed in
     // c->inputs_[0] earlier and replace it with an overlapping set
     // which will include the picked file.
