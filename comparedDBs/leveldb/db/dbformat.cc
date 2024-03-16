@@ -50,6 +50,11 @@ int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
   //    increasing user key (according to user-supplied comparator)
   //    decreasing sequence number
   //    decreasing type (though sequence# should be enough to disambiguate)
+  // ~~~~~~~~ WZZ's comments for LevelDB's source codes ~~~~~~~~ 
+  // put infront of delete  higher sequence number is infront of lower sequence number
+  // 50(sequence)1(put)1(key) > 50(sequence)0(Delete)1(key)
+  // 51(sequence)1(put)1(key) > 50(sequence)1(put)1(key)
+  // ~~~~~~~~ WZZ's comments for LevelDB's source codes ~~~~~~~~
   int r = user_comparator_->Compare(ExtractUserKey(akey), ExtractUserKey(bkey));
   if (r == 0) {
     const uint64_t anum = DecodeFixed64(akey.data() + akey.size() - 8);

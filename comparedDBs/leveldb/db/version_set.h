@@ -269,6 +269,14 @@ class VersionSet {
   };
   const char* LevelSummary(LevelSummaryStorage* scratch) const;
 
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  void set_overlap_range(const std::vector<FileMetaData*>& inputs1,
+                 const std::vector<FileMetaData*>& inputs2);
+
+  bool compute_hot_cold_range(const Slice& key, const std::pair<Slice, Slice>& hot_range, bool& is_hot);
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
  private:
   class Builder;
 
@@ -313,6 +321,9 @@ class VersionSet {
   // Per-level key at which the next compaction at that level should start.
   // Either an empty string, or a valid InternalKey.
   std::string compact_pointer_[config::kNumLevels];
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  std::vector<std::pair<Slice, Slice>> overlap_ranges;
 };
 
 // A Compaction encapsulates information about a compaction.

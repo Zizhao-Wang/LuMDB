@@ -135,7 +135,9 @@ class DBImpl : public DB {
       number_seek_compaction_initiator_files(0),
       number_seek_compaction_participant_files(0),
       number_manual_compaction(0),
-      number_TrivialMove(0) {}
+      number_TrivialMove(0),
+      bytes_read_cold(0),
+      bytes_written_cold(0) {}
 
     void Add(const new_LeveldataStats& c) {
       this->micros += c.micros;
@@ -156,7 +158,9 @@ class DBImpl : public DB {
 
     // Newly added fields
     int64_t bytes_read_hot;
+    int64_t bytes_read_cold;
     int64_t bytes_written_hot;
+    int64_t bytes_written_cold;
     int32_t number_of_compactions;
     int64_t user_bytes_written;
     int64_t moved_directly_from_last_level_bytes;
@@ -281,7 +285,13 @@ class DBImpl : public DB {
   Status bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
+  const std::pair<Slice, Slice> hot_range;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+
 };
 
 // Sanitize db options.  The caller should delete result.info_log if

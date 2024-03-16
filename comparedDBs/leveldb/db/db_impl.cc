@@ -972,6 +972,12 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   bool has_current_user_key = false;
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
 
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  int64_t hot_data_count = 0;
+  int64_t cold_data_count = 0;
+  int64_t total_data_count = 0;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
     // Prioritize immutable compaction work
     if (has_imm_.load(std::memory_order_relaxed)) {
@@ -987,6 +993,18 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     }
 
     Slice key = input->key();
+    
+    //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+    bool is_hot_data = false;
+    if(versions_->compute_hot_cold_range(key, hot_range, is_hot_data)){
+      if(is_hot_data){
+        hot_data_count++;
+      } else {
+        cold_data_count++;
+      }
+    }
+    //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
     if (compact->compaction->ShouldStopBefore(key) &&
         compact->builder != nullptr) {
       status = FinishCompactionOutputFile(compact, input);
@@ -1087,18 +1105,50 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   input = nullptr;
 
   CompactionStats stats;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  int64_t init_level_bytes_read = 0;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
+
     for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
       stats.bytes_read += compact->compaction->input(which, i)->file_size;
     }
+
+    //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+    if(which == 0){
+      level_stats_[compact->compaction->level()].bytes_read += stats.bytes_read;
+      init_level_bytes_read = stats.bytes_read;
+    }else if(which == 1){
+      level_stats_[compact->compaction->level() + 1].bytes_read += (stats.bytes_read - init_level_bytes_read);
+    }
+    //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
   }
+
   for (size_t i = 0; i < compact->outputs.size(); i++) {
     stats.bytes_written += compact->outputs[i].file_size;
   }
 
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  double hot_data_percentage = (double)hot_data_count / total_data_count;
+  double cold_data_percentage = (double)cold_data_count / total_data_count;
+
+  level_stats_[compact->compaction->level()].bytes_read_hot += init_level_bytes_read*hot_data_percentage;
+  level_stats_[compact->compaction->level()].bytes_read_cold += init_level_bytes_read*cold_data_percentage;
+
+  int64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
+  level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
+  level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
+
+  level_stats_[compact->compaction->level() + 1].bytes_written += stats.bytes_written*hot_data_percentage;
+  level_stats_[compact->compaction->level() + 1].bytes_written_hot += stats.bytes_written*hot_data_percentage;
+  level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   if (status.ok()) {
     status = InstallCompactionResults(compact);
@@ -1568,13 +1618,13 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     char buf[250];
     std::snprintf(buf, sizeof(buf),
                   "                               Compactions\n"
-                  "Level Files Size(M) Time(s) R_H(M) R_C(M) W_H(M) W_C(M) m_comp si_comp ifile pfile se_comp ifiles pfiles comps triv_move t_last_b t_next_b\n"
+                  "Level Files Size(M) Time(s) ReadH(M) ReadC(M) WriteH(M) WriteC(M) m_comp si_comp ifile pfile se_comp ifiles pfiles comps triv_move t_last_b t_next_b\n"
                   "--------------------------------------------------\n");
     value->append(buf);
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
-        std::snprintf(buf, sizeof(buf), "%3d %5d %7.0f %7.0f %6.0f %6.0f %6.0f %6.0f %6d %7d %5d %5d %7d %5d %5d %5d %9d %8ld %8ld\n",
+        std::snprintf(buf, sizeof(buf), "%3d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %5d %5d %9d %8ld %8ld\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
                       level_stats_[level].bytes_read_hot / 1048576.0,
