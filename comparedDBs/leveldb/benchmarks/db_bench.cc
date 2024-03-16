@@ -1300,11 +1300,11 @@ class Benchmark {
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
         batch.Put(key, gen.Generate(value_size_));
         bytes += value_size_ + strlen(key);
-        thread->stats.FinishedSingleOp(db_);
         if(thread->stats.done_ % FLAGS_stats_interval == 0){
           thread->stats.AddBytes(bytes);
           bytes = 0;
         }
+        thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
