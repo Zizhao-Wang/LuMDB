@@ -20,7 +20,7 @@ a_values.append(args.a_value)
 
 billion = 1000000000  # 1 Billion
 file_size_in_billions = num_keys / billion  # 计算为Billion的数量
-file_name = f'/home/wangzizhao/workloads/zipf_keys{file_size_in_billions}B_zipf{args.a_value}.csv'
+file_name = f'/home/jeff-wang/workloads/zipf_keys{file_size_in_billions}B_zipf{args.a_value}.csv'
 
 if os.path.exists(file_name):
     print(f"File {file_name} already exists. Exiting program.")
