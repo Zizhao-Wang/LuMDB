@@ -288,7 +288,7 @@ class DBImpl : public DB {
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
-  const std::pair<Slice, Slice> hot_range;
+  std::pair<Slice, Slice> hot_range;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
 

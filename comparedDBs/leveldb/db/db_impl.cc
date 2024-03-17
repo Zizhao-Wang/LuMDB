@@ -1083,12 +1083,6 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       }
     }
 
-    // if (isHotData(ikey)) {
-    //     compact->hot_data_count++;
-    // } else {
-    //     compact->cold_data_count++;
-    // }
-
     input->Next();
   }
 
@@ -1108,7 +1102,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   int64_t init_level_bytes_read = 0;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-  
+
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
 
