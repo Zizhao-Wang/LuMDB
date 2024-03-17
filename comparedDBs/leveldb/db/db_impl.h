@@ -8,6 +8,7 @@
 #include <atomic>
 #include <deque>
 #include <set>
+#include <unordered_set>
 #include <string>
 
 #include "db/dbformat.h"
@@ -236,6 +237,17 @@ class DBImpl : public DB {
     return internal_comparator_.user_comparator();
   }
 
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  void loadKeysFromCSV(const std::string& filePath);
+
+  bool isSpecialKey(const Slice& key) {
+    return specialKeys.find(key) != specialKeys.end();
+  }
+
+  void DBImpl::testSpecialKeys();
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
   // Constant after construction
   Env* const env_;
   const InternalKeyComparator internal_comparator_;
@@ -289,6 +301,23 @@ class DBImpl : public DB {
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
   std::pair<Slice, Slice> hot_range;
+
+  struct SliceHash {
+    size_t operator()(const leveldb::Slice& slice) const {
+        return std::hash<std::string>()(std::string(slice.data(), slice.size()));
+      }
+  };
+
+  // 定义一个自定义相等函数
+  struct SliceEqual {
+      bool operator()(const leveldb::Slice& lhs, const leveldb::Slice& rhs) const {
+          return lhs.compare(rhs) == 0;
+      }
+  };
+
+  const std::string hot_file_path;
+  std::vector<std::string> keyStorage; // 用于存储格式化后的字符串
+  std::unordered_set<leveldb::Slice, SliceHash, SliceEqual> specialKeys;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
 

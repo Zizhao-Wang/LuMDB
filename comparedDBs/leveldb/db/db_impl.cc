@@ -8,6 +8,8 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
+#include <sstream>
 #include <set>
 #include <string>
 #include <vector>
@@ -132,6 +134,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       owns_info_log_(options_.info_log != raw_options.info_log),
       owns_cache_(options_.block_cache != raw_options.block_cache),
       dbname_(dbname),
+      hot_file_path(raw_options.hot_file_path),
       table_cache_(new TableCache(dbname_, options_, TableCacheSize(options_))),
       db_lock_(nullptr),
       shutting_down_(false),
@@ -922,6 +925,74 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
   }
   return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
 }
+
+
+void DBImpl::loadKeysFromCSV(const std::string& filePath){
+    std::ifstream file(filePath);
+    std::string line;
+    // Skip the title line
+    std::getline(file, line);
+
+    while (std::getline(file, line)) {
+      std::stringstream ss(line);
+      std::string keyStr, sizeStr;
+
+      int64_t key;
+      size_t size;
+
+      std::getline(ss, keyStr, ',');
+      std::getline(ss, sizeStr, ',');
+      std::getline(ss, line, ',');
+
+      key = std::stoll(keyStr);
+      size = std::stoull(sizeStr);
+
+      char kye_string[1024];
+      char format[20];
+      std::snprintf(format, sizeof(format), "%%0%zulld", size);
+      // std::snprintf(kye_string, sizeof(kye_string), format, (unsigned long long)key);
+      std::string formattedKey;
+      std::snprintf(&formattedKey[0], size + 1, format, (unsigned long long)key);
+      keyStorage.push_back(formattedKey);
+      
+      Slice sliceKey(keyStorage.back().c_str(),keyStorage.back().size());
+      specialKeys.insert(sliceKey);
+  }
+}
+
+void DBImpl::testSpecialKeys() {
+
+    const std::string& testFilePath = "/home/jeff-wang/workloads/etc_output_file_1.01.csv";
+    std::ifstream file(testFilePath);
+    std::string line;
+    // 跳过标题行，假设测试文件也有标题行
+    std::getline(file, line);
+
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string keyStr;
+
+        int64_t key;
+        size_t size = 1024; // 假定一个足够大的默认size，或者根据实际情况调整
+
+        std::getline(ss, keyStr, ',');
+        // 其他列可以忽略
+        key = std::stoll(keyStr);
+
+        // 使用与loadKeysFromCSV函数相同的方式格式化key
+        char keyString[1024];
+        std::snprintf(keyString, sizeof(keyString), "%020lld", key);
+
+        // 检查这个key是否是特殊的key
+        if (isSpecialKey(leveldb::Slice(keyString, std::strlen(keyString)))) {
+            std::cout << "Key " << key << " is special." << std::endl;
+        } else {
+            std::cout << "Key " << key << " is not special." << std::endl;
+        }
+    }
+}
+
+
 
 Status DBImpl::DoCompactionWork(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
@@ -1743,6 +1814,14 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   } else {
     delete impl;
   }
+
+
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  impl->loadKeysFromCSV(impl->hot_file_path);
+  impl->testSpecialKeys();
+
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
   return s;
 }
 

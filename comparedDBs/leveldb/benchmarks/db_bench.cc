@@ -188,6 +188,8 @@ DEFINE_int32(seek_nexts, 50,
 // static const char* FLAGS_db = nullptr;
 DEFINE_string(db, "", "Use the db with the following name.");
 
+DEFINE_string(hot_file, "", "file for storing hot keys.");
+
 DEFINE_string(logpath, "", "");
 
 DEFINE_int64(partition, 2000, "");
@@ -881,6 +883,7 @@ class Benchmark {
     std::fprintf(stdout, "  print_wa: %d\n", FLAGS_print_wa);
     std::fprintf(stdout, "  num_entries: %ld\n",FLAGS_num);
     std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks.c_str());
+    std::fprintf(stdout, "  hot_file_path: %s\n", FLAGS_hot_file.c_str());
     std::fprintf(stdout, "------------------------------------------------\n");
   }
 
@@ -1251,6 +1254,9 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
+    
+    options.hot_file_path = FLAGS_hot_file;
+
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
       std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());

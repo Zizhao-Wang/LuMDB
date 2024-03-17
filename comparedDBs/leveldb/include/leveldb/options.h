@@ -147,7 +147,9 @@ struct LEVELDB_EXPORT Options {
   const FilterPolicy* filter_policy = nullptr;
 
   
-
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  std::string hot_file_path;
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   
 };
 
