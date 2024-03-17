@@ -147,6 +147,8 @@ struct LEVELDB_EXPORT Options {
   const FilterPolicy* filter_policy = nullptr;
 
   
+
+  
 };
 
 // Options that control read operations
