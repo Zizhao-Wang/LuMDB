@@ -461,10 +461,10 @@ leveldb_tests: CMakeFiles/leveldb_tests.dir/util/hash_test.cc.o
 leveldb_tests: CMakeFiles/leveldb_tests.dir/util/logging_test.cc.o
 leveldb_tests: CMakeFiles/leveldb_tests.dir/build.make
 leveldb_tests: libleveldb.a
-leveldb_tests: lib/libgmock.a
-leveldb_tests: lib/libgtest.a
-leveldb_tests: lib/libgtest_main.a
-leveldb_tests: lib/libgtest.a
+leveldb_tests: lib/libgmockd.a
+leveldb_tests: lib/libgtestd.a
+leveldb_tests: lib/libgtest_maind.a
+leveldb_tests: lib/libgtestd.a
 leveldb_tests: CMakeFiles/leveldb_tests.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Linking CXX executable leveldb_tests"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/leveldb_tests.dir/link.txt --verbose=$(VERBOSE)

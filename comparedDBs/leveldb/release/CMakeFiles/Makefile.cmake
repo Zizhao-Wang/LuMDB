@@ -189,6 +189,7 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/c_test.dir/DependInfo.cmake"
   "CMakeFiles/env_posix_test.dir/DependInfo.cmake"
   "CMakeFiles/db_bench.dir/DependInfo.cmake"
+  "CMakeFiles/db_bench_sqlite3.dir/DependInfo.cmake"
   "third_party/googletest/googlemock/CMakeFiles/gmock.dir/DependInfo.cmake"
   "third_party/googletest/googlemock/CMakeFiles/gmock_main.dir/DependInfo.cmake"
   "third_party/googletest/googletest/CMakeFiles/gtest.dir/DependInfo.cmake"

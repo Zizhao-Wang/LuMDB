@@ -1,6 +1,8 @@
 import pandas as pd
 import csv
 import os
+import numpy as np
+from scipy.stats import genpareto, genextreme
 import matplotlib.pyplot as plt
 
 def load_data(csv_file_path):
@@ -62,7 +64,7 @@ def main(csv_file_path, percent, output_file_path='hot_keys.csv'):
     data = load_data(csv_file_path)
     top_n_percent_keys = calculate_top_n_percent_keys(data, percent)
     print(f"The top {percent}% keys with the highest frequency and their frequency:")
-    print(top_n_percent_keys)
+    print(top_n_percent_keys) 
     plot_key_frequencies(top_n_percent_keys, percent)
     write_to_file(top_n_percent_keys, output_file_path)
 
@@ -71,6 +73,6 @@ percents = [1]  # Getting the top 1% most frequent keys
 
 for a in a_values:
     for percent in percents:
-        csv_file_path = f'/home/wangzizhao/workloads/etc_data_zipf{a}.csv' 
-        output_file_path1 = f'/home/wangzizhao/workloads/etc_output_file{a}.txt'
-        main(csv_file_path,percent)
+        csv_file_path = f'/home/jeff-wang/workloads/etc_data_zipf{a}.csv' 
+        output_file_path1 = f'/home/jeff-wang/workloads/etc_output_file{a}.csv'
+        main(csv_file_path,percent,output_file_path1)

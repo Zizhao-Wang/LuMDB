@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/include -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/. -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include
 
-CXX_FLAGS =  -fno-exceptions -fno-rtti -O3 -DNDEBUG -std=c++11
+CXX_FLAGS =  -fno-exceptions -fno-rtti -g -std=c++11
 

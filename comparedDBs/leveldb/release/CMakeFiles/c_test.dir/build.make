@@ -109,8 +109,8 @@ c_test: CMakeFiles/c_test.dir/util/testutil.cc.o
 c_test: CMakeFiles/c_test.dir/db/c_test.c.o
 c_test: CMakeFiles/c_test.dir/build.make
 c_test: libleveldb.a
-c_test: lib/libgmock.a
-c_test: lib/libgtest.a
+c_test: lib/libgmockd.a
+c_test: lib/libgtestd.a
 c_test: CMakeFiles/c_test.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable c_test"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/c_test.dir/link.txt --verbose=$(VERBOSE)

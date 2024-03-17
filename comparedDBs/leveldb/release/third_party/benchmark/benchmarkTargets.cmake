@@ -57,18 +57,18 @@ set_target_properties(benchmark::benchmark_main PROPERTIES
   INTERFACE_LINK_LIBRARIES "benchmark::benchmark"
 )
 
-# Import target "benchmark::benchmark" for configuration "Release"
-set_property(TARGET benchmark::benchmark APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+# Import target "benchmark::benchmark" for configuration "Debug"
+set_property(TARGET benchmark::benchmark APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(benchmark::benchmark PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CXX"
-  IMPORTED_LOCATION_RELEASE "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/benchmark/src/libbenchmark.a"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
+  IMPORTED_LOCATION_DEBUG "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/benchmark/src/libbenchmark.a"
   )
 
-# Import target "benchmark::benchmark_main" for configuration "Release"
-set_property(TARGET benchmark::benchmark_main APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+# Import target "benchmark::benchmark_main" for configuration "Debug"
+set_property(TARGET benchmark::benchmark_main APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(benchmark::benchmark_main PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CXX"
-  IMPORTED_LOCATION_RELEASE "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/benchmark/src/libbenchmark_main.a"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
+  IMPORTED_LOCATION_DEBUG "/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/third_party/benchmark/src/libbenchmark_main.a"
   )
 
 # This file does not depend on other imported targets which have

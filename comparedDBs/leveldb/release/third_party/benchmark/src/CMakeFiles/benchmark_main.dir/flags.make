@@ -6,5 +6,5 @@ CXX_DEFINES = -DBENCHMARK_STATIC_DEFINE -DHAVE_POSIX_REGEX -DHAVE_PTHREAD_AFFINI
 
 CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/include -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/. -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/benchmark/include -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/benchmark/src
 
-CXX_FLAGS =  -fno-exceptions -fno-rtti  -Wall  -Wextra  -Wshadow  -Wfloat-equal  -Werror  -Wsuggest-override  -pedantic  -pedantic-errors  -fstrict-aliasing  -Wno-deprecated-declarations  -Wno-deprecated  -fno-exceptions  -Wstrict-aliasing -O3 -DNDEBUG -fvisibility=hidden -fvisibility-inlines-hidden -std=c++11
+CXX_FLAGS =  -fno-exceptions -fno-rtti  -Wall  -Wextra  -Wshadow  -Wfloat-equal  -Werror  -Wsuggest-override  -pedantic  -pedantic-errors  -fstrict-aliasing  -Wno-deprecated-declarations  -Wno-deprecated  -fno-exceptions  -Wstrict-aliasing -g -fvisibility=hidden -fvisibility-inlines-hidden -std=c++11
 

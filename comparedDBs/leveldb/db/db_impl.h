@@ -244,7 +244,7 @@ class DBImpl : public DB {
     return specialKeys.find(key) != specialKeys.end();
   }
 
-  void DBImpl::testSpecialKeys();
+  void testSpecialKeys();
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 

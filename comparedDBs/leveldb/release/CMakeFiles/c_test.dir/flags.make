@@ -7,11 +7,11 @@ C_DEFINES = -DLEVELDB_PLATFORM_POSIX=1
 
 C_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/include -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/. -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googlemock/include -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googlemock -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googletest/include -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googletest
 
-C_FLAGS =  -Wstrict-prototypes -O3 -DNDEBUG -std=c11
+C_FLAGS =  -Wstrict-prototypes -g -std=c11
 
 CXX_DEFINES = -DLEVELDB_PLATFORM_POSIX=1
 
 CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/include -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/. -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googlemock/include -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googlemock -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googletest/include -isystem /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/third_party/googletest/googletest
 
-CXX_FLAGS =  -fno-exceptions -fno-rtti -O3 -DNDEBUG -std=c++11
+CXX_FLAGS =  -fno-exceptions -fno-rtti -g -std=c++11
 

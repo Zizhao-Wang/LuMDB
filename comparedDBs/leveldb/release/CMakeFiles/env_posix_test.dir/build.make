@@ -109,8 +109,8 @@ env_posix_test: CMakeFiles/env_posix_test.dir/util/testutil.cc.o
 env_posix_test: CMakeFiles/env_posix_test.dir/util/env_posix_test.cc.o
 env_posix_test: CMakeFiles/env_posix_test.dir/build.make
 env_posix_test: libleveldb.a
-env_posix_test: lib/libgmock.a
-env_posix_test: lib/libgtest.a
+env_posix_test: lib/libgmockd.a
+env_posix_test: lib/libgtestd.a
 env_posix_test: CMakeFiles/env_posix_test.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable env_posix_test"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/env_posix_test.dir/link.txt --verbose=$(VERBOSE)

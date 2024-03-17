@@ -6,7 +6,7 @@ sudo bash -c 'ulimit -n 800000'
 
 
 BASE_VALUE_SIZE=128
-billion=1000000000
+billion=10000
 range_dividers=(1)
 
 convert_to_billion_format() {
@@ -25,7 +25,7 @@ convert_to_billion_format() {
     fi
 }
 
-for i in {10..10}; do
+for i in {9..9}; do
     base_num=$(($billion * $i))
     dir1="${i}B_leveldb_testing"
     if [ ! -d "$dir1" ]; then
