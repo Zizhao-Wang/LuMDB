@@ -5,7 +5,7 @@ billion=2000000000
 
 # 定义Python解释器和脚本路径
 PYTHON_BIN="/home/wangzizhao/anaconda3/envs/dbenv/bin/python"
-ZIPF_KEY_GEN_SCRIPT="/home/wangzizhao/WorkloadAnalysis/workload_data_generation/zipf_key_generation.py"
+ZIPF_KEY_GEN_SCRIPT="/home/jeff-wang/WorkloadAnalysis/workload_data_generation/zipf_key_generation.py"
 
 base_num=$billion
 for value_size in 256 512 1024 2048; do 
