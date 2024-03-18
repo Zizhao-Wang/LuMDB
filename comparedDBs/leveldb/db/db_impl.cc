@@ -135,6 +135,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       owns_cache_(options_.block_cache != raw_options.block_cache),
       dbname_(dbname),
       hot_file_path(raw_options.hot_file_path),
+      percentagesStr(raw_options.percentages),
       table_cache_(new TableCache(dbname_, options_, TableCacheSize(options_))),
       db_lock_(nullptr),
       shutting_down_(false),
@@ -939,7 +940,7 @@ void DBImpl::loadKeysFromCSV(const std::string& filePath){
       std::stringstream ss(line);
       std::string keyStr, sizeStr;
 
-      int64_t key;
+      uint64_t key;
       size_t size;
 
       std::getline(ss, keyStr, ',');
@@ -949,16 +950,20 @@ void DBImpl::loadKeysFromCSV(const std::string& filePath){
       key = std::stoll(keyStr);
       size = std::stoull(sizeStr);
 
-      // char kye_string[1024];
+      char kye_string[1024];
       char format[20];
-      std::snprintf(format, sizeof(format), "%%0%zulld", size);
-      // std::snprintf(kye_string, sizeof(kye_string), format, (unsigned long long)key);
-      std::string formattedKey(size+1, '\0');
-      std::snprintf(&formattedKey[0], size + 1, format, (unsigned long long)key);
-      keyStorage.push_back(formattedKey);
+      std::snprintf(format, sizeof(format), "%%0%zullu", size);
+      std::snprintf(kye_string, sizeof(kye_string), format, (unsigned long long)key);
+      // std::string formattedKey(size+1, '\0');
+      // std::snprintf(&formattedKey[0], size + 1, format, (unsigned long long)key);
+      // keyStorage.push_back(formattedKey);
       
-      Slice sliceKey(keyStorage.back().c_str(),keyStorage.back().size());
+      Slice sliceKey(kye_string,size);
       specialKeys.insert(sliceKey);
+
+      std::string str(sliceKey.data(), sliceKey.size());
+      uint64_t value = std::stoull(str);
+      std::fprintf(stdout, "%ld\n", value);
 
       keysCount++; // 增加读取的key数量
   }
@@ -966,36 +971,179 @@ void DBImpl::loadKeysFromCSV(const std::string& filePath){
   fprintf(stderr, "Loaded %zu hot keys from %s.\n", keysCount, filePath.c_str());
 }
 
+void DBImpl::load_keys_from_CSV(const std::string& filePath) {
+    std::ifstream file(filePath);
+    std::string line;
+    std::getline(file, line); // 跳过标题行
+
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string keyStr;
+        uint64_t key;
+
+        std::getline(ss, keyStr, ',');
+        key = std::stoull(keyStr);
+
+        hot_keys.insert(key);
+    }
+
+    fprintf(stderr, "Loaded %zu hot keys from %s \n", specialKeys.size(), filePath.c_str());
+}
+
+
+void DBImpl::batch_load_keys_from_CSV(const std::string& filePaths, const std::string& percentagesStr){
+  std::vector<std::string> files;
+  std::vector<int> percentages;
+  std::stringstream ssFiles(filePaths);
+  std::stringstream ssPercentages(percentagesStr);
+  std::string item;
+
+  // 解析hot files路径
+  while (std::getline(ssFiles, item, ',')) {
+    files.push_back(item);
+    // fprintf(stdout, "Parsed file: %s\n", item.c_str());
+  }
+
+  // 解析percentages
+  while (std::getline(ssPercentages, item, ',')) {
+    percentages.push_back(std::stoi(item));
+    // fprintf(stdout, "Parsed percentage: %d\n", std::stoi(item));
+  }
+
+
+  if (files.size() != percentages.size()) {
+    fprintf(stderr,"Error: The number of files does not match the number of percentages.\n");
+    return;
+  }
+
+  for (size_t i = 0; i < files.size(); ++i) {
+    std::unordered_set<uint64_t> current_set;
+    std::ifstream file(files[i]);
+    std::string line;
+    std::getline(file, line); // Skip header
+
+    while (std::getline(file, line)) {
+      std::stringstream lineStream(line);
+      std::string keyStr;
+      uint64_t key;
+
+      std::getline(lineStream, keyStr, ',');
+      key = std::stoll(keyStr);
+      current_set.insert(key);
+    }
+
+    fprintf(stderr, "Loaded %zu hot keys from %s for %d%% \n", current_set.size(), files[i].c_str(), percentages[i]);
+    hot_keys_sets[percentages[i]] = current_set;
+  }
+}
+
 void DBImpl::testSpecialKeys() {
 
-    const std::string& testFilePath = "/home/jeff-wang/workloads/test_etc_output_file_1.02.csv";
+    const std::string& testFilePath = "/home/jeff-wang/workloads/etc_output_file1.02.csv";
     std::ifstream file(testFilePath);
     std::string line;
 
     std::getline(file, line);
 
+    size_t totalKeysTested = 0;
+    size_t specialKeysCount = 0;
+
+    fprintf(stderr, "Testing special keys from file: %s\n", testFilePath.c_str());
+
+    // uint64_t key = 1;
+    // char keyString[1024];
+    // std::snprintf(keyString, sizeof(keyString), "%016llu", (unsigned long long)key);
+    // Slice sliceKey(keyString, std::strlen(keyString));
+
+    // uint64_t key2 = 1 ;
+    // size_t size = 15;
+    // char kye_string[1024];
+    // char format[20];
+    // std::snprintf(format, sizeof(format), "%%0%zullu", size);
+    // std::snprintf(kye_string, sizeof(kye_string), format, (unsigned long long)key);
+    // std::string formattedKey(size+1, '\0');
+    // std::snprintf(&formattedKey[0], size + 1, format, (unsigned long long)key2);
+    // Slice sliceKey2(kye_string, formattedKey.size());
+    // Slice sliceKey2(kye_string, size);
+
+    // if(user_comparator()->Compare(sliceKey, sliceKey2) == 0){
+    //     fprintf(stdout, "Key %ld is special in comparator.\n", key2);
+    // } else {
+    //     fprintf(stdout, "Key %ld is not special in comparator.\n", key2);
+    // }
+
+    // if(sliceKey.compare(sliceKey2) == 0){
+    //     fprintf(stdout, "Key %ld is special in slice.\n", key2);
+    // } else {
+    //     fprintf(stdout, "Key %ld is not special in slice.\n", key2);
+    // }
+
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string keyStr;
 
-        int64_t key;
+        uint64_t key;
         size_t size = 1024; 
 
         std::getline(ss, keyStr, ',');
+        std::getline(ss, line, ',');
         
         key = std::stoll(keyStr);
-
         char keyString[1024];
-        std::snprintf(keyString, sizeof(keyString), "%016ld", key);
+        std::snprintf(keyString, sizeof(keyString), "%054llu", (unsigned long long)key);
 
-        if (isSpecialKey(leveldb::Slice(keyString, std::strlen(keyString)))) {
+        if (isSpecialKey(Slice(keyString, std::strlen(keyString)))) {
             fprintf(stdout, "Key %ld is special.\n", key); 
         } else {
             fprintf(stdout, "Key %ld is not special.\n", key);
         }
+        totalKeysTested++;
         fflush(stdout);
+        exit(0);
     }
+    fprintf(stderr, "Test complete. %zu out of %zu keys tested are special.\n", specialKeysCount, totalKeysTested);
+    fflush(stderr);
+    
 }
+
+
+void DBImpl::test_hot_keys() {
+  const std::string& testFilePath = "/home/jeff-wang/workloads/etc_output_file1.02.csv";
+    std::ifstream file(testFilePath);
+    std::string line;
+    std::getline(file, line); 
+
+    size_t totalKeysTested = 0;
+    size_t specialKeysCount = 0;
+
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string keyStr;
+        uint64_t key;
+
+        std::getline(ss, keyStr, ',');
+        key = std::stoll(keyStr);
+
+        if (is_hot_key(key)) {
+            // fprintf(stdout, "Key %ld is special.\n", key);
+            specialKeysCount++;
+        } else {
+            fprintf(stdout, "Key %ld is not hot.\n", key);
+        }
+        totalKeysTested++;
+    }
+    fprintf(stderr, "Tested %zu keys, %zu are hot.\n", totalKeysTested, specialKeysCount);
+}
+
+
+
+std::vector<int> DBImpl::GetLevelPercents() {
+    std::vector<int> percents;
+    for (const auto& percentage_set : hot_keys_sets) {
+        percents.push_back(percentage_set.first);
+    }
+    return percents;
+  }
 
 
 
@@ -1049,9 +1197,9 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-  int64_t hot_data_count = 0;
-  int64_t cold_data_count = 0;
-  int64_t total_data_count = 0;
+  std::map<int,uint64_t> hot_data_counts; 
+  std::map<int,uint64_t> cold_data_counts;
+  uint64_t total_data_count = 0;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
@@ -1071,13 +1219,20 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     Slice key = input->key();
     
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-    bool is_hot_data = false;
-    if(versions_->compute_hot_cold_range(key, hot_range, is_hot_data)){
-      if(is_hot_data){
-        hot_data_count++;
-      } else {
-        cold_data_count++;
+    bool is_hot_data1 = false;
+    if(versions_->compute_hot_cold_range(key, hot_range, is_hot_data1)){
+      std::string str(key.data(), key.size());
+      uint64_t key_number = std::stoull(str);
+
+       for (const auto& percentage_set : hot_keys_sets) {
+        int percentage = percentage_set.first; // 当前的百分比
+        if (is_hot_key(percentage, key_number)) {
+          hot_data_counts[percentage]++; 
+        } else {
+          cold_data_counts[percentage]++;
+        }
       }
+      total_data_count++;
     }
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
@@ -1176,7 +1331,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
   CompactionStats stats;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-  int64_t init_level_bytes_read = 0;
+  uint64_t init_level_bytes_read = 0;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
@@ -1205,20 +1360,48 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   stats_[compact->compaction->level() + 1].Add(stats);
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-  double hot_data_percentage = (double)hot_data_count / total_data_count;
-  double cold_data_percentage = (double)cold_data_count / total_data_count;
 
-  level_stats_[compact->compaction->level()].bytes_read_hot += init_level_bytes_read*hot_data_percentage;
-  level_stats_[compact->compaction->level()].bytes_read_cold += init_level_bytes_read*cold_data_percentage;
+  // double hot_data_percentage = (double)hot_data_count / total_data_count;
+  // double cold_data_percentage = (double)cold_data_count / total_data_count;
 
-  int64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
-  level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
-  level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
+  // level_stats_[compact->compaction->level()].bytes_read_hot += init_level_bytes_read*hot_data_percentage;
+  // level_stats_[compact->compaction->level()].bytes_read_cold += init_level_bytes_read*cold_data_percentage;
 
-  level_stats_[compact->compaction->level() + 1].bytes_written += stats.bytes_written*hot_data_percentage;
-  level_stats_[compact->compaction->level() + 1].bytes_written_hot += stats.bytes_written*hot_data_percentage;
-  level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
+  uint64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
+  // level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
+  // level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
+
+  level_stats_[compact->compaction->level() + 1].bytes_written += stats.bytes_written;
+  // level_stats_[compact->compaction->level() + 1].bytes_written_hot += stats.bytes_written*hot_data_percentage;
+  // level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+
+  for (const auto& percentage : hot_data_counts) {
+    int perc = percentage.first; // 当前的百分比
+    uint64_t hot_count = hot_data_counts[perc];
+    uint64_t cold_count = cold_data_counts[perc];
+
+    assert(total_data_count == hot_count + cold_count); 
+
+    double hot_data_percentage = total_data_count > 0 ? (double)hot_count / total_data_count : 0;
+    double cold_data_percentage = total_data_count > 0 ? (double)cold_count / total_data_count : 0;
+
+    // 更新当前level的hot和cold数据读取统计
+    level_hot_cold_stats[compact->compaction->level()][perc].bytes_read_hot += init_level_bytes_read * hot_data_percentage;
+    level_hot_cold_stats[compact->compaction->level()][perc].bytes_read_cold += init_level_bytes_read * cold_data_percentage;
+
+    // 更新参与下一级压缩的level的hot和cold数据读取统计
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot += participate_level_bytes_read * hot_data_percentage;
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold += participate_level_bytes_read * cold_data_percentage;
+
+    // 更新下一级level的写入统计（假设压缩导致的写入均为hot数据）;
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot += stats.bytes_written * hot_data_percentage;
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold += stats.bytes_written * cold_data_percentage;
+  }
+
+
+
 
   if (status.ok()) {
     status = InstallCompactionResults(compact);
@@ -1694,12 +1877,13 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     for (int level = 0; level < config::kNumLevels; level++) {
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
+        std::vector<int> percents = GetLevelPercents();
         std::snprintf(buf, sizeof(buf), "%3d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %5d %5d %9d %8ld %8ld\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
-                      level_stats_[level].bytes_read_hot / 1048576.0,
+                      stats_[level].bytes_read / 1048576.0,
                       stats_[level].bytes_read / 1048576.0,            
-                      level_stats_[level].bytes_written_hot / 1048576.0,
+                      stats_[level].bytes_written / 1048576.0,
                       stats_[level].bytes_written / 1048576.0,                      
                       level_stats_[level].number_manual_compaction,
                       level_stats_[level].number_size_compaction,
@@ -1713,6 +1897,29 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
                       level_stats_[level].moved_directly_from_last_level_bytes,
                       level_stats_[level].moved_from_this_level_bytes);
         value->append(buf);
+        int a=0;
+        for (auto percent : percents) {
+          auto& stats1 = level_hot_cold_stats[level][percent];
+          std::snprintf(buf, sizeof(buf), "%3d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %5d %5d %9d %8d %8d\n",
+                      level, files, versions_->NumLevelBytes(level) / 1048576.0,
+                      stats_[level].micros / 1e6,
+                      stats1.bytes_read_hot / 1048576.0,
+                      stats1.bytes_read_cold / 1048576.0,            
+                      stats1.bytes_written_hot / 1048576.0,
+                      stats1.bytes_written_cold / 1048576.0,                      
+                      a,
+                      a,
+                      a,
+                      a,
+                      a,
+                      a,
+                      a,
+                      a,
+                      a,
+                      a,
+                      a);
+          value->append(buf);
+        }
       }
       total_io += stats_[level].bytes_written / 1048576.0;
       if(level == 0){
@@ -1822,11 +2029,11 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
 
 
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
-  std::fprintf(stdout,"Test start!\n");
-  impl->loadKeysFromCSV(impl->hot_file_path);
-  impl->testSpecialKeys();
-  std::fprintf(stdout,"Test over!\n");
-  exit(0);
+  // std::fprintf(stdout,"Test start!\n");
+  impl->batch_load_keys_from_CSV(impl->hot_file_path, impl->percentagesStr);
+  // impl->test_hot_keys();
+  // std::fprintf(stdout,"Test over!\n");
+  // exit(0);
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
 
   return s;

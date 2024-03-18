@@ -8,6 +8,7 @@
 #include <atomic>
 #include <deque>
 #include <set>
+#include <map>
 #include <unordered_set>
 #include <string>
 
@@ -183,6 +184,20 @@ class DBImpl : public DB {
     int32_t number_TrivialMove;
   };
 
+  struct LevelHotColdStats {
+    
+    LevelHotColdStats() 
+        : bytes_read_hot(0), 
+          bytes_written_hot(0), 
+          bytes_read_cold(0), 
+          bytes_written_cold(0) {}
+
+    int64_t bytes_read_hot = 0;
+    int64_t bytes_written_hot = 0;
+    int64_t bytes_read_cold = 0;
+    int64_t bytes_written_cold = 0;
+  };
+
   Iterator* NewInternalIterator(const ReadOptions&,
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
@@ -246,6 +261,27 @@ class DBImpl : public DB {
 
   void testSpecialKeys();
 
+  void load_keys_from_CSV(const std::string& filePath);
+
+  void batch_load_keys_from_CSV(const std::string& filePath, const std::string& percentagesStr);
+
+  bool is_hot_key(uint64_t key) {
+    return hot_keys.find(key) != hot_keys.end();
+  }
+
+  bool is_hot_key(int percentage, uint64_t key) {
+    auto it = hot_keys_sets.find(percentage);
+    if (it != hot_keys_sets.end()) {
+        return it->second.find(key) != it->second.end();
+    }
+    return false; // 如果没有找到对应的percentage，返回false
+  }
+
+
+  void test_hot_keys();
+
+  std::vector<int> GetLevelPercents();
+
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   // Constant after construction
@@ -300,6 +336,7 @@ class DBImpl : public DB {
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
+  std::vector<std::array<LevelHotColdStats, 7>> level_hot_cold_stats GUARDED_BY(mutex_);
   std::pair<Slice, Slice> hot_range;
 
   struct SliceHash {
@@ -316,8 +353,10 @@ class DBImpl : public DB {
   };
 
   const std::string hot_file_path;
-  std::vector<std::string> keyStorage; // 用于存储格式化后的字符串
+  const std::string percentagesStr;
   std::unordered_set<leveldb::Slice, SliceHash, SliceEqual> specialKeys;
+  std::unordered_set<uint64_t> hot_keys;
+  std::map<int, std::unordered_set<uint64_t>> hot_keys_sets;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
 

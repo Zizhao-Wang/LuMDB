@@ -41,7 +41,7 @@ for i in {9..9}; do
             for zipf_a in 1.02; do
                 log_file="leveldb2_${num_format}_val_${value_size}_uniform.log"
                 data_file="/home/jeff-wang/workloads/etc_keys_zipf${zipf_a}.csv" # 构建数据文件路径
-                hot_file="/home/jeff-wang/workloads/etc_output_file${zipf_a}.csv"
+                hot_file="/home/jeff-wang/workloads/test_etc_output_file${zipf_a}.csv"
                 
                 echo "base_num: $base_num"
                 echo "num_entries: $num_entries"

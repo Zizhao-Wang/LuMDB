@@ -26,7 +26,7 @@ def calculate_top_n_percent_keys(data, percent):
     return key_frequencies.head(top_n)
     
 
-def plot_key_frequencies(keys_frequencies, percent):
+def plot_key_frequencies(keys_frequencies, percent,a):
     """
     Plotting the frequency distribution of keys
     :param keys_frequencies: Series object of the most frequent keys and their frequencies
@@ -37,7 +37,7 @@ def plot_key_frequencies(keys_frequencies, percent):
     plt.title(f'Distribution of top {percent}% keys with highest frequency')
     plt.xlabel('Key')
     plt.ylabel('frequency')
-    plt.savefig('hot_key_distribution.png')
+    plt.savefig(f'hotkey{percent}_distribution_zipf{a}.png')
 
 def write_to_file(top_n_keys, output_file_path):
     # 获取文件扩展名
@@ -60,19 +60,19 @@ def write_to_file(top_n_keys, output_file_path):
 
     print(f"Data written to {output_file_path}")
 
-def main(csv_file_path, percent, output_file_path='hot_keys.csv'):
+def main(csv_file_path, percent, output_file_path='hot_keys.csv', a= 1.01):
     data = load_data(csv_file_path)
     top_n_percent_keys = calculate_top_n_percent_keys(data, percent)
     print(f"The top {percent}% keys with the highest frequency and their frequency:")
     print(top_n_percent_keys) 
-    plot_key_frequencies(top_n_percent_keys, percent)
+    plot_key_frequencies(top_n_percent_keys, percent,a)
     write_to_file(top_n_percent_keys, output_file_path)
 
-a_values = [1.02] 
-percents = [1]  # Getting the top 1% most frequent keys
+a_values = [1.01, 1.1, 1.2, 1.3, 1.4] 
+percents = [1, 5, 10, 15, 20, 25, 30]  # Getting the top 1% most frequent keys
 
 for a in a_values:
     for percent in percents:
         csv_file_path = f'/home/jeff-wang/workloads/etc_data_zipf{a}.csv' 
         output_file_path1 = f'/home/jeff-wang/workloads/etc_output_file{a}.csv'
-        main(csv_file_path,percent,output_file_path1)
+        main(csv_file_path,percent,output_file_path1, a)

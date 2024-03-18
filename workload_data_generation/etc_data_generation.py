@@ -7,7 +7,7 @@ from tqdm import tqdm
 # 设定参数
 num_files = 1  
 num_keys_per_file = 1000 
-num_keys = 500000
+num_keys = 50000
 key_range = (1, num_keys)  
 operations = ['GET', 'PUT', 'DELETE']  
 op_probabilities = [0.8, 0.15, 0.05] 

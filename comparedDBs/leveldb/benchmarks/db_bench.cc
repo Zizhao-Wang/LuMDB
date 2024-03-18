@@ -190,6 +190,9 @@ DEFINE_string(db, "", "Use the db with the following name.");
 
 DEFINE_string(hot_file, "", "file for storing hot keys.");
 
+
+DEFINE_string(percentages, "", "percentages to define hot keys.");
+
 DEFINE_string(logpath, "", "");
 
 DEFINE_int64(partition, 2000, "");
@@ -884,6 +887,7 @@ class Benchmark {
     std::fprintf(stdout, "  num_entries: %ld\n",FLAGS_num);
     std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks.c_str());
     std::fprintf(stdout, "  hot_file_path: %s\n", FLAGS_hot_file.c_str());
+    std::fprintf(stdout, "  percentages: %s\n", FLAGS_percentages.c_str());
     std::fprintf(stdout, "------------------------------------------------\n");
   }
 
@@ -1256,6 +1260,7 @@ class Benchmark {
         FLAGS_compression ? kSnappyCompression : kNoCompression;
     
     options.hot_file_path = FLAGS_hot_file;
+    options.percentages = FLAGS_percentages;
 
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
@@ -1276,7 +1281,7 @@ class Benchmark {
 
   void WriteRandom(ThreadState* thread) { DoWrite(thread, false); }
 
-  void WriteZipf(ThreadState* thread) { DoWrite_zipf(thread, false); }
+  void WriteZipf(ThreadState* thread) { DoWrite_zipf2(thread, false); }
 
   void WriteRandom_from_file(ThreadState* thread) {
     DoWrite2(thread, false);
@@ -1389,6 +1394,66 @@ class Benchmark {
   }
 
   void DoWrite_zipf(ThreadState* thread, bool seq) {
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    for (int i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      for (int j = 0; j < entries_per_batch_; j++) {
+          line_stream.clear();
+          line_stream.str("");
+          row_data.clear();
+          // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+          if (!std::getline(csv_file, line)) { // 从文件中读取一行
+              fprintf(stderr, "Error reading key from file\n");
+              return;
+          }
+          line_stream << line;
+          while (getline(line_stream, cell, ',')) {
+              row_data.push_back(cell);
+          }
+          if (row_data.size() != 1) {
+              fprintf(stderr, "Invalid CSV row format\n");
+              continue;
+          }
+          const uint64_t k = std::stoull(row_data[0]);
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          batch.Put(key, gen.Generate(value_size_));
+          bytes += value_size_ + strlen(key);
+          thread->stats.FinishedSingleOp(db_); 
+      }
+      s = db_->Write(write_options_, &batch);
+      if (!s.ok()) {
+        std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+        std::exit(1);
+      }
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
+    void DoWrite_zipf2(ThreadState* thread, bool seq) {
     if (num_ != FLAGS_num) {
       char msg[100];
       std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);

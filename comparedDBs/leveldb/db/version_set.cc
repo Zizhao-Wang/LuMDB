@@ -1186,19 +1186,19 @@ bool VersionSet::compute_hot_cold_range(const Slice& key, const std::pair<Slice,
         }
     }
    
-    if (!in_overlap) {
-        return false;
-    }
+    // if (!in_overlap) {
+    //     return false;
+    // }
 
-    // 接下来判断key是否在hot range内
-    if (icmp_.user_comparator()->Compare(key, hot_range.first) >= 0 &&
-        icmp_.user_comparator()->Compare(key, hot_range.second) <= 0) {
-        // key在hot range内
-        is_hot = true; // 表示是hot key
-    } else {
-        // key is not in hot range,key is a cold key 
-        is_hot = false;
-    }
+    // // 接下来判断key是否在hot range内
+    // if (icmp_.user_comparator()->Compare(key, hot_range.first) >= 0 &&
+    //     icmp_.user_comparator()->Compare(key, hot_range.second) <= 0) {
+    //     // key在hot range内
+    //     is_hot = true; // 表示是hot key
+    // } else {
+    //     // key is not in hot range,key is a cold key 
+    //     is_hot = false;
+    // }
 
     return in_overlap;
 }

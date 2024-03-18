@@ -13,9 +13,8 @@ parser.add_argument('num_keys', type=int, help='Number of keys to generate.')
 args = parser.parse_args()
 
 # 设定参数
-num_keys = args.num_keys 
-key_range = (1, num_keys)  
-a_values = [] # 您想要测试的a值列表
+num_keys = args.num_keys  
+a_values = [1.01, 1.1, 1.2, 1.3, 1.4, 1.5] # 您想要测试的a值列表
 a_values.append(args.a_value)
 
 billion = 1000000000  # 1 Billion
