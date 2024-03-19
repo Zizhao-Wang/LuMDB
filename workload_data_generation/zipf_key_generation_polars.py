@@ -3,8 +3,8 @@ from tqdm import tqdm  # 正确导入tqdm函数
 import polars as pl
 
   
-a_values = [1.5]  #  1.2, 1.3, 1.4
-percents = [100]   # 5, 10, 15, 20, 25, 30
+a_values = [1.01]  #  1.2, 1.3, 1.4
+percents = [5, 10, 15, 20, 25, 30]   # 
 
 
 billion = 1000000000  # 1 Billion

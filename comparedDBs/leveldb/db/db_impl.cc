@@ -9,7 +9,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <cmath>
 #include <sstream>
+#include <iomanip>  // 包含 setprecision
 #include <set>
 #include <string>
 #include <vector>
@@ -133,6 +135,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
                                &internal_filter_policy_, raw_options)),
       owns_info_log_(options_.info_log != raw_options.info_log),
       owns_cache_(options_.block_cache != raw_options.block_cache),
+      is_first(false),
       dbname_(dbname),
       hot_file_path(raw_options.hot_file_path),
       percentagesStr(raw_options.percentages),
@@ -550,13 +553,16 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
 
   // newly added source codes
-  new_LeveldataStats new_stats;
-  new_stats.micros = env_->NowMicros() - start_micros;
-  new_stats.bytes_written = meta.file_size;
-  new_stats.user_bytes_written = meta.file_size;
-  level_stats_[level].Add(new_stats);
+  // new_LeveldataStats new_stats;
+  // new_stats.micros = env_->NowMicros() - start_micros;
+  // new_stats.bytes_written = meta.file_size;
+  // new_stats.user_bytes_written = meta.file_size;
+  // level_stats_[level].Add(new_stats);
   
-  
+  // if(!is_first){
+  //   batch_load_keys_from_CSV(hot_file_path, percentagesStr);
+  //   is_first = true;
+  // }
   // fprintf(stderr, "bytes into level %d: %lu\n",level,stats_[0].bytes_written);
 
   return s;
@@ -992,6 +998,7 @@ void DBImpl::load_keys_from_CSV(const std::string& filePath) {
 
 
 void DBImpl::batch_load_keys_from_CSV(const std::string& filePaths, const std::string& percentagesStr){
+  
   std::vector<std::string> files;
   std::vector<int> percentages;
   std::stringstream ssFiles(filePaths);
@@ -1001,13 +1008,13 @@ void DBImpl::batch_load_keys_from_CSV(const std::string& filePaths, const std::s
   // 解析hot files路径
   while (std::getline(ssFiles, item, ',')) {
     files.push_back(item);
-    // fprintf(stdout, "Parsed file: %s\n", item.c_str());
+    fprintf(stderr, "Parsed file: %s\n", item.c_str());
   }
 
   // 解析percentages
   while (std::getline(ssPercentages, item, ',')) {
     percentages.push_back(std::stoi(item));
-    // fprintf(stdout, "Parsed percentage: %d\n", std::stoi(item));
+    fprintf(stdout, "Parsed percentage: %d\n", std::stoi(item));
   }
 
 
@@ -1146,6 +1153,20 @@ std::vector<int> DBImpl::GetLevelPercents() {
   }
 
 
+void  DBImpl::initialize_level_hotcoldstats(){
+  std::vector<int> percents = GetLevelPercents(); // 获取所有可能的百分比定义
+  level_hot_cold_stats.resize(config::kNumLevels); // 根据level数量初始化向量大小
+
+    for (unsigned i = 0; i < level_hot_cold_stats.size(); ++i) 
+    {
+      for (size_t j = 0; j < percents.size(); ++j) 
+      {
+        level_hot_cold_stats[i].insert(std::make_pair(percents[j], LevelHotColdStats())) ; // 为每个百分比初始化LevelHotColdStats对象
+      }
+    }
+    fprintf(stderr,"initialize %zu objects(LevelHotColdStats) within these %d levels\n", percents.size(),config::kNumLevels );
+}
+
 
 Status DBImpl::DoCompactionWork(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
@@ -1226,6 +1247,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
        for (const auto& percentage_set : hot_keys_sets) {
         int percentage = percentage_set.first; // 当前的百分比
+        // fprintf(stderr,"percentage: %d in docompaction work!\n", percentage);
         if (is_hot_key(percentage, key_number)) {
           hot_data_counts[percentage]++; 
         } else {
@@ -1342,14 +1364,13 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     }
 
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-    if(which == 0){
-      level_stats_[compact->compaction->level()].bytes_read += stats.bytes_read;
-      init_level_bytes_read = stats.bytes_read;
-    }else if(which == 1){
-      level_stats_[compact->compaction->level() + 1].bytes_read += (stats.bytes_read - init_level_bytes_read);
-    }
+    // if(which == 0){
+    //   level_stats_[compact->compaction->level()].bytes_read += stats.bytes_read;
+    //   init_level_bytes_read = stats.bytes_read;
+    // }else if(which == 1){
+    //   level_stats_[compact->compaction->level() + 1].bytes_read += (stats.bytes_read - init_level_bytes_read);
+    // }
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-
   }
 
   for (size_t i = 0; i < compact->outputs.size(); i++) {
@@ -1358,6 +1379,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
+  level_stats_[compact->compaction->level() + 1].bytes_read += stats.bytes_read;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
@@ -1367,7 +1389,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   // level_stats_[compact->compaction->level()].bytes_read_hot += init_level_bytes_read*hot_data_percentage;
   // level_stats_[compact->compaction->level()].bytes_read_cold += init_level_bytes_read*cold_data_percentage;
 
-  uint64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
+  // uint64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
   // level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
   // level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
 
@@ -1379,29 +1401,59 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
   for (const auto& percentage : hot_data_counts) {
     int perc = percentage.first; // 当前的百分比
-    uint64_t hot_count = hot_data_counts[perc];
-    uint64_t cold_count = cold_data_counts[perc];
+    int64_t hot_count = hot_data_counts[perc];
+    int64_t cold_count = cold_data_counts[perc];
 
     assert(total_data_count == hot_count + cold_count); 
+    assert(total_data_count != 0);
 
-    double hot_data_percentage = total_data_count > 0 ? (double)hot_count / total_data_count : 0;
-    double cold_data_percentage = total_data_count > 0 ? (double)cold_count / total_data_count : 0;
+    // double hot_data_percentage = total_data_count > 0 ? (double)hot_count / total_data_count : 0;
+    // double cold_data_percentage = total_data_count > 0 ? (double)cold_count / total_data_count : 0;
 
-    // 更新当前level的hot和cold数据读取统计
-    level_hot_cold_stats[compact->compaction->level()][perc].bytes_read_hot += init_level_bytes_read * hot_data_percentage;
-    level_hot_cold_stats[compact->compaction->level()][perc].bytes_read_cold += init_level_bytes_read * cold_data_percentage;
+    // auto& levelStatsMap = level_hot_cold_stats[compact->compaction->level()];
+    // if (levelStatsMap.find(perc) == levelStatsMap.end()) {
+    //     levelStatsMap[perc] = LevelHotColdStats(); // 如果没有，就初始化一个
+    // }
+    // // 更新当前level的hot和cold数据读取统计
+    // levelStatsMap[perc].bytes_read_hot += init_level_bytes_read * hot_data_percentage;
+    // levelStatsMap[perc].bytes_read_cold += init_level_bytes_read * cold_data_percentage;
 
+    // auto& nextLevelStatsMap = level_hot_cold_stats[compact->compaction->level() + 1];
+    // if (nextLevelStatsMap.find(perc) == nextLevelStatsMap.end()) {
+    //     nextLevelStatsMap[perc] = LevelHotColdStats(); // 如果没有，就初始化一个
+    //     fprintf(stderr,"initialize a new LevelHotColdStats object for level %d and percentage %d\n", compact->compaction->level() + 1, perc);
+    //     fflush(stderr);
+    // }
+    // const double epsilon = 2; 
     // 更新参与下一级压缩的level的hot和cold数据读取统计
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot += participate_level_bytes_read * hot_data_percentage;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold += participate_level_bytes_read * cold_data_percentage;
-
+    // nextLevelStatsMap[perc].bytes_read_hot += hot_count;
+    // nextLevelStatsMap[perc].bytes_read_cold += cold_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot += hot_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold += cold_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot += hot_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold += cold_count;
+    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot!=0 && hot_count!=0);
+    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold!=0 && hot_count!=0);
+    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot!=0);
+    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold!=0);
+    // fprintf(stdout,"bytes_written_hot: %ld hot_count:%ld, bytes_read_cold: %ld in compaction cold_count: %ld level:%u prec:%d\n", level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot, hot_count, level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold, cold_count, compact->compaction->level() + 1, perc);
+    // double read_diff = fabs((nextLevelStatsMap[perc].bytes_read_hot + nextLevelStatsMap[perc].bytes_read_cold) - stats.bytes_read);
+    // fprintf(stdout,"==========\n\n");
+    // fprintf(stdout, "hot data: %ld, cold data: %ld, total data: %ld\n", hot_count, cold_count, total_data_count);
+    // fprintf(stdout, "bytes_read_hot: %f, bytes_read_cold: %f, stats.bytes_read: %ld\n", stats.bytes_read * hot_data_percentage, stats.bytes_read * cold_data_percentage, stats.bytes_read);
+    // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read_diff: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
+    // assert(read_diff < epsilon);
+    
     // 更新下一级level的写入统计（假设压缩导致的写入均为hot数据）;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot += stats.bytes_written * hot_data_percentage;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold += stats.bytes_written * cold_data_percentage;
+    // nextLevelStatsMap[perc].bytes_written_hot += hot_count;
+    // nextLevelStatsMap[perc].bytes_written_cold += cold_count;
+    // double written_diff = fabs((nextLevelStatsMap[perc].bytes_written_hot + nextLevelStatsMap[perc].bytes_written_cold) - stats.bytes_written);
+    // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
+    // assert(written_diff < epsilon);
+    // fprintf(stdout,"==========\n\n");
+    // fflush(stdout);
+    
   }
-
-
-
 
   if (status.ok()) {
     status = InstallCompactionResults(compact);
@@ -1875,10 +1927,14 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
                   "--------------------------------------------------\n");
     value->append(buf);
     for (int level = 0; level < config::kNumLevels; level++) {
+      total_io += stats_[level].bytes_written / 1048576.0;
+      if(level == 0){
+        user_io = stats_[level].bytes_written/ 1048576.0;
+      }
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
         std::vector<int> percents = GetLevelPercents();
-        std::snprintf(buf, sizeof(buf), "%3d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %5d %5d %9d %8ld %8ld\n",
+        std::snprintf(buf, sizeof(buf), "%5d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %6d %5d %9d %8ld %8ld\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
                       stats_[level].bytes_read / 1048576.0,
@@ -1894,36 +1950,80 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
                       level_stats_[level].number_seek_compaction_participant_files,
                       level_stats_[level].number_of_compactions,
                       level_stats_[level].number_TrivialMove,
-                      level_stats_[level].moved_directly_from_last_level_bytes,
-                      level_stats_[level].moved_from_this_level_bytes);
+                      level_stats_[level].moved_directly_from_last_level_bytes / 1048576.0,
+                      level_stats_[level].moved_from_this_level_bytes / 1048576.0);
         value->append(buf);
         int a=0;
+        if(level == 0){
+          continue;
+        }
+        unsigned level_un = level;
+        bool is_exe = false;
         for (auto percent : percents) {
           auto& stats1 = level_hot_cold_stats[level][percent];
-          std::snprintf(buf, sizeof(buf), "%3d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %5d %5d %9d %8d %8d\n",
-                      level, files, versions_->NumLevelBytes(level) / 1048576.0,
-                      stats_[level].micros / 1e6,
-                      stats1.bytes_read_hot / 1048576.0,
-                      stats1.bytes_read_cold / 1048576.0,            
-                      stats1.bytes_written_hot / 1048576.0,
-                      stats1.bytes_written_cold / 1048576.0,                      
-                      a,
-                      a,
-                      a,
-                      a,
-                      a,
-                      a,
-                      a,
-                      a,
-                      a,
-                      a,
-                      a);
+          double total_bytes_read = level_stats_[level].bytes_read;
+          double total_bytes_written = level_stats_[level].bytes_written;
+
+          uint64_t total_count_read = stats1.bytes_read_hot+stats1.bytes_read_cold;
+          uint64_t total_count_written = stats1.bytes_written_hot+stats1.bytes_written_cold;
+
+          if(total_count_written == 0 && total_count_read == 0){
+            continue;
+          }
+          
+          double hotBytesRead =0.0;
+          double coldBytesRead =0.0;
+          double hotBytesWritten =0.0; 
+          double coldBytesWritten =0.0;  
+          double w_hot_data_percentage =0.0;
+          double w_cold_data_percentage = 0.0;
+          double hot_data_percentage = 0.0;
+          double cold_data_percentage =0.0;
+
+          if(total_count_read > 0){
+            hot_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_hot / total_count_read : 0;
+            cold_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_cold / total_count_read : 0;
+            hotBytesRead = (level_stats_[level].bytes_read*hot_data_percentage) / 1048576.0;
+            coldBytesRead = (level_stats_[level].bytes_read*cold_data_percentage) / 1048576.0;
+          }
+
+          if(total_count_written>0){
+            w_hot_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_hot / total_count_written : 0;
+            w_cold_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_cold / total_count_written : 0;
+            hotBytesWritten = (level_stats_[level].bytes_written*w_hot_data_percentage) / 1048576.0;
+            coldBytesWritten = (level_stats_[level].bytes_written*w_cold_data_percentage) / 1048576.0;
+          }
+
+          if(total_count_written>0 && total_count_read > 0){
+            assert(hot_data_percentage == w_hot_data_percentage);
+            assert(cold_data_percentage == w_cold_data_percentage);
+          }
+
+          std::snprintf(buf, sizeof(buf), 
+              "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f\n",
+              percent, "       ",
+              hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten );
+          value->append(buf);
+          is_exe = true;
+
+          // fprintf(stdout, "Level: %d percentage:%d\n", level, percent);
+          // fprintf(stdout, "Total bytes read: %f\n", total_bytes_read);
+          // fprintf(stdout, "Total bytes written: %f\n", total_bytes_written);
+          // fprintf(stdout, "Accumulated bytes_read_hot: %ld\n", level_hot_cold_stats[2][percent].bytes_read_hot);
+          // fprintf(stdout, "Accumulated bytes_read_cold: %f\n", (double)stats1.bytes_read_cold);
+          // fprintf(stdout, "Accumulated bytes_written_hot: %f\n", (double)stats1.bytes_written_hot);
+          // fprintf(stdout, "Accumulated bytes_written_cold: %f\n", (double)stats1.bytes_written_cold);
+
+          // fprintf(stdout, "Read hot data percentage: %f\n", hot_data_percentage);
+          // fprintf(stdout, "Read cold data percentage: %f\n", cold_data_percentage);
+          // fprintf(stdout, "Written hot data percentage: %f\n", w_hot_data_percentage);
+          // fprintf(stdout, "Written cold data percentage: %f\n", w_cold_data_percentage);
+        }
+        if(is_exe){
+          std::snprintf(buf, sizeof(buf), "\n" );
           value->append(buf);
         }
-      }
-      total_io += stats_[level].bytes_written / 1048576.0;
-      if(level == 0){
-        user_io = stats_[level].bytes_written/ 1048576.0;
+        
       }
     }
     snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f", user_io, total_io, total_io/ user_io);
@@ -1988,7 +2088,8 @@ DB::~DB() = default;
 
 Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   *dbptr = nullptr;
-
+  std::fprintf(stderr, "entering db_impl.cc:%s\n", dbname.c_str());
+  fflush(stderr);
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();
   VersionEdit edit;
@@ -2027,13 +2128,13 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     delete impl;
   }
 
-
-  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  // //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // std::fprintf(stdout,"Test start!\n");
   impl->batch_load_keys_from_CSV(impl->hot_file_path, impl->percentagesStr);
-  // impl->test_hot_keys();
+  impl->initialize_level_hotcoldstats();
+  // // impl->test_hot_keys();
   // std::fprintf(stdout,"Test over!\n");
-  // exit(0);
+  // // exit(0);
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
 
   return s;

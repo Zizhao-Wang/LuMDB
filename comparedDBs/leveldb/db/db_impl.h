@@ -192,10 +192,10 @@ class DBImpl : public DB {
           bytes_read_cold(0), 
           bytes_written_cold(0) {}
 
-    int64_t bytes_read_hot = 0;
-    int64_t bytes_written_hot = 0;
-    int64_t bytes_read_cold = 0;
-    int64_t bytes_written_cold = 0;
+    int64_t bytes_read_hot;
+    int64_t bytes_written_hot;
+    int64_t bytes_read_cold;
+    int64_t bytes_written_cold;
   };
 
   Iterator* NewInternalIterator(const ReadOptions&,
@@ -282,6 +282,8 @@ class DBImpl : public DB {
 
   std::vector<int> GetLevelPercents();
 
+  void initialize_level_hotcoldstats();
+
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   // Constant after construction
@@ -336,7 +338,7 @@ class DBImpl : public DB {
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
-  std::vector<std::array<LevelHotColdStats, 7>> level_hot_cold_stats GUARDED_BY(mutex_);
+  std::vector<std::map<unsigned, LevelHotColdStats>> level_hot_cold_stats GUARDED_BY(mutex_);
   std::pair<Slice, Slice> hot_range;
 
   struct SliceHash {
@@ -357,6 +359,7 @@ class DBImpl : public DB {
   std::unordered_set<leveldb::Slice, SliceHash, SliceEqual> specialKeys;
   std::unordered_set<uint64_t> hot_keys;
   std::map<int, std::unordered_set<uint64_t>> hot_keys_sets;
+  bool is_first;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
 

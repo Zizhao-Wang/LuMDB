@@ -887,6 +887,7 @@ class Benchmark {
     std::fprintf(stdout, "  num_entries: %ld\n",FLAGS_num);
     std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks.c_str());
     std::fprintf(stdout, "  hot_file_path: %s\n", FLAGS_hot_file.c_str());
+    std::fprintf(stdout, "  data_file_path: %s\n", FLAGS_data_file.c_str());
     std::fprintf(stdout, "  percentages: %s\n", FLAGS_percentages.c_str());
     std::fprintf(stdout, "------------------------------------------------\n");
   }
@@ -983,7 +984,9 @@ class Benchmark {
 
   void Run() {
     PrintHeader();
-    Open();
+    // std::fprintf(stderr,"open dbs in Run()\n");
+    // fflush(stderr);
+    // Open();
 
     const char* benchmarks = FLAGS_benchmarks.c_str();
     while (benchmarks != nullptr) {
@@ -1098,9 +1101,11 @@ class Benchmark {
                        name.ToString().c_str());
           method = nullptr;
         } else {
-          delete db_;
+          delete db_; 
           db_ = nullptr;
           DestroyDB(FLAGS_db, Options());
+          fprintf(stderr, "open dbs:in fresh_db()\n");
+          fflush(stderr);
           Open();
         }
       }
@@ -1262,6 +1267,8 @@ class Benchmark {
     options.hot_file_path = FLAGS_hot_file;
     options.percentages = FLAGS_percentages;
 
+    std::fprintf(stderr, "open dbs:in Open()\n");
+    fflush(stderr);
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
       std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());
@@ -1272,6 +1279,8 @@ class Benchmark {
   void OpenBench(ThreadState* thread) {
     for (int i = 0; i < num_; i++) {
       delete db_;
+      fprintf(stderr, "open dbs:in OpenBench()\n");
+      fflush(stderr);
       Open();
       thread->stats.FinishedSingleOp();
     }
@@ -1454,6 +1463,7 @@ class Benchmark {
   }
 
     void DoWrite_zipf2(ThreadState* thread, bool seq) {
+    
     if (num_ != FLAGS_num) {
       char msg[100];
       std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
@@ -1469,13 +1479,15 @@ class Benchmark {
     std::ifstream csv_file(FLAGS_data_file);
     std::string line;
     if (!csv_file.is_open()) {
-        fprintf(stderr,"Unable to open CSV file\n");
+        fprintf(stderr,"Unable to open CSV file in zipf2\n");
         return;
     }
     std::getline(csv_file, line);
     std::stringstream line_stream;
     std::string cell;
     std::vector<std::string> row_data;
+
+    // std::fprintf(stdout, "start benchmarking num_ = %ld entries in DoWrite_zipf2()\n", num_);
 
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
@@ -1502,7 +1514,11 @@ class Benchmark {
           snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
           batch.Put(key, gen.Generate(value_size_));
           bytes += value_size_ + strlen(key);
-          thread->stats.FinishedSingleOp(db_); 
+          if(thread->stats.done_ % FLAGS_stats_interval == 0){
+            thread->stats.AddBytes(bytes);
+            bytes = 0;
+          }
+          thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {

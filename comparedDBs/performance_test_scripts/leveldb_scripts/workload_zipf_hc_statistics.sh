@@ -6,7 +6,7 @@ sudo bash -c 'ulimit -n 800000'
 
 
 BASE_VALUE_SIZE=128
-billion=10000
+billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 
@@ -35,30 +35,39 @@ for i in {10..10}; do
         cd $dir1
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 100))
+            stats_interva=$((num_entries / 1000))
 
             num_format=$(convert_to_billion_format $num_entries)
 
             for zipf_a in 1.1 ; do  #1.2 1.3 1.4 1.5
                     log_file="leveldb2_${num_format}_val_${value_size}_zipf.log"
-                    data_file="/home/jeff-wang/workloads/etc_keys_zipf${zipf_a}.csv" # 构建数据文件路径
+                    data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
 
-                    percentages1=(1 5 10 15 20 25 30)
+                    percentages1=(1) #5 10 15 20 25 30
                     hot_files=""
                     for percent in "${percentages1[@]}"; do
                         if [[ -z "$hot_files" ]]; then
                             # 第一次迭代时，直接赋值
-                            hot_files="/home/jeff-wang/workloads/zipf${zipf_a}_top${percent}_keys10B.csv"
+                            hot_files="/home/jeff-wang/workloads/zipf${zipf_a}_top${percent}_keys10.0B.csv"
                         else
                             # 后续迭代时，在现有字符串后面添加
-                            hot_files="$hot_files,/home/jeff-wang/workloads/zipf${zipf_a}_top${percent}_keys10B.csv"
+                            hot_files="$hot_files,/home/jeff-wang/workloads/zipf${zipf_a}_top${percent}_keys10.0B.csv"
                         fi
                     done
 
                     echo "hot_files: $hot_files"
-                    percentages="1,5,10,15,20,25,30"
+                    percentages_str="" #,5,10,15,20,25,30
+                    for percent in "${percentages1[@]}"; do
+                        if [[ -z "$percentages_str" ]]; then
+                            # 第一次迭代时，直接赋值
+                            percentages_str="${percent}"
+                        else
+                            # 后续迭代时，在现有字符串后面添加
+                            percentages_str="$percentages_str,${percent}"
+                        fi
+                    done
 
                     # 如果日志文件存在，则跳过当前迭代
                     if [ -f "$log_file" ]; then
@@ -80,7 +89,8 @@ for i in {10..10}; do
                     --batch_size=1000 \
                     --benchmarks=fillzipf,stats \
                     --hot_file=$hot_files \
-                    --percentages=$percentages \
+                    --data_file=$data_file  \
+                    --percentages=$percentages_str \
                     --logpath=/mnt/logs \
                     --bloom_bits=10 \
                     --log=1  \

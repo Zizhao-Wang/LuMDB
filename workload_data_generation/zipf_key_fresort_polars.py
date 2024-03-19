@@ -3,7 +3,7 @@ from tqdm import tqdm  # 正确导入tqdm函数
 import polars as pl
 
   
-a_values = [1.1, 1.3, 1.4, 1.5]  # 
+a_values = [1.01]  # 
 percents = [1, 5, 10, 15, 20, 25, 30]   # 
 
 
@@ -34,5 +34,5 @@ def generate_and_process_data(a_value, percents, key_file_name, file_size_in_bil
  
 
 for a in tqdm(a_values, desc="Processing zipf values"):
-    file_name = f'/home/jeff-wang/workloads/zipf{a}_keys{file_size_in_billions}B.csv'
+    file_name = f'/home/jeff-wang/workloads/zipf{a}_keys10.0B.csv'
     generate_and_process_data(a, percents, file_name, file_size_in_billions)
