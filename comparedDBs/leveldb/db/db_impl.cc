@@ -1934,7 +1934,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
         std::vector<int> percents = GetLevelPercents();
-        std::snprintf(buf, sizeof(buf), "%5d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %6d %5d %9d %8ld %8ld\n",
+        std::snprintf(buf, sizeof(buf), "%5d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %6d %5d %9d %8f %8f\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
                       stats_[level].bytes_read / 1048576.0,
@@ -2000,9 +2000,9 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
           }
 
           std::snprintf(buf, sizeof(buf), 
-              "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f\n",
+              "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f %6ld %6ld\n",
               percent, "       ",
-              hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten );
+              hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten,stats1.bytes_read_hot, stats1.bytes_read_cold);
           value->append(buf);
           is_exe = true;
 

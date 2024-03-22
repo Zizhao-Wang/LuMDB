@@ -40,9 +40,9 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
 
             for zipf_a in 1.1 ; do  #1.2 1.3 1.4 1.5
-                    percentages1=(5 10 15 20 25 30) #
+                    percentages1=(1 5 10 15 20 25 30) #
 
-                    log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}.log"
+                    log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
