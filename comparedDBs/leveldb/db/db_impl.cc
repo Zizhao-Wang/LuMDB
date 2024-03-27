@@ -1164,7 +1164,7 @@ void  DBImpl::initialize_level_hotcoldstats(){
         level_hot_cold_stats[i].insert(std::make_pair(percents[j], LevelHotColdStats())) ; // 为每个百分比初始化LevelHotColdStats对象
       }
     }
-    fprintf(stderr,"initialize %zu objects(LevelHotColdStats) within these %d levels\n", percents.size(),config::kNumLevels );
+    fprintf(stderr,"initialize %zu objects(LevelHotColdStats) for %zu levels\n", percents.size(),level_hot_cold_stats.size());
 }
 
 
@@ -1221,6 +1221,12 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   std::map<int,uint64_t> hot_data_counts; 
   std::map<int,uint64_t> cold_data_counts;
   uint64_t total_data_count = 0;
+  std::vector<int> percentages1 = GetLevelPercents();
+  for (int percentage : percentages1) {
+    hot_data_counts[percentage] = 0;
+    cold_data_counts[percentage] = 0;
+  }
+
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
@@ -1244,14 +1250,12 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     if(versions_->compute_hot_cold_range(key, hot_range, is_hot_data1)){
       std::string str(key.data(), key.size());
       uint64_t key_number = std::stoull(str);
-
-       for (const auto& percentage_set : hot_keys_sets) {
-        int percentage = percentage_set.first; // 当前的百分比
+       for (int i=0;i<percentages1.size();i++) {
         // fprintf(stderr,"percentage: %d in docompaction work!\n", percentage);
-        if (is_hot_key(percentage, key_number)) {
-          hot_data_counts[percentage]++; 
+        if (is_hot_key(percentages1[i], key_number)) {
+          hot_data_counts[percentages1[i]]++; 
         } else {
-          cold_data_counts[percentage]++;
+          cold_data_counts[percentages1[i]]++;
         }
       }
       total_data_count++;
@@ -1399,13 +1403,12 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
 
-  for (const auto& percentage : hot_data_counts) {
-    int perc = percentage.first; // 当前的百分比
-    int64_t hot_count = hot_data_counts[perc];
-    int64_t cold_count = cold_data_counts[perc];
+  for (int i=0;i<percentages1.size();i++) {
+    int64_t hot_count = hot_data_counts[percentages1[i]];
+    int64_t cold_count = cold_data_counts[percentages1[i]];
 
     assert(total_data_count == hot_count + cold_count); 
-    assert(total_data_count != 0);
+    // assert(total_data_count != 0);
 
     // double hot_data_percentage = total_data_count > 0 ? (double)hot_count / total_data_count : 0;
     // double cold_data_percentage = total_data_count > 0 ? (double)cold_count / total_data_count : 0;
@@ -1428,10 +1431,12 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     // 更新参与下一级压缩的level的hot和cold数据读取统计
     // nextLevelStatsMap[perc].bytes_read_hot += hot_count;
     // nextLevelStatsMap[perc].bytes_read_cold += cold_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot += hot_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold += cold_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot += hot_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold += cold_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].bytes_written_hot += hot_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].bytes_written_cold += cold_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].bytes_read_hot += hot_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].bytes_read_cold += cold_count;
+    level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].total_count_hc += total_data_count;
+    fprintf(stdout,"level:%u total_:%ld hot_count:%ld cold_count:%ld sum:%ld percentages1[i]:%d\n", compact->compaction->level() + 1, total_data_count,hot_count, cold_count,hot_count+cold_count, percentages1[i]);
     // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot!=0 && hot_count!=0);
     // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold!=0 && hot_count!=0);
     // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot!=0);
@@ -1450,10 +1455,9 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     // double written_diff = fabs((nextLevelStatsMap[perc].bytes_written_hot + nextLevelStatsMap[perc].bytes_written_cold) - stats.bytes_written);
     // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
     // assert(written_diff < epsilon);
-    // fprintf(stdout,"==========\n\n");
-    // fflush(stdout);
-    
   }
+  fprintf(stdout,"==========\n\n");
+  fflush(stdout);
 
   if (status.ok()) {
     status = InstallCompactionResults(compact);
@@ -2000,9 +2004,9 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
           }
 
           std::snprintf(buf, sizeof(buf), 
-              "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f %6ld %6ld\n",
+              "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f %7ld %7ld %7ld\n",
               percent, "       ",
-              hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten,stats1.bytes_read_hot, stats1.bytes_read_cold);
+              hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten,stats1.bytes_read_hot, stats1.bytes_read_cold, stats1.total_count_hc);
           value->append(buf);
           is_exe = true;
 

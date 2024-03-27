@@ -190,12 +190,14 @@ class DBImpl : public DB {
         : bytes_read_hot(0), 
           bytes_written_hot(0), 
           bytes_read_cold(0), 
-          bytes_written_cold(0) {}
+          bytes_written_cold(0),
+          total_count_hc(0) {}
 
     int64_t bytes_read_hot;
     int64_t bytes_written_hot;
     int64_t bytes_read_cold;
     int64_t bytes_written_cold;
+    int64_t total_count_hc;
   };
 
   Iterator* NewInternalIterator(const ReadOptions&,
