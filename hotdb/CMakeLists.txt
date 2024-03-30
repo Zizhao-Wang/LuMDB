@@ -132,6 +132,8 @@ target_sources(leveldb
     "db/dbformat.h"
     "db/dumpfile.cc"
     "db/filename.cc"
+    "db/range_merge_split.cc"
+    "db/range_merge_split.h"
     "db/filename.h"
     "db/log_format.h"
     "db/log_reader.cc"

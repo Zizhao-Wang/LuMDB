@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb
+CMAKE_SOURCE_DIR = /home/jeff-wang/WorkloadAnalysis/hotdb
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release
+CMAKE_BINARY_DIR = /home/jeff-wang/WorkloadAnalysis/hotdb/release
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -142,9 +142,9 @@ install/strip/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/WorkloadAnalysis/hotdb/release/CMakeFiles /home/jeff-wang/WorkloadAnalysis/hotdb/release//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/WorkloadAnalysis/hotdb/release/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -819,6 +819,30 @@ db/memtable.s: db/memtable.cc.s
 db/memtable.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/memtable.cc.s
 .PHONY : db/memtable.cc.s
+
+db/range_merge_split.o: db/range_merge_split.cc.o
+.PHONY : db/range_merge_split.o
+
+# target to build an object file
+db/range_merge_split.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/range_merge_split.cc.o
+.PHONY : db/range_merge_split.cc.o
+
+db/range_merge_split.i: db/range_merge_split.cc.i
+.PHONY : db/range_merge_split.i
+
+# target to preprocess a source file
+db/range_merge_split.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/range_merge_split.cc.i
+.PHONY : db/range_merge_split.cc.i
+
+db/range_merge_split.s: db/range_merge_split.cc.s
+.PHONY : db/range_merge_split.s
+
+# target to generate assembly for a file
+db/range_merge_split.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/range_merge_split.cc.s
+.PHONY : db/range_merge_split.cc.s
 
 db/recovery_test.o: db/recovery_test.cc.o
 .PHONY : db/recovery_test.o
@@ -2097,6 +2121,9 @@ help:
 	@echo "... db/memtable.o"
 	@echo "... db/memtable.i"
 	@echo "... db/memtable.s"
+	@echo "... db/range_merge_split.o"
+	@echo "... db/range_merge_split.i"
+	@echo "... db/range_merge_split.s"
 	@echo "... db/recovery_test.o"
 	@echo "... db/recovery_test.i"
 	@echo "... db/recovery_test.s"

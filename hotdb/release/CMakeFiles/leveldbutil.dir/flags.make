@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/include -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/. -I/home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include
+CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/hotdb/release/include -I/home/jeff-wang/WorkloadAnalysis/hotdb/. -I/home/jeff-wang/WorkloadAnalysis/hotdb/include
 
 CXX_FLAGS =  -fno-exceptions -fno-rtti -g -std=c++11
 

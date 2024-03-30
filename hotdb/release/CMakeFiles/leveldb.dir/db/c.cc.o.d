@@ -1,7 +1,7 @@
 CMakeFiles/leveldb.dir/db/c.cc.o: \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/db/c.cc \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/db/c.cc \
  /usr/include/stdc-predef.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/c.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/c.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
@@ -19,7 +19,7 @@ CMakeFiles/leveldb.dir/db/c.cc.o: \
  /usr/include/x86_64-linux-gnu/bits/wchar.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/export.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/export.h \
  /usr/include/string.h \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
@@ -55,8 +55,8 @@ CMakeFiles/leveldb.dir/db/c.cc.o: \
  /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h /usr/include/alloca.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
  /usr/include/c++/11/bits/std_abs.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/cache.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/slice.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/cache.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/slice.h \
  /usr/include/c++/11/cassert /usr/include/assert.h \
  /usr/include/c++/11/cstddef /usr/include/c++/11/cstring \
  /usr/include/c++/11/string /usr/include/c++/11/bits/stringfwd.h \
@@ -133,10 +133,10 @@ CMakeFiles/leveldb.dir/db/c.cc.o: \
  /usr/include/c++/11/bits/functional_hash.h \
  /usr/include/c++/11/bits/hash_bytes.h \
  /usr/include/c++/11/bits/basic_string.tcc \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/comparator.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/db.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/iterator.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/status.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/comparator.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/db.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/iterator.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/status.h \
  /usr/include/c++/11/algorithm /usr/include/c++/11/utility \
  /usr/include/c++/11/bits/stl_relops.h \
  /usr/include/c++/11/bits/stl_algo.h \
@@ -144,12 +144,12 @@ CMakeFiles/leveldb.dir/db/c.cc.o: \
  /usr/include/c++/11/bits/stl_heap.h \
  /usr/include/c++/11/bits/stl_tempbuf.h \
  /usr/include/c++/11/bits/uniform_int_dist.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/options.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/env.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/options.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/env.h \
  /usr/include/c++/11/cstdarg /usr/include/c++/11/vector \
  /usr/include/c++/11/bits/stl_uninitialized.h \
  /usr/include/c++/11/bits/stl_vector.h \
  /usr/include/c++/11/bits/stl_bvector.h \
  /usr/include/c++/11/bits/vector.tcc \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/filter_policy.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/write_batch.h
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/filter_policy.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/write_batch.h

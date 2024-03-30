@@ -19,6 +19,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/leveldb.dir/db/log_writer.cc.o.d"
   "CMakeFiles/leveldb.dir/db/memtable.cc.o"
   "CMakeFiles/leveldb.dir/db/memtable.cc.o.d"
+  "CMakeFiles/leveldb.dir/db/range_merge_split.cc.o"
+  "CMakeFiles/leveldb.dir/db/range_merge_split.cc.o.d"
   "CMakeFiles/leveldb.dir/db/repair.cc.o"
   "CMakeFiles/leveldb.dir/db/repair.cc.o.d"
   "CMakeFiles/leveldb.dir/db/table_cache.cc.o"

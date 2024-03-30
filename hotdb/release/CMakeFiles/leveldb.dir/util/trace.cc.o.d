@@ -1,7 +1,7 @@
 CMakeFiles/leveldb.dir/util/trace.cc.o: \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/trace.cc \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/util/trace.cc \
  /usr/include/stdc-predef.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/./util/trace.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/trace.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -51,7 +51,7 @@ CMakeFiles/leveldb.dir/util/trace.cc.o: \
  /usr/include/c++/11/bits/hash_bytes.h \
  /usr/include/c++/11/bits/range_access.h \
  /usr/include/c++/11/bits/vector.tcc \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/./util/geninfo.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/geninfo.h \
  /usr/include/c++/11/string /usr/include/c++/11/bits/stringfwd.h \
  /usr/include/c++/11/bits/char_traits.h \
  /usr/include/c++/11/bits/postypes.h /usr/include/c++/11/cwchar \

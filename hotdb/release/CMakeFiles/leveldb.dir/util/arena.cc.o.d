@@ -1,7 +1,7 @@
 CMakeFiles/leveldb.dir/util/arena.cc.o: \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/arena.cc \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/util/arena.cc \
  /usr/include/stdc-predef.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/./util/arena.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/arena.h \
  /usr/include/c++/11/atomic /usr/include/c++/11/bits/atomic_base.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \

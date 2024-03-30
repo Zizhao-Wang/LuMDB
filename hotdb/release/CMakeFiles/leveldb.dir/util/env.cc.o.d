@@ -1,7 +1,7 @@
 CMakeFiles/leveldb.dir/util/env.cc.o: \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/env.cc \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/util/env.cc \
  /usr/include/stdc-predef.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/env.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/env.h \
  /usr/include/c++/11/cstdarg \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \
@@ -131,8 +131,8 @@ CMakeFiles/leveldb.dir/util/env.cc.o: \
  /usr/include/c++/11/bits/stl_vector.h \
  /usr/include/c++/11/bits/stl_bvector.h \
  /usr/include/c++/11/bits/vector.tcc \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/export.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/status.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/export.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/status.h \
  /usr/include/c++/11/algorithm /usr/include/c++/11/utility \
  /usr/include/c++/11/bits/stl_relops.h \
  /usr/include/c++/11/bits/stl_algo.h \
@@ -140,7 +140,7 @@ CMakeFiles/leveldb.dir/util/env.cc.o: \
  /usr/include/c++/11/bits/stl_heap.h \
  /usr/include/c++/11/bits/stl_tempbuf.h \
  /usr/include/c++/11/bits/uniform_int_dist.h \
- /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/slice.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/slice.h \
  /usr/include/c++/11/cassert /usr/include/assert.h \
  /usr/include/c++/11/cstddef /usr/include/c++/11/cstring \
  /usr/include/string.h /usr/include/strings.h

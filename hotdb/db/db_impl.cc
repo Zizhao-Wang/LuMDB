@@ -1620,24 +1620,40 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   w.done = false;    // 写入的状态，完成或者未完成，当前肯定是未完成
       
   // mutex_是leveldb的全局锁，在DBImpl有且只有这一个互斥锁(还有一个文件锁除外)，所有操作都要基于这一个锁实现互斥
-  // 是不是感觉有点不可思议？MutexLock是个自动锁，他的构造函数负责加锁，析构函数负责解锁
+  // MutexLock是个自动锁，他的构造函数负责加锁，析构函数负责解锁
   MutexLock l(&mutex_);
-
+  // writers_是个std::deque<Writer*>，是DBImpl的成员变量，也就意味着多线程共享这个变量，所以是在加锁状态下操作的
   writers_.push_back(&w);
+  // 这段代码保证了写入是按照调用的先后顺序执行的。
+  // 1.w.done不可能是true啊，刚刚赋值为false，为什么还要判断呢？除非有人改动，没错，后面有可能会被其他线程改动
+  // 2.刚刚放入队列尾部，此时如果前面有线程写，那么&w != writers_.front()会为true，所以要等前面的写完在唤醒
+  // 3.w.cv是一个可以理解为pthread_cond_t的变量，w.cv.Wait()其实是需要解锁的，他解的就是mutex_这个锁
   while (!w.done && &w != writers_.front()) {
     w.cv.Wait();
   }
+
+  // 刚刚也提到了，虽然期望是自己线程把自己的数据写入，因为数据放入了writers_这个队列中，也就意味着别的线程也能看到
+  // 也就意味着别的线程也能把这个数据写入，那么什么情况要需要其他线程帮这个线程写入呢？
   if (w.done) {
     return w.status;
   }
 
   // May temporarily unlock and wait.
+  // 这个就是要判断当前的空间是否能够继续写入，包括MemTable以及SSTable，如果需要同步文件或者合并文件就要等待了
   Status status = MakeRoomForWrite(updates == nullptr);
+  // 获取当前最后一个顺序号，这个好理解哈
   uint64_t last_sequence = versions_->LastSequence();
+  // 接下来就是比较重点的部分了，last_writer记录了一次真正写入的最后一个Writer的地址，就是会合并多个Writer的数据写入
+  // 当然，初始化是当前这个线程的Writer，因为很可能后面没有其他线程执行写入
   Writer* last_writer = &w;
+  // 开始写入之前需要保证空间足够并且确实有数据要写
   if (status.ok() && updates != nullptr) {  // nullptr batch is for compactions
+    // 此处就是合并写入的过程，函数名字也能看出这个意思，
     WriteBatch* write_batch = BuildBatchGroup(&last_writer);
+    // 这个就是设置写入的顺序号，这个顺序号是全局的，每次写入都会增加
+
     WriteBatchInternal::SetSequence(write_batch, last_sequence + 1);
+    // 更新顺序号，先记在临时变量中，等操作全部成功后再更新数据库状态
     last_sequence += WriteBatchInternal::Count(write_batch);
 
     // Add to log and apply to memtable.  We can release the lock
