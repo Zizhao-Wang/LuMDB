@@ -1317,6 +1317,7 @@ class Benchmark {
       batch.Clear();
       for (int64_t j = 0; j < entries_per_batch_; j++) {
         const int64_t k = seq ? i + j : (thread->trace->Next()% FLAGS_range);
+        std::fprintf(stdout,"k is: %ld\n",k);
         char key[100];
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
         Slice keys(key);
@@ -1333,7 +1334,7 @@ class Benchmark {
       // if (!s.ok()) {
       //   std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
       //   std::exit(1);
-      // }
+      }
     }
     thread->stats.AddBytes(bytes);
   }

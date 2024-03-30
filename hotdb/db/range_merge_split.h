@@ -54,7 +54,7 @@ private:
   /* data */
   std::vector<dynamic_range> ranges;
   uint64_t total_number;
-  leveldb::Slice temp_data;
+  std::string temp_data;
   int init_range_length;
 
 public:
