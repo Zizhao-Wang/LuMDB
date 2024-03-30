@@ -322,4 +322,9 @@ CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o: \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-nice-strict.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./helpers/memenv/memenv.h \
  /usr/include/gflags/gflags.h /usr/include/gflags/gflags_declare.h \
- /usr/include/gflags/gflags_gflags.h
+ /usr/include/gflags/gflags_gflags.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/range_merge_split.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/dbformat.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/table_builder.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/coding.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/logging.h

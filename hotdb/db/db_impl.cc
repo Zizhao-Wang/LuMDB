@@ -153,8 +153,8 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       tmp_batch_(new WriteBatch),
       background_compaction_scheduled_(false),
       manual_compaction_(nullptr),
-      versions_(new VersionSet(dbname_, &options_, table_cache_,
-                               &internal_comparator_)) {}
+      versions_(new VersionSet(dbname_, &options_, table_cache_, &internal_comparator_)), 
+      ranges_container(options_.init_range) {}
 
 DBImpl::~DBImpl() {
   // Wait for background work to finish.
@@ -1950,7 +1950,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
       int files = versions_->NumLevelFiles(level);
       if (stats_[level].micros > 0 || files > 0) {
         std::vector<int> percents = GetLevelPercents();
-        std::snprintf(buf, sizeof(buf), "%5d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %6d %5d %9d %8ld %8ld\n",
+        std::snprintf(buf, sizeof(buf), "%5d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %6d %5d %9d %8.0f %8.0f\n",
                       level, files, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
                       stats_[level].bytes_read / 1048576.0,

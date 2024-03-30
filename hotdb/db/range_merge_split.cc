@@ -9,16 +9,23 @@
 namespace leveldb {
 
 
+/**
+ * 
+ */
+// bool dynamic_range::is_split() {
+//     return splittable && range_length > 10;
+// }
 
+int dynamic_range::is_contains(const leveldb::Slice& value) {
+    // if (start.compare(value) <= 0 && end.compare(value) >= 0){
+    //     if(splittable && range_length > 10){
+    //         return 1;
+    //     }
+    //     return 2;
+    // }
 
+    // return 0;
 
-
-// 检查区间是否可以基于目标长度进行分裂
-bool dynamic_range::is_split() {
-    return splittable && range_length > 10;
-}
-
-bool dynamic_range::is_contains(const leveldb::Slice& value) {
     return start.compare(value) <= 0 && end.compare(value) >= 0;
 }
 
@@ -28,14 +35,18 @@ void dynamic_range::update(const leveldb::Slice& value) {
 }
 
 
-
-
-
-range_maintainer::range_maintainer()
-    :total_number(0){}
+/**
+ * 
+ */
+range_maintainer::range_maintainer(int init_range)
+    :total_number(0),
+    init_range_length(init_range){}
 
 range_maintainer::~range_maintainer()
 {
+    if(!temp_data.empty()){
+        temp_data.clear();
+    }
 }
 
 inline void range_maintainer::increase_number(){
@@ -44,6 +55,8 @@ inline void range_maintainer::increase_number(){
 
 void range_maintainer::add_data(const leveldb::Slice& data){
     
+    total_number++;
+
     if(total_number == 0){
         std::string data1 = data.ToString();
         temp_data = Slice(data1); 
@@ -53,13 +66,23 @@ void range_maintainer::add_data(const leveldb::Slice& data){
     // Check if new data can be grouped into an existing Range
     for (auto& range : ranges) {
         if (range.is_contains(data)) {
-            range.update(data);
+            if(range.splittable && range.range_length > init_range_length){
+                temp_data = std::string(range.end.data(), range.end.size());
+                // 更新当前Range的结束点为新插入的数据
+                range.end.clear();
+                range.end = Slice(data.ToString());
+                // 将原始Range的结束数据点设为下一个待处理数据点
+                return ;
+            }
+            range.kv_number++;
             return;
         }
     }
 
-    Slice range_bound = Slice(data.ToString());
-    ranges.emplace_back(temp_data.ToString(), range_bound.ToString(), true);
+    if(!temp_data.empty()){
+        ranges.emplace_back(temp_data.ToString(), data.ToString(), true);
+        return ;
+    }
     temp_data.clear();
 }
 

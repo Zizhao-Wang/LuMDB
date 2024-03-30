@@ -153,6 +153,7 @@ struct LEVELDB_EXPORT Options {
 
   std::string percentages;
 
+  int init_range = 5;
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   
 };

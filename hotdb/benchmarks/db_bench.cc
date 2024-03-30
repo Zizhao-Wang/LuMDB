@@ -27,6 +27,7 @@
 #include "util/trace.h"
 #include "util/testutil.h"
 #include "gflags/gflags.h"
+#include "db/range_merge_split.h"
 
 
 using GFLAGS_NAMESPACE::ParseCommandLineFlags;
@@ -1311,26 +1312,28 @@ class Benchmark {
     WriteBatch batch;
     Status s;
     int64_t bytes = 0;
-
+    range_maintainer ranger(5);
     for (int64_t i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int64_t j = 0; j < entries_per_batch_; j++) {
         const int64_t k = seq ? i + j : (thread->trace->Next()% FLAGS_range);
         char key[100];
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
-        batch.Put(key, gen.Generate(value_size_));
-        bytes += value_size_ + strlen(key);
-        if(thread->stats.done_ % FLAGS_stats_interval == 0){
-          thread->stats.AddBytes(bytes);
-          bytes = 0;
-        }
-        thread->stats.FinishedSingleOp(db_);
-      }
-      s = db_->Write(write_options_, &batch);
-      if (!s.ok()) {
-        std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
-        std::exit(1);
-      }
+        Slice keys(key);
+        ranger.add_data(keys);
+        // batch.Put(key, gen.Generate(value_size_));
+      //   bytes += value_size_ + strlen(key);
+      //   if(thread->stats.done_ % FLAGS_stats_interval == 0){
+      //     thread->stats.AddBytes(bytes);
+      //     bytes = 0;
+      //   }
+      //   thread->stats.FinishedSingleOp(db_);
+      // }
+      // s = db_->Write(write_options_, &batch);
+      // if (!s.ok()) {
+      //   std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+      //   std::exit(1);
+      // }
     }
     thread->stats.AddBytes(bytes);
   }

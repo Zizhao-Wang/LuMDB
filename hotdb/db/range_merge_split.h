@@ -9,15 +9,19 @@
 #include <vector>
 
 #include "db/dbformat.h"
+#include "leveldb/options.h"
 #include "leveldb/db.h"
 
 namespace leveldb {
 
-class dynamic_range {
+class range_maintainer;
+class dynamic_range;
 
+class dynamic_range {
 public:
   Slice start, end;
   bool splittable;
+  uint64_t kv_number;
   uint64_t range_length;
 
   dynamic_range(const leveldb::Slice& s, const leveldb::Slice& e, bool split = true)
@@ -28,11 +32,16 @@ public:
     }
   
   dynamic_range(const std::string& s, const std::string& e, bool split = true)
-    : start(s),end(e), splittable(split){}
+    : start(s),
+    end(e), 
+    splittable(split),
+    kv_number(0){
+      range_length = std::stoull(end.ToString()) - std::stoull(start.ToString());
+    }
   
-  bool is_split();
+  // bool is_split();
 
-  bool is_contains(const leveldb::Slice& value);
+  int is_contains(const leveldb::Slice& value);
 
   void update(const leveldb::Slice& value);
 
@@ -46,9 +55,10 @@ private:
   std::vector<dynamic_range> ranges;
   uint64_t total_number;
   leveldb::Slice temp_data;
+  int init_range_length;
 
 public:
-  range_maintainer();
+  range_maintainer(int );
 
   void increase_number();
 

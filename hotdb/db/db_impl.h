@@ -19,6 +19,7 @@
 #include "leveldb/env.h"
 #include "port/port.h"
 #include "port/thread_annotations.h"
+#include "db/range_merge_split.h"
 
 
 
@@ -360,6 +361,9 @@ class DBImpl : public DB {
   std::unordered_set<uint64_t> hot_keys;
   std::map<int, std::unordered_set<uint64_t>> hot_keys_sets;
   bool is_first;
+  range_maintainer ranges_container;
+  
+
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
 
