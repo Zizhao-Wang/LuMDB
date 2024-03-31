@@ -6,6 +6,7 @@
 #define STORAGE_LEVELDB_DB_RANGE_MERGE_SPLIT_H_
 
 #include <string>
+#include <set>
 #include <vector>
 
 #include "db/dbformat.h"
@@ -20,30 +21,51 @@ class dynamic_range;
 class dynamic_range {
 public:
   Slice start, end;
+  std::string start_str, end_str;
   bool splittable;
   uint64_t kv_number;
-  uint64_t range_length;
+  int64_t range_length;
 
-  dynamic_range(const leveldb::Slice& s, const leveldb::Slice& e, bool split = true)
-    : start(s), end(e), splittable(split) {
-      // std::string str(key.data(), key.size());
-      // uint64_t key_number = std::stoull(str);
-      range_length = std::stoull(end.ToString()) - std::stoull(start.ToString());
+  dynamic_range(const leveldb::Slice& s, const leveldb::Slice& e, bool split=true, int ran_len=-1)
+    : splittable(split),kv_number(0) {
+      start_str = s.ToString();
+      end_str = e.ToString();
+      start = Slice(s);
+      end = Slice(e);
+      if(ran_len != -1){
+        range_length = ran_len;
+      }
+      else{
+        range_length = std::stoull(end.ToString()) - std::stoull(start.ToString());
+      }
     }
   
-  dynamic_range(const std::string& s, const std::string& e, bool split = true)
-    : start(s),
-    end(e), 
-    splittable(split),
+  dynamic_range(const std::string s, const std::string e, bool split=true, int ran_len=-1)
+    : splittable(split),
     kv_number(0){
-      range_length = std::stoull(end.ToString()) - std::stoull(start.ToString());
+      start_str = s;
+      end_str = e;
+      start = Slice(start_str);
+      end = Slice(end_str);
+      if(ran_len != -1){
+        range_length = ran_len;
+      }
+      else{
+        range_length = std::stoull(end.ToString()) - std::stoull(start.ToString());
+      }
     }
   
   // bool is_split();
 
-  int is_contains(const leveldb::Slice& value);
+  int is_contains(const leveldb::Slice& value) const;
 
   void update(const leveldb::Slice& value);
+
+  bool operator<(const dynamic_range& other) const {
+    if (start.compare(other.start) < 0) return true;
+    if (start.compare(other.start) == 0) return end.compare(other.end) < 0;
+    return false;
+  }
 
 };
 
@@ -52,10 +74,13 @@ class range_maintainer
 
 private:
   /* data */
-  std::vector<dynamic_range> ranges;
+  std::set<dynamic_range> ranges;
   uint64_t total_number;
-  std::string temp_data;
+  Slice temp_data;
+  char key_data[100];
   int init_range_length;
+
+  uint64_t test;
 
 public:
   range_maintainer(int );
@@ -65,6 +90,9 @@ public:
   ~range_maintainer();
 
   void add_data(const leveldb::Slice& data);
+
+
+  void print_ranges() const;
 
 };
 

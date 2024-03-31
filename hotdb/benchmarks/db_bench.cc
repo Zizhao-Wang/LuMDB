@@ -1302,6 +1302,8 @@ class Benchmark {
     // fflush(stdout);
     // exit(0);
 
+    double now = g_env->NowMicros();
+
     if (num_ != FLAGS_num) {
       char msg[100];
       std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
@@ -1317,25 +1319,28 @@ class Benchmark {
       batch.Clear();
       for (int64_t j = 0; j < entries_per_batch_; j++) {
         const int64_t k = seq ? i + j : (thread->trace->Next()% FLAGS_range);
-        std::fprintf(stdout,"k is: %ld\n",k);
+        // std::fprintf(stdout,"k is: %ld\n",k);
         char key[100];
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
-        Slice keys(key);
-        ranger.add_data(keys);
+        ranger.add_data(key);
         // batch.Put(key, gen.Generate(value_size_));
-      //   bytes += value_size_ + strlen(key);
-      //   if(thread->stats.done_ % FLAGS_stats_interval == 0){
-      //     thread->stats.AddBytes(bytes);
-      //     bytes = 0;
-      //   }
-      //   thread->stats.FinishedSingleOp(db_);
-      // }
+        // bytes += value_size_ + strlen(key);
+        // if(thread->stats.done_ % FLAGS_stats_interval == 0){
+        //   thread->stats.AddBytes(bytes);
+        //   bytes = 0;
+        // }
+        // thread->stats.FinishedSingleOp(db_);
+      }
       // s = db_->Write(write_options_, &batch);
       // if (!s.ok()) {
       //   std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
       //   std::exit(1);
-      }
+      // }
     }
+    ranger.print_ranges();
+    double now2 = g_env->NowMicros();
+    double time = now2 - now;
+    std::fprintf(stdout, "time spent: %.3f\n", time/1e6);
     thread->stats.AddBytes(bytes);
   }
 
