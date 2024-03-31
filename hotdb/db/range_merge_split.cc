@@ -143,6 +143,7 @@ void range_maintainer::add_data(const leveldb::Slice& data){
     // }
 
     total_number++;
+    return ;
 }
 
 

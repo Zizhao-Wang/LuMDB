@@ -36,7 +36,7 @@ public:
         range_length = ran_len;
       }
       else{
-        range_length = std::stoull(end.ToString()) - std::stoull(start.ToString());
+        range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
       }
     }
   
@@ -51,7 +51,7 @@ public:
         range_length = ran_len;
       }
       else{
-        range_length = std::stoull(end.ToString()) - std::stoull(start.ToString());
+        range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1 ;
       }
     }
   
@@ -98,7 +98,32 @@ public:
 
 
 
+class range_creater
+{
 
+private:
+  /* data */
+  std::set<dynamic_range> ranges;
+  uint64_t total_number;
+  Slice temp_data;
+  char key_data[100];
+  int init_range_length;
+
+  uint64_t test;
+
+public:
+  range_maintainer(int );
+
+  void increase_number();
+
+  ~range_maintainer();
+
+  void add_data(const leveldb::Slice& data);
+
+
+  void print_ranges() const;
+
+};
 
 
 
