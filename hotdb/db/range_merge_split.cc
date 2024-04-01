@@ -155,4 +155,107 @@ void range_maintainer::print_ranges() const {
     }
 }
 
+
+
+range_identifier::range_identifier(int init_length, int batch_length,double test_hot_denfinition)
+    :init_range_length(init_length),
+    total_number(0),
+    batch_size(batch_length),
+    hot_definition(10),
+    bathc_hot_definition(test_hot_denfinition){} // the default hot_definition is 10%!
+
+range_identifier::~range_identifier(){
+    std::fprintf(stdout,"There %zu ranges was released in hot ranges!\n",hot_ranges.size());
+}
+
+
+void range_identifier::print_ranges() const{
+    for (const auto& range : hot_ranges) {
+        unsigned long long start = std::stoull(range.start.ToString());
+        unsigned long long end = std::stoull(range.end.ToString());
+        fprintf(stdout, "Range start: %llu, end: %llu, length: %lu\n", start, end, range.range_length);
+    }
+}
+
+void range_identifier::check_may_merge_range(){
+    assert(temp_container.size()!=0);
+
+    auto it = temp_container.begin();
+    while (it != temp_container.end()) {
+        auto start_it = it;
+        auto next_it = std::next(it);
+        std::string start = *start_it;
+        std::string end = start;
+
+        while (next_it != temp_container.end()) {
+            long long curr = std::stoll(*it);
+            long long next = std::stoll(*next_it);
+            if (next - curr <= init_range_length) {
+                end = *next_it;
+                it = next_it;
+                next_it = std::next(it);
+            } else {
+                break;    
+            }
+
+            // 添加区间到ranges
+            hot_ranges.insert(hot_range(start, end));
+
+            if (next_it != temp_container.end()) {
+                it = next_it;
+            } else {
+                break; // 已处理完所有元素
+            }
+        }       
+    }
+
+    temp_container.clear();
+    keys.clear();
+}
+
+void range_identifier::check_and_statistic_ranges(){
+    int hot_definition_in_batch = hot_definition * bathc_hot_definition;
+    int hot_frequency = batch_size * hot_definition_in_batch / 100;
+    for (const auto& pair : keys) {
+        if(pair.second >= hot_frequency){
+            temp_container.emplace(pair.first);
+        }
+    }
+
+    if(!temp_container.empty()){
+        check_may_merge_range();
+    }
+    else{
+        keys.clear();
+    }
+
+    if(!temp_container.empty()){
+        std::fprintf(stdout, "Found %zu hot data in this batch.\n", temp_container.size());
+        check_may_merge_range();
+    } 
+    
+//     else {
+//         std::fprintf(stdout, "No hot data found in this batch.\n");
+//     }
+}
+
+void range_identifier::add_data(const leveldb::Slice& data){
+    std::string key = data.ToString();
+
+    auto it = keys.find(key);
+    if (it != keys.end()) {
+        // if found
+        it->second += 1;
+    } else {
+        // if not found
+        keys[key] = 1;
+    }
+
+    total_number++;
+
+    if(total_number!=0 && total_number%batch_size == 0){
+        check_and_statistic_ranges();
+    }
+}
+
 }  // namespace leveldb

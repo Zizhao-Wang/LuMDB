@@ -1314,7 +1314,7 @@ class Benchmark {
     WriteBatch batch;
     Status s;
     int64_t bytes = 0;
-    range_maintainer ranger(5);
+    range_identifier hot_range_identifier(5,1000);
     for (int64_t i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int64_t j = 0; j < entries_per_batch_; j++) {
@@ -1322,7 +1322,7 @@ class Benchmark {
         // std::fprintf(stdout,"k is: %ld\n",k);
         char key[100];
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
-        ranger.add_data(key);
+        hot_range_identifier.add_data(key);
         // batch.Put(key, gen.Generate(value_size_));
         // bytes += value_size_ + strlen(key);
         // if(thread->stats.done_ % FLAGS_stats_interval == 0){
@@ -1337,7 +1337,7 @@ class Benchmark {
       //   std::exit(1);
       // }
     }
-    ranger.print_ranges();
+    hot_range_identifier.print_ranges();
     double now2 = g_env->NowMicros();
     double time = now2 - now;
     std::fprintf(stdout, "time spent: %.3f\n", time/1e6);
