@@ -224,7 +224,7 @@ void range_identifier::check_and_statistic_ranges(){
 
     if(!temp_container.empty()){
         check_may_merge_range();
-    }
+    }+
     else{
         keys.clear();
     }
