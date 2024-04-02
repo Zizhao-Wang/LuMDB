@@ -1436,7 +1436,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].bytes_read_hot += hot_count;
     level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].bytes_read_cold += cold_count;
     level_hot_cold_stats[compact->compaction->level() + 1][percentages1[i]].total_count_hc += total_data_count;
-    fprintf(stdout,"level:%u total_:%ld hot_count:%ld cold_count:%ld sum:%ld percentages1[i]:%d\n", compact->compaction->level() + 1, total_data_count,hot_count, cold_count,hot_count+cold_count, percentages1[i]);
+    // fprintf(stdout,"level:%u total_:%ld hot_count:%ld cold_count:%ld sum:%ld percentages1[i]:%d\n", compact->compaction->level() + 1, total_data_count,hot_count, cold_count,hot_count+cold_count, percentages1[i]);
     // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot!=0 && hot_count!=0);
     // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold!=0 && hot_count!=0);
     // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot!=0);
@@ -1456,8 +1456,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
     // assert(written_diff < epsilon);
   }
-  fprintf(stdout,"==========\n\n");
-  fflush(stdout);
+  // fprintf(stdout,"==========\n\n");
+  // fflush(stdout);
 
   if (status.ok()) {
     status = InstallCompactionResults(compact);
