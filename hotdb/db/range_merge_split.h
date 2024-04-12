@@ -103,14 +103,14 @@ struct data_maintainer{
   int64_t frequency;
 };
 
-struct hot_range{
+struct hotdb_range{
 
   Slice start, end;
   uint64_t kv_number;
-  int64_t range_length;
+  uint64_t range_length;
   std::string start_str, end_str;
 
-  hot_range(const Slice& s, const Slice& e)
+  hotdb_range(const Slice& s, const Slice& e)
   :kv_number(0),
   start_str(s.ToString()),
   end_str(e.ToString()),
@@ -119,7 +119,7 @@ struct hot_range{
     range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
   }
 
-  hot_range(const std::string& s, const std::string& e)
+  hotdb_range(const std::string& s, const std::string& e)
   :kv_number(0),
   start_str(s),
   end_str(e),
@@ -128,10 +128,43 @@ struct hot_range{
     range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
   }
 
-  bool operator<(const hot_range& other) const {
+  hotdb_range(const std::string& s, const std::string& e, uint64_t kv_num)
+  :kv_number(kv_num),
+  start_str(s),
+  end_str(e),
+  start(Slice(start_str)),
+  end(Slice(end_str)){
+    range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
+  }
+
+  bool operator<(const hotdb_range& other) const {
     if (start.compare(other.start) < 0) return true;
     if (start.compare(other.start) == 0) return end.compare(other.end) < 0;
     return false;
+  }
+
+  uint64_t length() const {
+    return range_length;
+  }
+
+  // bool has_intersection(const hotdb_range& other) const {
+  //   return !(end_str < other.start_str || start_str > other.end_str);
+  // }
+
+  bool has_intersection_with(const hotdb_range& rhs) const {
+    return std::stoull(start_str) <= std::stoull(rhs.end_str) &&
+           std::stoull(end_str) >= std::stoull(rhs.start_str);
+  } 
+
+
+  void merge_with(const hotdb_range& other) {
+    // 更新start_str和end_str为合并后的范围边界
+    start_str = std::min(start_str, other.start_str);
+    end_str = std::max(end_str, other.end_str);
+    // 假设键值数量是平均分布的，重新计算kv_number
+    uint64_t total_length = std::stoull(end_str) - std::stoull(start_str) + 1;
+    kv_number = (kv_number * range_length + other.kv_number * other.range_length) / total_length;
+    range_length = total_length; // 更新范围长度
   }
 
 };
@@ -151,7 +184,7 @@ struct batch_data{
   end(Slice(end_str)),
   fre_per_number((double)batch_number/batch_length){}
 
-  bool operator<(const hot_range& other) const {
+  bool operator<(const hotdb_range& other) const {
     if (start.compare(other.start) < 0) return true;
     if (start.compare(other.start) == 0) return end.compare(other.end) < 0;
     return false;
@@ -176,7 +209,10 @@ class range_identifier
 
 private:
   /* data */
-  std::set<hot_range> hot_ranges;
+  std::set<hotdb_range> hot_ranges;
+  std::set<hotdb_range> current_ranges;
+  std::set<hotdb_range> total_cold_ranges;
+  std::set<hotdb_range> current_cold_ranges;
   std::vector<batch_data> existing_batch_data;
   std::unordered_map<std::string, int32_t> keys;
   std::set<std::string, CompareStringLength> temp_container;
@@ -191,7 +227,11 @@ public:
 
   void print_ranges() const;
 
-  void check_may_merge_range();
+  void check_may_merge_split_range();
+
+  void record_cold_ranges();
+
+  void record_cold_ranges(uint64_t hot_keys_total_count);
 
   void check_and_statistic_ranges();
 
