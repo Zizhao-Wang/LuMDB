@@ -162,7 +162,10 @@ range_identifier::range_identifier(int init_length, int batch_length,double test
     total_number(0),
     batch_size(batch_length),
     hot_definition(10),
-    bathc_hot_definition(test_hot_denfinition){} // the default hot_definition is 10%!
+    bathc_hot_definition(test_hot_denfinition)
+    {
+        sorted_keys.reserve(batch_length);  
+    } // the default hot_definition is 10%!
 
 range_identifier::~range_identifier(){
     std::fprintf(stdout,"There %zu ranges was released in hot ranges!\n",hot_ranges.size());
@@ -204,9 +207,8 @@ void range_identifier::check_may_merge_split_range(){
         }
 
         // 添加区间到ranges，包括起始键、结束键和键的出现次数之和
-        hot_ranges.insert(hotdb_range(start, end, kv_num));
         fprintf(stdout, "Inserted hot range - Start: %s, End: %s, KV Num: %lu\n", start.c_str(), end.c_str(), kv_num);
-
+        hot_ranges.insert(hotdb_range(start, end, kv_num));
 
         if (next_it != temp_container.end()) {
             it = next_it; // 移动到下一个范围的起始键
@@ -283,13 +285,23 @@ void range_identifier::record_cold_ranges(uint64_t cold_keys_count ) {
 }
 
 void range_identifier::check_and_statistic_ranges(){
-    int hot_definition_in_batch = hot_definition * bathc_hot_definition;
-    int hot_frequency = batch_size * hot_definition_in_batch / 100;
-    for (const auto& pair : keys) {
-        if(pair.second >= hot_frequency){
+    // int hot_definition_in_batch = hot_definition * bathc_hot_definition;
+    // int hot_frequency = batch_size * hot_definition_in_batch / 100;
+
+    int hot_keys_per_batch = batch_size * hot_definition / 100;
+    int hot_frequency_per_key = bathc_hot_definition;
+
+    for (int i = 0; i < hot_keys_per_batch && i < sorted_keys.size(); ++i) {
+        const auto& pair = sorted_keys[i];
+        if (pair.second >= hot_frequency_per_key) {
             temp_container.emplace(pair.first);
+            fprintf(stdout, "%s number:%d \n", pair.first.c_str(),pair.second);
         }
     }
+
+    // for (const auto& item : temp_container) {
+    //     fprintf(stdout, "%s\n", item.c_str());
+    // }
 
     if(!temp_container.empty()){
         check_may_merge_split_range();
@@ -302,22 +314,98 @@ void range_identifier::check_and_statistic_ranges(){
     
 }
 
-void range_identifier::add_data(const leveldb::Slice& data){
-    std::string key = data.ToString();
+void range_identifier::printMap(const std::unordered_map<std::string, int32_t>& map) {
+    for (const auto& pair : map) {
+        fprintf(stderr, "Key: %s, Value: %d\n", pair.first.c_str(), pair.second);
+    }
+}
 
-    auto it = keys.find(key);
-    if (it != keys.end()) {
-        // if found
-        it->second += 1;
-    } else {
-        // if not found
-        keys[key] = 1;
+void range_identifier::vector_sort_merge_data(){
+    // 排序和归并次数
+    std::sort(keys_data.begin(), keys_data.end(), [](const std::pair<std::string, int32_t>& a, const std::pair<std::string, int32_t>& b) {
+        return a.first< b.first;  // 按键排序，为归并做准备
+    });
+
+    // 归并次数
+    std::vector<std::pair<std::string, int32_t>> merged;
+    for (const auto& item : keys_data) {
+        if (!merged.empty() && merged.back().first == item.first) {
+            merged.back().second += 1;  // 同一个键，次数累加
+        } else {
+            merged.push_back(item);  // 不同键，添加新元素
+        }
     }
 
+    // 最后按次数排序
+    std::sort(merged.begin(), merged.end(), [](const std::pair<std::string, int32_t>& a, const std::pair<std::string, int32_t>& b) {
+        return a.second > b.second;  // 按次数降序排序
+    });
+
+    // fprintf(stderr, "Merged data size: %zu\n", merged.size());
+}
+
+void range_identifier::unordered_map_sort_merge_data(){
+    // 按需排序
+    sorted_keys.clear(); // 清空现有数据
+
+    for (const auto& kv : keys) {
+        sorted_keys.emplace_back(kv.first, kv.second); // 将unordered_map的元素复制到vector
+    }
+
+    std::sort(sorted_keys.begin(), sorted_keys.end(),
+        [](const std::pair<std::string, int32_t>& a, const std::pair<std::string, int32_t>& b) {
+            return a.second > b.second; 
+    });
+
+    // fprintf(stderr, "Merged data size: %zu\n", sorted_keys.size());
+}
+
+inline void range_identifier::set_increment(std::string& key) {
+    auto it = keys_data_set.lower_bound({key, 0});  // 找到位置或可能插入的位置
+    if (it != keys_data_set.end() && it->first == key) {
+        // 如果找到，更新值
+        int new_count = it->second + 1;
+        keys_data_set.erase(it);  // 移除旧元素
+        keys_data_set.insert({key, new_count});  // 插入更新后的新元素
+    } else {
+        // 如果未找到，插入新键值对
+        keys_data_set.insert({key, 1});
+    }
+}
+
+inline void range_identifier::vector_increment(std::string& key){
+    keys_data.emplace_back(std::make_pair(key, 1));
+}
+
+inline void range_identifier::unordered_map_increment(std::string& key){
+    auto it = keys.find(key);
+    if (it != keys.end()) {
+        // if found, increment the count
+        it->second += 1;
+    } else {
+        // if not found, insert new key with count 1
+        keys[key] = 1;
+    }
+}
+
+void range_identifier::add_data(const leveldb::Slice& data){
+
+    std::string key = data.ToString();
+    // set_increment(key);
+    // vector_increment(key);
+    unordered_map_increment(key);
     total_number++;
 
+
     if(total_number!=0 && total_number%batch_size == 0){
-        check_and_statistic_ranges();
+        // vector_sort_merge_data();  // 1.
+        // keys_data.clear();
+        unordered_map_sort_merge_data(); // 2.
+        check_and_statistic_ranges(); 
+        keys.clear();
+        // set_sort_merge_data(); //3.
+        // keys_data_set.clear();
+        
     }
 }
 

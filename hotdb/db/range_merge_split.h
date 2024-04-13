@@ -204,6 +204,15 @@ struct CompareStringLength {
 };
 
 
+struct KeyCompare {
+  bool operator()(const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) const {
+    if (a.second == b.second) {
+      return a.first < b.first; // 如果second相同，则按first排序
+    }
+    return a.second < b.second; // 主要按second排序
+  }
+};
+
 class range_identifier
 {
 
@@ -214,7 +223,12 @@ private:
   std::set<hotdb_range> total_cold_ranges;
   std::set<hotdb_range> current_cold_ranges;
   std::vector<batch_data> existing_batch_data;
+
   std::unordered_map<std::string, int32_t> keys;
+  std::vector<std::pair<std::string, int32_t>> sorted_keys;
+  std::vector<std::pair<std::string, int32_t>> keys_data;
+  std::set<std::pair<std::string, int>, KeyCompare> keys_data_set;
+
   std::set<std::string, CompareStringLength> temp_container;
   uint64_t total_number, batch_size;
   int init_range_length, hot_definition;
@@ -234,6 +248,25 @@ public:
   void record_cold_ranges(uint64_t hot_keys_total_count);
 
   void check_and_statistic_ranges();
+
+
+  void printMap(const std::unordered_map<std::string, int32_t>& map);
+
+
+
+  void vector_sort_merge_data();
+
+  void unordered_map_sort_merge_data();
+
+
+
+  void set_increment(std::string& key);
+
+  void vector_increment(std::string& key);
+
+  void unordered_map_increment(std::string& key);
+
+
 
   void add_data(const leveldb::Slice& data);
 

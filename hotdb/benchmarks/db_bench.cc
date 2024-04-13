@@ -136,6 +136,11 @@ DEFINE_int32(value_size, 100, "Size of each value");
 
 DEFINE_int32(read_write_ratio, 100, "read_write_ratio");
 
+
+DEFINE_int32(hot_batch, 1000, "Size of each value");
+
+DEFINE_int32(hot_init_range, 5, "read_write_ratio");
+
 // Arrange to generate values that shrink to this fraction of
 // their original size after compression
 DEFINE_double(compression_ratio, 0.5, "Arrange to generate values that shrink"
@@ -1289,7 +1294,7 @@ class Benchmark {
 
   void WriteSeq(ThreadState* thread) { DoWrite(thread, true); }
 
-  void WriteRandom(ThreadState* thread) { DoWrite(thread, false); }
+  void WriteRandom(ThreadState* thread) { DoWrite3(thread, false); }
 
   void WriteZipf(ThreadState* thread) { DoWrite_zipf2(thread, false); }
 
@@ -1342,6 +1347,72 @@ class Benchmark {
     double time = now2 - now;
     std::fprintf(stdout, "time spent: %.3f\n", time/1e6);
     thread->stats.AddBytes(bytes);
+  }
+
+  void DoWrite3(ThreadState* thread, bool seq) {
+
+    double now = g_env->NowMicros();
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    range_identifier hot_range_identifier(FLAGS_hot_init_range,FLAGS_hot_batch);
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+    ino64_t total_ops=0;
+    for (int64_t i = 0; i < num_; i ++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int64_t k = seq ? i + j : (thread->trace->Next()% FLAGS_range);
+        if (!std::getline(csv_file, line)) { 
+          fprintf(stderr, "Error reading key from file in line %lu\n",i);
+          continue; 
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+            row_data.push_back(cell);
+        }
+        if (row_data.size() != 1) {
+            fprintf(stderr, "Invalid CSV row format\n");
+            continue;
+        }
+        const uint64_t k = std::stoull(row_data[0]); 
+        char key[100];
+        // int numChars = 
+        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+        hot_range_identifier.add_data(key);
+
+        // if(i == FLAGS_hot_batch){
+        //   total_ops = i;
+        //   break;
+        // }
+    }
+    hot_range_identifier.print_ranges();
+    double now2 = g_env->NowMicros();
+    double time = now2 - now;
+    // FILE *fp = fopen("unorderedmap_output_1M.txt", "a");
+    // if (fp == NULL) {
+    //     std::fprintf(stderr, "Failed to open file\n");
+    //     exit(0);
+    // }
+    // std::fprintf(fp, "time spent: %.3fs operations: %lu in set unorderedmap 1M with ordering (direct copy)\n", time / 1e6, total_ops);
+    // fclose(fp);
   }
 
   void DoWrite2(ThreadState* thread, bool seq) {

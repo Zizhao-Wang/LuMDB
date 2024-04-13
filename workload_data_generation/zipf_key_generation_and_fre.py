@@ -8,13 +8,13 @@ from tqdm import tqdm  # 正确导入tqdm函数
 import polars as pl
 
   
-a_values = [1.02]  #  1.2, 1.3, 1.4
-percents = [100]   # 5, 10, 15, 20, 25, 30
+a_values = [1.02, 1.2, 1.3, 1.4]  #  
+percents = [1]   # 
 
 
-billion = 1000  # 1 Billion
+billion = 1000000  # 1 Billion
 # billion = 10000  # 1 Billion
-num_keys = 10 * billion  # 5 Billion
+num_keys = 1 * billion  
 file_size_in_billions = num_keys / billion  # 计算为Billion的数量
 # file_name = f'/home/jeff-wang/workloads/zipf{args.a_value}_keys{file_size_in_billions}B.csv'
 # key_fre_file_name = f'/home/jeff-wang/workloads/zipf{args.a_value}_hotkeys{file_size_in_billions}B.csv'
@@ -74,10 +74,11 @@ def generate_and_process_data(a_value, num_keys, percent, key_file_name, key_fre
     #     print(f"Data for Zipf parameter {a_value} keys written to {key_file_name}")
  
 
-
+key_size=16
+val_size=128
 for a in tqdm(a_values, desc="Processing zipf values"):
-    file_name = f'/home/jeff-wang/workloads/zipf{a}_keys{file_size_in_billions}B.csv'
+    file_name = f'/home/jeff-wang/hotdb_workloads_test/zipf{a}_keys{key_size}_value{val_size}_{file_size_in_billions}M.csv'
     # generate_keys(a, num_keys, file_name)
     for percent in tqdm(percents, desc=f"Processing percents for a={a}"):
-        key_fre_file_name = f'/home/jeff-wang/workloads/zipf{a}_2top{percent}_keys{file_size_in_billions}B.csv'
+        key_fre_file_name = f'/home/jeff-wang/hotdb_workloads_test/zipf{a}_top{percent}_keys{key_size}_value{val_size}_{file_size_in_billions}M.csv'
         generate_and_process_data( a, num_keys, percent, file_name, key_fre_file_name)
