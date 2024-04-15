@@ -43,6 +43,15 @@
 
 import re
 
+# 全局变量来控制调试输出
+DEBUG = False
+
+def debug_print(*args):
+    """Print debug information only if debugging is enabled."""
+    if DEBUG:
+        print(*args)
+
+
 def extract_percent_data(log_file_path, level, percent, percent_number):
     results = []
     record_point_start_re = re.compile(r'^-{50}$')
@@ -92,6 +101,9 @@ def extract_percent_data(log_file_path, level, percent, percent_number):
     return results
 
 
+
+
+
 def process_data_and_save_to_file(extracted_data, output_file_path):
     # 初始化一个空的二维列表（类似于C++中的vector<vector<float>>）
     ratios_list = []
@@ -99,24 +111,35 @@ def process_data_and_save_to_file(extracted_data, output_file_path):
     for index, data in extracted_data:
         # 将字符串数据转换为整数
         data_int = [int(x) for x in data]
+        debug_print("Converted data to integers:", data_int)  # 输出转换后的整数数组
         # 计算第二个和第三个数据的和
-        total_r = data_int[1] + data_int[2]
+        total_r = data_int[0] + data_int[1]
+        debug_print("Sum of second and third elements (total_r):", total_r) 
         # 计算第四个和第五个数据的和
-        total_w = data_int[3] + data_int[4]
+        total_w = data_int[2] + data_int[3]
+        debug_print("Sum of fourth and fifth elements (total_w):", total_w) 
 
         if total_r > 0:  # 确保分母不为0
             # 计算比例
-            ratio_1rd = data_int[1] / total_r
-            ratio_2th = data_int[2] / total_r
+            ratio_1rd = data_int[0] / total_r
+            ratio_2th = data_int[1] / total_r
+            debug_print("Ratio for second data (ratio_1rd):", ratio_1rd)
+            debug_print("Ratio for third data (ratio_2th):", ratio_2th)
         else:
             ratio_1rd, ratio_2th = 0, 0  # 如果和为0，则比例默认为0
+            debug_print("Total_r is zero, set ratio_1rd and ratio_2th to 0")
 
         if total_w > 0:  # 确保分母不为0
             # 计算比例
-            ratio_3rd = data_int[3] / total_w
-            ratio_4th = data_int[4] / total_w
+            ratio_3rd = data_int[2] / total_w
+            ratio_4th = data_int[3] / total_w
+            debug_print("Ratio for fourth data (ratio_3rd):", ratio_3rd)
+            debug_print("Ratio for fifth data (ratio_4th):", ratio_4th)
         else:
             ratio_3rd, ratio_4th = 0, 0  # 如果和为0，则比例默认为0
+            debug_print("Total_w is zero, set ratio_3rd and ratio_4th to 0")
+        
+        # exit(0)
 
         # 将这四个比例加入到列表中
         ratios_list.append([ratio_1rd, ratio_2th, ratio_3rd, ratio_4th])
@@ -131,6 +154,8 @@ log_file_path = '/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_s
 
 levels=[1,2,3,4,5]
 
+percentss=[1,2,3,4,5,6,7]
+
 dictionary = {
     1: 1,
     2: 5,
@@ -141,15 +166,14 @@ dictionary = {
     7: 30
 }
 
-percent_select = 7
-
-for level in levels:
-    extracted_data = extract_percent_data(log_file_path, level, percent_select,dictionary[percent_select])
-    for index, data in extracted_data:
-        if index < 10:
-            print(f"Record Point {index}: {' '.join(data)}")
-    print(f"level {level} extracted data: {len(extracted_data)} records\n\n")
-    # 使用示例
-    output_file_path = f'/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hc/extract_floder/zipf1.1/percent{dictionary[percent_select]}/outputfile{level}.txt'  # 替换为您想保存结果的文件路径
-    process_data_and_save_to_file(extracted_data, output_file_path)
+for percent_select in percentss:
+    for level in levels:
+        extracted_data = extract_percent_data(log_file_path, level, percent_select,dictionary[percent_select])
+        for index, data in extracted_data:
+            if index < 10:
+                print(f"Record Point {index}: {' '.join(data)}")
+        print(f"level {level} extracted data: {len(extracted_data)} records\n\n")
+        # 使用示例
+        output_file_path = f'/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hc/extract_floder/zipf1.1/percent{dictionary[percent_select]}/outputfile{level}.txt'  # 替换为您想保存结果的文件路径
+        process_data_and_save_to_file(extracted_data, output_file_path)
 
