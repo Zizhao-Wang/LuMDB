@@ -1342,7 +1342,7 @@ class Benchmark {
       //   std::exit(1);
       // }
     }
-    hot_range_identifier.print_ranges();
+    hot_range_identifier.print_hot_ranges();
     double now2 = g_env->NowMicros();
     double time = now2 - now;
     std::fprintf(stdout, "time spent: %.3f\n", time/1e6);
@@ -1403,7 +1403,7 @@ class Benchmark {
         //   break;
         // }
     }
-    hot_range_identifier.print_ranges();
+    hot_range_identifier.print_hot_ranges();
     double now2 = g_env->NowMicros();
     double time = now2 - now;
     // FILE *fp = fopen("unorderedmap_output_1M.txt", "a");

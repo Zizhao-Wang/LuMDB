@@ -42,6 +42,7 @@
 namespace leveldb {
 
 const int kNumNonTableCacheFiles = 10;
+// #define zipf_hc_compaction_monitor
 
 // Information kept for every waiting writer
 struct DBImpl::Writer {
@@ -1044,6 +1045,53 @@ void DBImpl::batch_load_keys_from_CSV(const std::string& filePaths, const std::s
   }
 }
 
+void DBImpl::batch_load_keys_from_CSV2(const std::string& filePaths, const std::string& percentagesStr){
+  
+  std::vector<std::string> files;
+  std::vector<int> percentages;
+  std::stringstream ssFiles(filePaths);
+  std::stringstream ssPercentages(percentagesStr);
+  std::string item;
+
+  // 解析hot files路径
+  while (std::getline(ssFiles, item, ',')) {
+    files.push_back(item);
+    fprintf(stderr, "Parsed file: %s\n", item.c_str());
+  }
+
+  // 解析percentages
+  while (std::getline(ssPercentages, item, ',')) {
+    percentages.push_back(std::stoi(item));
+    fprintf(stdout, "Parsed percentage: %d\n", std::stoi(item));
+  }
+
+
+  if (files.size() != percentages.size()) {
+    fprintf(stderr,"Error: The number of files does not match the number of percentages.\n");
+    return;
+  }
+
+  for (size_t i = 0; i < files.size(); ++i) {
+    std::unordered_map<uint64_t,int> current_map;
+    std::ifstream file(files[i]);
+    std::string line;
+    std::getline(file, line); // Skip header
+
+    while (std::getline(file, line)) {
+      std::stringstream lineStream(line);
+      std::string keyStr;
+      uint64_t key;
+
+      std::getline(lineStream, keyStr, ',');
+      key = std::stoll(keyStr);
+      current_map[key]=0;
+    }
+
+    fprintf(stderr, "Loaded %zu hot keys from %s for %d%% \n", current_map.size(), files[i].c_str(), percentages[i]);
+    hot_keys_map[percentages[i]] = current_map;
+  }
+}
+
 void DBImpl::testSpecialKeys() {
 
     const std::string& testFilePath = "/home/jeff-wang/workloads/etc_output_file1.02.csv";
@@ -1218,6 +1266,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+#ifdef zipf_hc_compaction_monitor
   std::map<int,uint64_t> hot_data_counts; 
   std::map<int,uint64_t> cold_data_counts;
   uint64_t total_data_count = 0;
@@ -1226,7 +1275,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     hot_data_counts[percentage] = 0;
     cold_data_counts[percentage] = 0;
   }
-
+#endif
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
@@ -1246,6 +1295,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     Slice key = input->key();
     
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+#ifdef zipf_hc_compaction_monitor
     bool is_hot_data1 = false;
     if(versions_->compute_hot_cold_range(key, hot_range, is_hot_data1)){
       std::string str(key.data(), key.size());
@@ -1260,6 +1310,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       }
       total_data_count++;
     }
+#endif 
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
     if (compact->compaction->ShouldStopBefore(key) &&
@@ -1402,7 +1453,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   // level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
-
+#ifdef zipf_hc_compaction_monitor
   for (int i=0;i<percentages1.size();i++) {
     int64_t hot_count = hot_data_counts[percentages1[i]];
     int64_t cold_count = cold_data_counts[percentages1[i]];
@@ -1456,6 +1507,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
     // assert(written_diff < epsilon);
   }
+#endif
   // fprintf(stdout,"==========\n\n");
   // fflush(stdout);
 
@@ -2134,7 +2186,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
 
   // //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // std::fprintf(stdout,"Test start!\n");
-  impl->batch_load_keys_from_CSV(impl->hot_file_path, impl->percentagesStr);
+  impl->batch_load_keys_from_CSV2(impl->hot_file_path, impl->percentagesStr);
   impl->initialize_level_hotcoldstats();
   // // impl->test_hot_keys();
   // std::fprintf(stdout,"Test over!\n");

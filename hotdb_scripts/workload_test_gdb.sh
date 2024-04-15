@@ -20,16 +20,13 @@ for i in {1..1}; do
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
 
-                   
-
-
                     echo "base_num: $base_num"
                     echo "num_entries: $num_entries"
                     echo "value_size:$value_size"
                     echo "stats_interval: $stats_interva"
                     for hot_batchs in 1000 ; do  #1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 6500 7000 8000 9000 10000
                     sudo gdb --args  ../../hotdb/release/db_bench \
-                    --db=/mnt/nvm/level8B \
+                    --db=/mnt/hotdb_test/1B/ \
                     --num=$num_entries \
                     --value_size=$value_size \
                     --batch_size=1000 \

@@ -10,6 +10,7 @@
 #include <set>
 #include <map>
 #include <unordered_set>
+#include <unordered_map>
 #include <string>
 
 #include "db/dbformat.h"
@@ -267,6 +268,8 @@ class DBImpl : public DB {
 
   void batch_load_keys_from_CSV(const std::string& filePath, const std::string& percentagesStr);
 
+  void batch_load_keys_from_CSV2(const std::string& filePath, const std::string& percentagesStr);
+
   bool is_hot_key(uint64_t key) {
     return hot_keys.find(key) != hot_keys.end();
   }
@@ -361,6 +364,7 @@ class DBImpl : public DB {
   std::unordered_set<leveldb::Slice, SliceHash, SliceEqual> specialKeys;
   std::unordered_set<uint64_t> hot_keys;
   std::map<int, std::unordered_set<uint64_t>> hot_keys_sets;
+  std::map<int, std::unordered_map<uint64_t, int>> hot_keys_map;
   bool is_first;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 

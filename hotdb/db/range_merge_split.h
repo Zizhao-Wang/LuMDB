@@ -8,6 +8,7 @@
 #include <string>
 #include <set>
 #include <vector>
+#include <exception>
 #include <unordered_map>
 
 #include "db/dbformat.h"
@@ -110,12 +111,12 @@ struct hotdb_range{
   uint64_t range_length;
   std::string start_str, end_str;
 
-  hotdb_range(const Slice& s, const Slice& e)
-  :kv_number(0),
+  hotdb_range(const Slice& s, const Slice& e, uint64_t kv_num)
+  :kv_number(kv_num),
   start_str(s.ToString()),
-  end_str(e.ToString()),
-  start(Slice(start_str)),
-  end((end_str)){
+  end_str(e.ToString()){
+    start= Slice(start_str);
+    end = Slice(end_str);
     range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
   }
 
@@ -137,6 +138,48 @@ struct hotdb_range{
     range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
   }
 
+  hotdb_range(std::string& s,  std::string& e, uint64_t kv_num)
+  :kv_number(kv_num),start_str(s),end_str(e){
+    start= Slice(start_str);
+    end = Slice(end_str);
+    // Outputting the initial state of the start and end slices
+    // Output the initial state of the start and end slices
+    // fprintf(stderr, "Start Slice: %s\n", start.ToString().c_str());
+    // fprintf(stderr, "End Slice: %s\n", end.ToString().c_str());
+
+    // Outputting addresses and sizes
+    // fprintf(stderr, "Address of s: %p, size: %zu\n", &s, s.size());
+    // fprintf(stderr, "Address of e: %p, size: %zu\n", &e, e.size());
+    // fprintf(stderr, "Address of start_str: %p, size: %zu\n", (void*)start_str.data(), start_str.size());
+    // fprintf(stderr, "Address of end_str: %p, size: %zu\n", (void*)end_str.data(), end_str.size());
+    // fprintf(stderr, "Start data address: %p, actual pointed-to address: %p, size: %zu\n", (void*)start.data(), start.data(), start.size());
+    // fprintf(stderr, "End data address: %p, actual pointed-to address: %p, size: %zu\n", (void*)end.data(), end.data(), end.size());
+
+    range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
+    // fprintf(stderr,"start_str: %s\n", std::stoull(end.ToString()));
+    // fprintf(stderr, "start_str:%llu, end:%llu, Range Length: %lu\n",std::stoull(end.ToString()),std::stoull(start.ToString()), range_length);
+    // exit(0);
+  }
+
+  bool contains(const std::string& value) const {
+    return start.compare(value) <= 0 && end.compare(value) >= 0;
+  }
+
+  double get_average_num_rate() const {
+    return (double)kv_number / range_length;
+  }
+
+  bool should_merge(const hotdb_range& rhs){
+    if (this->has_intersection_with(rhs)) {
+      return true;
+    }
+    // 检查是否相邻
+    if (std::stoull(this->end_str) + 1 == std::stoull(rhs.start_str) || std::stoull(rhs.end_str) + 1 == std::stoull(this->start_str)) {
+      return true;
+    }
+    return false;
+  }
+
   bool operator<(const hotdb_range& other) const {
     if (start.compare(other.start) < 0) return true;
     if (start.compare(other.start) == 0) return end.compare(other.end) < 0;
@@ -152,10 +195,8 @@ struct hotdb_range{
   // }
 
   bool has_intersection_with(const hotdb_range& rhs) const {
-    return std::stoull(start_str) <= std::stoull(rhs.end_str) &&
-           std::stoull(end_str) >= std::stoull(rhs.start_str);
+    return start.compare(rhs.end) <= 0 && end.compare(rhs.start) >= 0;
   } 
-
 
   void merge_with(const hotdb_range& other) {
     // 更新start_str和end_str为合并后的范围边界
@@ -165,6 +206,10 @@ struct hotdb_range{
     uint64_t total_length = std::stoull(end_str) - std::stoull(start_str) + 1;
     kv_number = (kv_number * range_length + other.kv_number * other.range_length) / total_length;
     range_length = total_length; // 更新范围长度
+  }
+
+  void print_range_info(){
+    fprintf(stdout, " [Range Information] start: %llu , end: %llu, length: %lu kv_num:%lu\n", std::stoull(start_str), std::stoull(end_str), range_length, kv_number);
   }
 
 };
@@ -194,13 +239,13 @@ struct batch_data{
 
 
 struct CompareStringLength {
-    bool operator()(const std::string& a, const std::string& b) const {
-      const size_t min_len = (a.size() < b.size()) ? a.size() : b.size();
-      int r = memcmp(a.data(), b.data(), min_len);
-      if (r < 0) return true;  // 如果a在字典序上小于b，则a < b
-      if (r > 0) return false; // 如果a在字典序上大于b，则a > b
-      return a.size() < b.size();
-    }
+  bool operator()(const std::string& a, const std::string& b) const {
+    const size_t min_len = (a.size() < b.size()) ? a.size() : b.size();
+    int r = memcmp(a.data(), b.data(), min_len);
+    if (r < 0) return true;  // 如果a在字典序上小于b，则a < b
+    if (r > 0) return false; // 如果a在字典序上大于b，则a > b
+    return a.size() < b.size();
+  }
 };
 
 
@@ -218,14 +263,24 @@ class range_identifier
 
 private:
   /* data */
-  std::set<hotdb_range> hot_ranges;
-  std::set<hotdb_range> current_ranges;
+  int test_num;
+  bool is_first;
+  std::vector<hotdb_range> hot_ranges;
+  std::vector<hotdb_range> current_ranges;
+
   std::set<hotdb_range> total_cold_ranges;
   std::set<hotdb_range> current_cold_ranges;
+
   std::vector<batch_data> existing_batch_data;
 
+  /**
+   * @brief record key-frequency pairs using map
+   */
   std::unordered_map<std::string, int32_t> keys;
   std::vector<std::pair<std::string, int32_t>> sorted_keys;
+  std::set<std::string> sorted_by_keys;
+
+
   std::vector<std::pair<std::string, int32_t>> keys_data;
   std::set<std::pair<std::string, int>, KeyCompare> keys_data_set;
 
@@ -237,11 +292,28 @@ private:
 public:
   range_identifier(int init_length, int batch_length, double test_hot_denfinition=2);
 
+
+
   ~range_identifier();
 
-  void print_ranges() const;
+  void print_hot_ranges() const;
+
+  void print_currenthot_ranges() const;
+
+  void print_temp_container() const;
+
+  void merge_ranges_in_container(bool is_first);
+
+
 
   void check_may_merge_split_range();
+
+  // 合并两个区间
+  hotdb_range merge_ranges( hotdb_range& first, const hotdb_range& second); 
+
+  void may_merge_internal_ranges_in_total_range();
+
+  void may_merge_split_range_to_total_range();
 
   void record_cold_ranges();
 

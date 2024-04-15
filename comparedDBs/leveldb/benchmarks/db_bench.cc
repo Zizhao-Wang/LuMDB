@@ -567,6 +567,7 @@ class Stats {
   uint64_t next_report_;
   double next_report_time_;
   int64_t   bytes_;
+  uint64_t real_ops;
   double last_op_finish_;
   Histogram hist_;
   std::string message_;
@@ -583,6 +584,7 @@ class Stats {
     last_report_finish_ = start_;
     hist_.Clear();
     done_ = 0;
+    real_ops = 0;
     bytes_ = 0;
     seconds_ = 0;
     finish_ = start_;
@@ -703,18 +705,18 @@ class Stats {
       else if (next_report_ < 500000) next_report_ += 50000;
       else                            next_report_ += 100000;
 
-      if((FLAGS_stats_interval != -1) && done_ % FLAGS_stats_interval == 0) {
-        PrintSpeed(); 
-        if (FLAGS_print_wa && db) {
-          std::string stats;
-          if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
-            stats = "(failed)";
-          }
-          fprintf(stdout, "%s\n", stats.c_str());
-          fprintf(stdout, "%lu operations have been finished (user has been written %.3f MB data into db.)\n\n\n", done_, bytes_/1048576.0);
-          fflush(stdout);
-        }
-      }
+      // if((FLAGS_stats_interval != -1) && real_ops % FLAGS_stats_interval == 0) {
+      //   PrintSpeed(); 
+      //   if (FLAGS_print_wa && db) {
+      //     std::string stats;
+      //     if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
+      //       stats = "(failed)";
+      //     }
+      //     fprintf(stdout, "%s\n", stats.c_str());
+      //     fprintf(stdout, "leveldb statistical: %lu operations (real operations: %lu) have been finished (user has been written %.3f MB data into db.)\n\n\n", done_, real_ops, bytes_/1048576.0);
+      //     fflush(stdout);
+      //   }
+      // }
       fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
       fflush(stderr);
     }
@@ -722,6 +724,22 @@ class Stats {
 
   void AddBytes(int64_t n) {
     bytes_ += n;
+  }
+
+  void Addops(DB* db = nullptr) {
+    real_ops++;
+    if((FLAGS_stats_interval != -1) && real_ops % FLAGS_stats_interval == 0) {
+      PrintSpeed(); 
+      if (FLAGS_print_wa && db) {
+        std::string stats;
+        if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
+          stats = "(failed)";
+        }
+        fprintf(stdout, "%s\n", stats.c_str());
+        fprintf(stdout, "leveldb statistical: %lu operations (real operations: %lu) have been finished (user has been written %.3f MB data into db.)\n\n\n", done_, real_ops, bytes_/1048576.0);
+        fflush(stdout);
+      }
+    }
   }
 
   void Report(const Slice& name) {
@@ -1487,38 +1505,43 @@ class Benchmark {
     std::string cell;
     std::vector<std::string> row_data;
 
-    // std::fprintf(stdout, "start benchmarking num_ = %ld entries in DoWrite_zipf2()\n", num_);
-
-    for (int i = 0; i < num_; i += entries_per_batch_) {
+    std::fprintf(stdout, "start benchmarking num_ = %ld entries in DoWrite_zipf2()\n", num_);
+    uint64_t total_ops = 0;
+    for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
-      for (int j = 0; j < entries_per_batch_; j++) {
-          line_stream.clear();
-          line_stream.str("");
-          row_data.clear();
-          // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
-          if (!std::getline(csv_file, line)) { // 从文件中读取一行
-              fprintf(stderr, "Error reading key from file\n");
-              return;
-          }
-          line_stream << line;
-          while (getline(line_stream, cell, ',')) {
-              row_data.push_back(cell);
-          }
-          if (row_data.size() != 1) {
-              fprintf(stderr, "Invalid CSV row format\n");
-              continue;
-          }
-          const uint64_t k = std::stoull(row_data[0]);
-          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
-          char key[100];
-          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
-          batch.Put(key, gen.Generate(value_size_));
-          bytes += value_size_ + strlen(key);
-          if(thread->stats.done_ % FLAGS_stats_interval == 0){
-            thread->stats.AddBytes(bytes);
-            bytes = 0;
-          }
-          thread->stats.FinishedSingleOp(db_);
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        if (!std::getline(csv_file, line)) { 
+          fprintf(stderr, "Error reading key from file\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 1) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+        const uint64_t k = std::stoull(row_data[0]);
+        thread->stats.Addops(db_);
+        if(k == 1 || k == 2){
+          continue;
+        }
+        // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+        char key[100];
+        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+        batch.Put(key, gen.Generate(value_size_));
+        bytes += value_size_ + strlen(key);
+        if(thread->stats.real_ops % FLAGS_stats_interval == 0 ){
+          // fprintf(stderr,"real_ops : %lu\n",thread->stats.real_ops);
+          thread->stats.AddBytes(bytes);
+          bytes = 0;
+        }
+        thread->stats.FinishedSingleOp();
+        // thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {
