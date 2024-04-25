@@ -2,9 +2,9 @@ CMakeFiles/c_test.dir/db/c_test.c.o: \
  /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/db/c_test.c \
  /usr/include/stdc-predef.h \
  /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/include/leveldb/c.h \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
+ /usr/lib/gcc/x86_64-linux-gnu/12/include/stdarg.h \
+ /usr/lib/gcc/x86_64-linux-gnu/12/include/stddef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/12/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
