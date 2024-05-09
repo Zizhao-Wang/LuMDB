@@ -43,7 +43,7 @@ for i in {10..10}; do
                     percentages1=() # 1 5 10 15 20 25 30
 
                     # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
-                    log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-30.log"
+                    log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-100.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
@@ -99,6 +99,7 @@ for i in {10..10}; do
                     --log=1  \
                     --cache_size=8388608 \
                     --open_files=40000 \
+                    --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
                     --write_buffer_size=67108864 \

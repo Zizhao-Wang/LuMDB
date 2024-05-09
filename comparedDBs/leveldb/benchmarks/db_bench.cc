@@ -1527,7 +1527,7 @@ class Benchmark {
         }
         const uint64_t k = std::stoull(row_data[0]);
         thread->stats.Addops(db_);
-        if(k <= 30){
+        if(k <= 100){
           continue;
         }
         // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
