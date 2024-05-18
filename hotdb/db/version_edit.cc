@@ -39,6 +39,19 @@ void VersionEdit::Clear() {
   new_files_.clear();
 }
 
+
+
+void Logica_File_MetaData::append_physical_file(FileMetaData &f) {
+  if (actual_files.size() == 0) {
+    smallest = f.smallest;
+  }
+
+  largest = f.largest;
+  file_size += f.file_size;
+  actual_files.push_back(f);
+}
+
+
 void VersionEdit::EncodeTo(std::string* dst) const {
   if (has_comparator_) {
     PutVarint32(dst, kComparator);

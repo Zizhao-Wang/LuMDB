@@ -1,4 +1,4 @@
-# Check if the KV_stores/hotdb/release directory exists
+z# Check if the KV_stores/hotdb/release directory exists
 if [ -d "../hotdb/release" ]; then
     # If it exists, remove the directory
     rm -rf ../hotdb/release
