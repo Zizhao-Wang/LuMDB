@@ -26,6 +26,23 @@ struct FileMetaData {
   InternalKey largest;   // Largest internal key served by table
 };
 
+
+struct Logica_File_MetaData {
+  Logica_File_MetaData() : refs(0), run_number(0),file_size(0) {
+    actual_files.clear();
+  }
+
+  int refs;
+  uint64_t run_number;
+  uint64_t file_size;
+  InternalKey smallest;       // Smallest internal key served by table
+  InternalKey largest;        // Largest internal key served by table
+
+  std::vector<FileMetaData> actual_files;
+
+  void append_physical_file(FileMetaData &f);
+};
+
 class VersionEdit {
  public:
   VersionEdit() { Clear(); }

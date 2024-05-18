@@ -26,6 +26,7 @@ struct FileMetaData {
   InternalKey largest;   // Largest internal key served by table
 };
 
+
 class VersionEdit {
  public:
   VersionEdit() { Clear(); }

@@ -105,6 +105,7 @@ DEFINE_int32(key_prefix,0, "Common key prefix length.");
 // Use the data_file with the following name.
 // static const char* FLAGS_data_file = nullptr;
 DEFINE_string(data_file, "", "Use the db with the following name.");
+DEFINE_int64(No_hot_percentage, -1, "");
 
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
 
@@ -1504,7 +1505,7 @@ class Benchmark {
     std::stringstream line_stream;
     std::string cell;
     std::vector<std::string> row_data;
-
+    assert(FLAGS_No_hot_percentage != -1);
     std::fprintf(stdout, "start benchmarking num_ = %ld entries in DoWrite_zipf2()\n", num_);
     uint64_t total_ops = 0;
     for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
@@ -1527,7 +1528,7 @@ class Benchmark {
         }
         const uint64_t k = std::stoull(row_data[0]);
         thread->stats.Addops(db_);
-        if(k <= 100){
+        if(k <= FLAGS_No_hot_percentage){
           continue;
         }
         // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
