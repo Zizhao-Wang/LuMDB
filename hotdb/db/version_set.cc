@@ -400,6 +400,21 @@ Status Version::Get(const ReadOptions& options, const LookupKey& k,
   return state.found ? state.s : Status::NotFound(Slice());
 }
 
+
+
+// ==== Start of modified code ====
+int Version::NumFiles(int level) const {
+  int num_files = 0;
+  for (const auto& logical_file : logical_files_[level]) {
+    num_files += logical_file.actual_files.size();
+  }
+  return num_files;
+}
+// ==== End of modified code ====
+
+
+
+
 bool Version::UpdateStats(const GetStats& stats) {
   FileMetaData* f = stats.seek_file;
   if (f != nullptr) {
@@ -1133,7 +1148,7 @@ Status VersionSet::WriteSnapshot(log::Writer* log) {
 int VersionSet::NumLevelFiles(int level) const {
   assert(level >= 0);
   assert(level < config::kNumLevels);
-  return current_->files_[level].size();
+  return current_->logical_files_[level].size();
 }
 
 const char* VersionSet::LevelSummary(LevelSummaryStorage* scratch) const {

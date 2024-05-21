@@ -304,8 +304,6 @@ public:
 
   void merge_ranges_in_container(bool is_first);
 
-
-
   void check_may_merge_split_range();
 
   // 合并两个区间
@@ -341,6 +339,10 @@ public:
 
 
   void add_data(const leveldb::Slice& data);
+
+
+  // 
+  bool is_hot(const Slice& key) const;
 
 };
 

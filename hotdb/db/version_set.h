@@ -42,6 +42,7 @@ class WritableFile;
 // Return the smallest index i such that files[i]->largest >= key.
 // Return files.size() if there is no such file.
 // REQUIRES: "files" contains a sorted list of non-overlapping files.
+// To-do: change the type of files to Logica_File_MetaData
 int FindFile(const InternalKeyComparator& icmp,
              const std::vector<FileMetaData*>& files, const Slice& key);
 
@@ -51,6 +52,7 @@ int FindFile(const InternalKeyComparator& icmp,
 // largest==nullptr represents a key largest than all keys in the DB.
 // REQUIRES: If disjoint_sorted_files, files[] contains disjoint ranges
 //           in sorted order.
+// to-do: change the type of files to Logica_File_MetaData
 bool SomeFileOverlapsRange(const InternalKeyComparator& icmp,
                            bool disjoint_sorted_files,
                            const std::vector<FileMetaData*>& files,
@@ -60,7 +62,7 @@ bool SomeFileOverlapsRange(const InternalKeyComparator& icmp,
 class Version {
  public:
   struct GetStats {
-    FileMetaData* seek_file;
+    Logica_File_MetaData* seek_file;
     int seek_file_level;
   };
 
@@ -109,7 +111,8 @@ class Version {
   int PickLevelForMemTableOutput(const Slice& smallest_user_key,
                                  const Slice& largest_user_key);
 
-  int NumFiles(int level) const { return files_[level].size(); }
+  int NumFiles(int level) const; // modified version by wzz
+
 
   // Return a human readable string that describes this version's contents.
   std::string DebugString() const;
@@ -125,7 +128,7 @@ class Version {
         next_(this),
         prev_(this),
         refs_(0),
-        file_to_compact_(nullptr),
+        logical_file_to_compact_(nullptr),
         file_to_compact_level_(-1),
         compaction_score_(-1),
         compaction_level_(-1) {}
@@ -151,10 +154,13 @@ class Version {
   int refs_;          // Number of live refs to this version
 
   // List of files per level
-  std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
+  // std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
+  std::vector<Logica_File_MetaData> logical_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
+
 
   // Next file to compact based on seek stats.
-  FileMetaData* file_to_compact_;
+  // FileMetaData* file_to_compact_;
+  Logica_File_MetaData* logical_file_to_compact_;
   int file_to_compact_level_;
 
   // Level that should be compacted next and its compaction score.
@@ -251,7 +257,7 @@ class VersionSet {
   // Returns true iff some level needs a compaction.
   bool NeedsCompaction() const {
     Version* v = current_;
-    return (v->compaction_score_ >= 1) || (v->file_to_compact_ != nullptr);
+    return (v->compaction_score_ >= 1) || (v->logical_file_to_compact_ != nullptr);
   }
 
   // Add all files listed in any live version to *live.

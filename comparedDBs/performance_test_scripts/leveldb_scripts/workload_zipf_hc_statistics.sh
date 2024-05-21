@@ -9,6 +9,8 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
+DEVICE_NAME="nvme1n1"
+
 
 convert_to_billion_format() {
     local num=$1
@@ -78,7 +80,6 @@ for i in {10..10}; do
                         # 如果日志文件存在，则跳过当前迭代
                         if [ -f "$log_file" ]; then
                             echo "Log file $log_file already exists. Skipping this iteration."
-                            cd ..
                             continue
                         fi
 
@@ -87,6 +88,9 @@ for i in {10..10}; do
                         echo "value_size:$value_size"
                         echo "stats_interval: $stats_interva"
                         echo "$num_format"
+
+                        iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
+                        PID_IOSTAT=$!
                     
                         ../../../leveldb/release/db_bench \
                         --db=/mnt/nvm/level8B \
@@ -109,7 +113,35 @@ for i in {10..10}; do
                         --write_buffer_size=67108864 \
                         --max_file_size=67108864   \
                         --print_wa=true \
-                        | sudo tee $log_file  
+                        &> >( tee $log_file) &  
+
+                        # 保存 db_bench 的 PID 供监控使用
+                        sleep 1
+
+                        DB_BENCH_PID=$(pgrep -af 'db_bench' | grep -v 'sudo' | awk '{print $1}')
+                        echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
+
+                        perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &
+                        PERF_PID=$!
+
+                        wait $DB_BENCH_PID
+
+                        # 结束 iostat 进程
+                        echo "Checking if iostat process with PID $PID_IOSTAT is still running..."
+                        ps -p $PID_IOSTAT
+                        if [ $? -eq 0 ]; then
+                            echo "iostat process $PID_IOSTAT is still running, killing now..."
+                            kill -9 $PID_IOSTAT
+                            if [ $? -eq 0 ]; then
+                                echo "iostat process $PID_IOSTAT has been successfully killed."
+                            else
+                                echo "Failed to kill iostat process $PID_IOSTAT."
+                            fi
+                        else
+                            echo "iostat process $PID_IOSTAT is no longer running."
+                        fi
+
+
                     done
             done
         done

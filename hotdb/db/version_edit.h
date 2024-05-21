@@ -28,13 +28,15 @@ struct FileMetaData {
 
 
 struct Logica_File_MetaData {
-  Logica_File_MetaData() : refs(0), run_number(0),file_size(0) {
+  Logica_File_MetaData() : refs(0), run_number(0),file_size(0),number(0),num_actual_files(0) {
     actual_files.clear();
   }
 
   int refs;
   uint64_t run_number;
+  uint64_t number;
   uint64_t file_size;
+  uint64_t num_actual_files;
   InternalKey smallest;       // Smallest internal key served by table
   InternalKey largest;        // Largest internal key served by table
 
@@ -87,6 +89,11 @@ class VersionEdit {
     new_files_.push_back(std::make_pair(level, f));
   }
 
+  void AddLogicalFile(int level, const Logica_File_MetaData &logical_f) {
+		new_logical_files.push_back(std::make_pair(level, logical_f));
+	}
+
+
   // Delete the specified "file" from the specified "level".
   void RemoveFile(int level, uint64_t file) {
     deleted_files_.insert(std::make_pair(level, file));
@@ -116,6 +123,10 @@ class VersionEdit {
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
   DeletedFileSet deleted_files_;
   std::vector<std::pair<int, FileMetaData>> new_files_;
+
+  std::vector<std::pair<int, Logica_File_MetaData>> new_logical_files;
+
+
 };
 
 }  // namespace leveldb

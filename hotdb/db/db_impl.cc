@@ -146,6 +146,9 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       mem_(nullptr),
       imm_(nullptr),
       has_imm_(false),
+      hot_mem_(nullptr),
+      hot_imm_(nullptr),
+      has_hot_imm_(false),
       logfile_(nullptr),
       logfile_number_(0),
       log_(nullptr),
@@ -510,15 +513,21 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
 }
 
 Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
-                                Version* base) {
+                                Version* base, bool is_hot_mem) {
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
   FileMetaData meta;
+  Logica_File_MetaData logica_meta;
+
+  logica_meta.number = versions_->NewFileNumber();
   meta.number = versions_->NewFileNumber();
+
+
   pending_outputs_.insert(meta.number);
   Iterator* iter = mem->NewIterator();
-  Log(options_.info_log, "Level-0 table #%llu: started",
-      (unsigned long long)meta.number);
+  Log(options_.info_log, "Level-0 Logical #%llu table #%llu: started",
+      (unsigned long long)meta.number,
+      (unsigned long long)logica_meta.number);
 
   Status s;
   {
@@ -527,8 +536,8 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     mutex_.Lock();
   }
 
-  Log(options_.info_log, "Level-0 table #%llu: %lld bytes %s",
-      (unsigned long long)meta.number, (unsigned long long)meta.file_size,
+  Log(options_.info_log, "Level-0 Logical #%llu table #%llu: %lld bytes %s",
+      (unsigned long long)logica_meta.number, (unsigned long long)meta.number, (unsigned long long)meta.file_size,
       s.ToString().c_str());
   delete iter;
   pending_outputs_.erase(meta.number);
@@ -536,12 +545,18 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   // Note that if file_size is zero, the file has been deleted and
   // should not be added to the manifest.
   int level = 0;
+  logica_meta.append_physical_file(meta);
+  
   if (s.ok() && meta.file_size > 0) {
     const Slice min_user_key = meta.smallest.user_key();
     const Slice max_user_key = meta.largest.user_key();
-    if (base != nullptr) {
+
+    if(base!= nullptr && is_hot_mem){
+      level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+    }else if(base!= nullptr && !is_hot_mem){
       level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
     }
+    
     edit->AddFile(level, meta.number, meta.file_size, meta.smallest,
                   meta.largest);
   }
@@ -570,24 +585,45 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
 void DBImpl::CompactMemTable() {
   mutex_.AssertHeld();
-  assert(imm_ != nullptr);
+  assert(imm_ != nullptr || hot_imm_ != nullptr);
 
   // Save the contents of the memtable as a new Table
   VersionEdit edit;
   Version* base = versions_->current();
   base->Ref();
-  Status s = WriteLevel0Table(imm_, &edit, base);
+
+
+  Status s;
+  Status hot_s;
+  if (imm_ != nullptr) {
+    s = WriteLevel0Table(imm_, &edit, base, false);
+  }
+  if (hot_imm_ != nullptr) {
+    hot_s = WriteLevel0Table(hot_imm_, &edit, base, true);
+  }
   base->Unref();
+
 
   if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
     s = Status::IOError("Deleting DB during memtable compaction");
   }
+
+  if (hot_s.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    hot_s = Status::IOError("Deleting DB during hot memtable compaction");
+  }
+
 
   // Replace immutable memtable with the generated Table
   if (s.ok()) {
     edit.SetPrevLogNumber(0);
     edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
     s = versions_->LogAndApply(&edit, &mutex_);
+  }
+
+  if (hot_s.ok()) {
+    edit.SetPrevLogNumber(0);
+    edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+    hot_s = versions_->LogAndApply(&edit, &mutex_);
   }
 
   if (s.ok()) {
@@ -598,6 +634,18 @@ void DBImpl::CompactMemTable() {
     RemoveObsoleteFiles();
   } else {
     RecordBackgroundError(s);
+  }
+
+  if (hot_s.ok()) {
+    // Commit to the new state
+    if (hot_imm_ != nullptr) {
+      hot_imm_->Unref();
+      hot_imm_ = nullptr;
+      has_hot_imm_.store(false, std::memory_order_release);
+      RemoveObsoleteFiles();
+    }
+  } else {
+    RecordBackgroundError(hot_s);
   }
 }
 
@@ -724,7 +772,7 @@ void DBImpl::BackgroundCall() {
 void DBImpl::BackgroundCompaction() {
   mutex_.AssertHeld();
 
-  if (imm_ != nullptr) {
+  if (imm_ != nullptr || hot_imm_ != nullptr) {
     CompactMemTable();
     return;
   }
@@ -1622,8 +1670,10 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   // mutex_是leveldb的全局锁，在DBImpl有且只有这一个互斥锁(还有一个文件锁除外)，所有操作都要基于这一个锁实现互斥
   // MutexLock是个自动锁，他的构造函数负责加锁，析构函数负责解锁
   MutexLock l(&mutex_);
+
   // writers_是个std::deque<Writer*>，是DBImpl的成员变量，也就意味着多线程共享这个变量，所以是在加锁状态下操作的
   writers_.push_back(&w);
+
   // 这段代码保证了写入是按照调用的先后顺序执行的。
   // 1.w.done不可能是true啊，刚刚赋值为false，为什么还要判断呢？除非有人改动，没错，后面有可能会被其他线程改动
   // 2.刚刚放入队列尾部，此时如果前面有线程写，那么&w != writers_.front()会为true，所以要等前面的写完在唤醒
@@ -1641,8 +1691,10 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   // May temporarily unlock and wait.
   // 这个就是要判断当前的空间是否能够继续写入，包括MemTable以及SSTable，如果需要同步文件或者合并文件就要等待了
   Status status = MakeRoomForWrite(updates == nullptr);
+
   // 获取当前最后一个顺序号，这个好理解哈
   uint64_t last_sequence = versions_->LastSequence();
+
   // 接下来就是比较重点的部分了，last_writer记录了一次真正写入的最后一个Writer的地址，就是会合并多个Writer的数据写入
   // 当然，初始化是当前这个线程的Writer，因为很可能后面没有其他线程执行写入
   Writer* last_writer = &w;
@@ -1670,9 +1722,12 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
           sync_error = true;
         }
       }
+
+      // write data into the memtable and hot memtable if it is hot data
       if (status.ok()) {
         status = WriteBatchInternal::InsertInto(write_batch, mem_);
       }
+
       mutex_.Lock();
       if (sync_error) {
         // The state of the log file is indeterminate: the log record we
@@ -1710,11 +1765,12 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
 WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
   mutex_.AssertHeld();
   assert(!writers_.empty());
-  Writer* first = writers_.front();
+
+  Writer* first = writers_.front(); // 获取写请求队列中的第一个写请求
   WriteBatch* result = first->batch;
   assert(result != nullptr);
 
-  size_t size = WriteBatchInternal::ByteSize(first->batch);
+  size_t size = WriteBatchInternal::ByteSize(first->batch); // 计算第一个 WriteBatch 的大小。
 
   // Allow the group to grow up to a maximum size, but if the
   // original write is small, limit the growth so we do not slow
@@ -1727,6 +1783,7 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
   *last_writer = first;
   std::deque<Writer*>::iterator iter = writers_.begin();
   ++iter;  // Advance past "first"
+
   for (; iter != writers_.end(); ++iter) {
     Writer* w = *iter;
     if (w->sync && !first->sync) {
@@ -1780,10 +1837,11 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       allow_delay = false;  // Do not delay a single write more than once
       mutex_.Lock();
     } else if (!force &&
-               (mem_->ApproximateMemoryUsage() <= options_.write_buffer_size)) {
+               (mem_->ApproximateMemoryUsage() <= options_.write_buffer_size) && 
+               (hot_mem_ == nullptr || hot_mem_->ApproximateMemoryUsage() <= options_.write_buffer_size)) {
       // There is room in current memtable
       break;
-    } else if (imm_ != nullptr) {
+    } else if (imm_ != nullptr || hot_imm_ != nullptr) {
       // We have filled up the current memtable, but the previous
       // one is still being compacted, so we wait.
       Log(options_.info_log, "Current memtable full; waiting...\n");
@@ -1822,10 +1880,22 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       logfile_ = lfile;
       logfile_number_ = new_log_number;
       log_ = new log::Writer(lfile);
-      imm_ = mem_;
-      has_imm_.store(true, std::memory_order_release);
-      mem_ = new MemTable(internal_comparator_);
-      mem_->Ref();
+
+      if(mem_->ApproximateMemoryUsage()>options_.write_buffer_size){
+        imm_ = mem_;
+        has_imm_.store(true, std::memory_order_release);
+        mem_ = new MemTable(internal_comparator_);
+        mem_->Ref();
+      } 
+      
+      
+      if(hot_mem_ != nullptr && hot_mem_->ApproximateMemoryUsage() > options_.write_buffer_size){
+        hot_imm_ = hot_mem_;
+        has_hot_imm_.store(true, std::memory_order_release);
+        hot_mem_ = new MemTable(internal_comparator_);
+        hot_mem_->Ref();
+      }
+
       force = false;  // Do not force another compaction if have room
       MaybeScheduleCompaction();
     }

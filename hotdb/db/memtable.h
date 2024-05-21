@@ -78,6 +78,7 @@ class MemTable {
 
   KeyComparator comparator_;
   int refs_;
+  bool is_hot;
   Arena arena_;
   Table table_;
 };

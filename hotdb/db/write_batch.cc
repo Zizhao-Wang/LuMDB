@@ -20,6 +20,7 @@
 #include "db/write_batch_internal.h"
 #include "leveldb/db.h"
 #include "util/coding.h"
+#include "db/range_merge_split.h"
 
 namespace leveldb {
 
@@ -117,22 +118,45 @@ class MemTableInserter : public WriteBatch::Handler {
  public:
   SequenceNumber sequence_;
   MemTable* mem_;
+  MemTable* hot_mem_;
+  range_identifier* hot_identifier;
 
   void Put(const Slice& key, const Slice& value) override {
-    mem_->Add(sequence_, kTypeValue, key, value);
+    if(hot_identifier == nullptr || hot_mem_ == nullptr ){
+      mem_->Add(sequence_, kTypeValue, key, value);
+    }
+    else{
+      if(hot_identifier->is_hot(key) == true){
+        hot_mem_->Add(sequence_, kTypeValue, key, value);
+      }
+      else{
+        mem_->Add(sequence_, kTypeValue, key, value);
+      }
+    }
     sequence_++;
   }
   void Delete(const Slice& key) override {
-    mem_->Add(sequence_, kTypeDeletion, key, Slice());
+    if(hot_identifier == nullptr || hot_mem_ == nullptr ){
+      mem_->Add(sequence_, kTypeDeletion, key, Slice());
+    }
+    else{
+      if(hot_identifier->is_hot(key) == true){
+        hot_mem_->Add(sequence_, kTypeDeletion, key, Slice());
+      }
+      else{
+        mem_->Add(sequence_, kTypeDeletion, key, Slice());
+      }
+    }
     sequence_++;
   }
 };
 }  // namespace
 
-Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable) {
+Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable) {
   MemTableInserter inserter;
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
   inserter.mem_ = memtable;
+  inserter.hot_mem_ = hot_memtable;
   return b->Iterate(&inserter);
 }
 

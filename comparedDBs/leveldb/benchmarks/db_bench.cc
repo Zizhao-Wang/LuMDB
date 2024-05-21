@@ -666,8 +666,8 @@ class Stats {
       else if (next_report_ < 100000) next_report_ += 10000;
       else if (next_report_ < 500000) next_report_ += 50000;
       else                            next_report_ += 100000;
-      fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
-      fflush(stderr);
+      // fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
+      // fflush(stderr);
     }
 
     if (g_env->NowMicros() > next_report_time_) {
@@ -718,8 +718,8 @@ class Stats {
       //     fflush(stdout);
       //   }
       // }
-      fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
-      fflush(stderr);
+      // fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
+      // fflush(stderr);
     }
   }
 

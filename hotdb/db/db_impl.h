@@ -225,7 +225,7 @@ class DBImpl : public DB {
                         VersionEdit* edit, SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base)
+  Status WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base, bool is_hot_mem=false)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status MakeRoomForWrite(bool force /* compact even if there is room? */)
@@ -307,9 +307,17 @@ class DBImpl : public DB {
 
   std::atomic<bool> shutting_down_;
   port::CondVar background_work_finished_signal_ GUARDED_BY(mutex_);
+
   MemTable* mem_;
   MemTable* imm_ GUARDED_BY(mutex_);  // Memtable being compacted
   std::atomic<bool> has_imm_;         // So bg thread can detect non-null imm_
+
+  // ==== Start of modified code ====
+  MemTable* hot_mem_;
+  MemTable* hot_imm_ GUARDED_BY(mutex_);  // Hot Memtable being compacted
+  std::atomic<bool> has_hot_imm_;         // So bg thread can detect non-null imm_
+  // ==== End of modified code ====
+
   WritableFile* logfile_;
   uint64_t logfile_number_ GUARDED_BY(mutex_);
   log::Writer* log_;

@@ -39,8 +39,6 @@ void VersionEdit::Clear() {
   new_files_.clear();
 }
 
-
-
 void Logica_File_MetaData::append_physical_file(FileMetaData &f) {
   if (actual_files.size() == 0) {
     smallest = f.smallest;

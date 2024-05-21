@@ -1336,11 +1336,11 @@ class Benchmark {
         // }
         // thread->stats.FinishedSingleOp(db_);
       }
-      // s = db_->Write(write_options_, &batch);
-      // if (!s.ok()) {
-      //   std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
-      //   std::exit(1);
-      // }
+      s = db_->Write(write_options_, &batch);
+      if (!s.ok()) {
+        std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+        std::exit(1);
+      }
     }
     hot_range_identifier.print_hot_ranges();
     double now2 = g_env->NowMicros();
