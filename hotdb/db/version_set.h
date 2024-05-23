@@ -61,8 +61,15 @@ bool SomeFileOverlapsRange(const InternalKeyComparator& icmp,
 
 class Version {
  public:
+
   struct GetStats {
-    Logica_File_MetaData* seek_file;
+    FileMetaData* seek_file;
+    int seek_file_level;
+  };
+
+  struct GetStats_Tiering {
+    FileMetaData* seek_file;
+    Logica_File_MetaData* seek_logical_file;
     int seek_file_level;
   };
 
@@ -104,12 +111,11 @@ class Version {
   // smallest_user_key==nullptr represents a key smaller than all the DB's keys.
   // largest_user_key==nullptr represents a key largest than all the DB's keys.
   bool OverlapInLevel(int level, const Slice* smallest_user_key,
-                      const Slice* largest_user_key);
+                      const Slice* largest_user_key, bool is_tiering=false);
 
   // Return the level at which we should place a new memtable compaction
   // result that covers the range [smallest_user_key,largest_user_key].
-  int PickLevelForMemTableOutput(const Slice& smallest_user_key,
-                                 const Slice& largest_user_key);
+  int PickLevelForMemTableOutput(const Slice& smallest_user_key,const Slice& largest_user_key, bool is_tiering=false);
 
   int NumFiles(int level) const; // modified version by wzz
 
@@ -128,8 +134,10 @@ class Version {
         next_(this),
         prev_(this),
         refs_(0),
-        logical_file_to_compact_(nullptr),
-        file_to_compact_level_(-1),
+        file_to_compact_in_leveling(nullptr),
+        file_to_compact_in_tiering(nullptr),
+        file_to_compact_level_in_leveling(-1),
+        file_to_compact_level_in_tiering(-1),
         compaction_score_(-1),
         compaction_level_(-1) {}
 
@@ -155,13 +163,18 @@ class Version {
 
   // List of files per level
   // std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
-  std::vector<Logica_File_MetaData> logical_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
+  std::vector<Logica_File_MetaData*> logical_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
+
+  std::vector<Logica_File_MetaData*> tiering_logical_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
+
+  std::vector<FileMetaData*> leveling_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
 
 
   // Next file to compact based on seek stats.
   // FileMetaData* file_to_compact_;
-  Logica_File_MetaData* logical_file_to_compact_;
-  int file_to_compact_level_;
+  Logica_File_MetaData* file_to_compact_in_leveling;
+  FileMetaData* file_to_compact_in_tiering;
+  int file_to_compact_level_in_leveling, file_to_compact_level_in_tiering;
 
   // Level that should be compacted next and its compaction score.
   // Score < 1 means compaction is not strictly needed.  These fields
@@ -211,6 +224,12 @@ class VersionSet {
   // Return the number of Table files at the specified level.
   int NumLevelFiles(int level) const;
 
+    // Return the number of Table files(tiering) at the specified level.
+  int NumLevel_tiering_Files(int level) const;
+
+    // Return the number of Table files(leveling) at the specified level.
+  int NumLevel_leveling_Files(int level) const;
+
   // Return the combined file size of all files at the specified level.
   int64_t NumLevelBytes(int level) const;
 
@@ -254,10 +273,20 @@ class VersionSet {
   // The caller should delete the iterator when no longer needed.
   Iterator* MakeInputIterator(Compaction* c);
 
-  // Returns true iff some level needs a compaction.
+  /**
+ * @brief Checks if any level in the current version needs a compaction.
+ *
+ * This function evaluates whether the current version requires a compaction operation.
+ * It does this by checking three conditions:
+ * 1. The compaction score for any level is greater than or equal to 1.
+ * 2. There is a file in the leveling strategy that needs compaction.
+ * 3. There is a file in the tiering strategy that needs compaction.
+ *
+ * @return True if any of the above conditions are met, indicating that a compaction is needed. False otherwise.
+ */
   bool NeedsCompaction() const {
     Version* v = current_;
-    return (v->compaction_score_ >= 1) || (v->logical_file_to_compact_ != nullptr);
+    return (v->compaction_score_ >= 1) || (v->file_to_compact_in_leveling != nullptr) || (v->file_to_compact_in_tiering != nullptr);
   }
 
   // Add all files listed in any live version to *live.

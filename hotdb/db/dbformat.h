@@ -33,6 +33,11 @@ static const int kL0_SlowdownWritesTrigger = 8;
 // Maximum number of level-0 files.  We stop writes at this point.
 static const int kL0_StopWritesTrigger = 12;
 
+
+// Tiering strategy limit multiplier
+static const int kTiering_and_leveling_Multiplier = 4;
+
+
 // Maximum level to which a new compacted memtable is pushed if it
 // does not create overlap.  We try to push to level 2 to avoid the
 // relatively expensive level 0=>1 compactions and to avoid some

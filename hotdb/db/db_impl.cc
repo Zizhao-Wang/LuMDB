@@ -516,18 +516,29 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
                                 Version* base, bool is_hot_mem) {
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
+
   FileMetaData meta;
   Logica_File_MetaData logica_meta;
 
-  logica_meta.number = versions_->NewFileNumber();
+  if(is_hot_mem){
+    logica_meta.number = versions_->NewFileNumber();
+  }
   meta.number = versions_->NewFileNumber();
 
 
-  pending_outputs_.insert(meta.number);
+  pending_outputs_.insert(meta.number); 
   Iterator* iter = mem->NewIterator();
-  Log(options_.info_log, "Level-0 Logical #%llu table #%llu: started",
-      (unsigned long long)meta.number,
-      (unsigned long long)logica_meta.number);
+  
+  if (is_hot_mem) {
+    Log(options_.info_log,
+        "Level-0 Tiering: Logical Table #%llu (Actual Table #%llu) - Started",
+        (unsigned long long)logica_meta.number,
+        (unsigned long long)meta.number);
+  } else {
+      Log(options_.info_log,
+          "Level-0 Leveling: Table #%llu - Started",
+          (unsigned long long)meta.number);
+  }
 
   Status s;
   {
@@ -536,9 +547,24 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     mutex_.Lock();
   }
 
-  Log(options_.info_log, "Level-0 Logical #%llu table #%llu: %lld bytes %s",
-      (unsigned long long)logica_meta.number, (unsigned long long)meta.number, (unsigned long long)meta.file_size,
-      s.ToString().c_str());
+  if (is_hot_mem) {
+    Log(options_.info_log,
+        "Level-0 Tiering: Logical Table #%llu, Actual Table #%llu, Size: %lld bytes, Status: %s",
+        (unsigned long long)logica_meta.number,
+        (unsigned long long)meta.number,
+        (unsigned long long)meta.file_size,
+        s.ToString().c_str());
+  } else {
+      Log(options_.info_log,
+          "Level-0 Leveling: Table #%llu, Size: %lld bytes, Status: %s",
+          (unsigned long long)meta.number,
+          (unsigned long long)meta.file_size,
+          s.ToString().c_str());
+  }
+
+  
+
+
   delete iter;
   pending_outputs_.erase(meta.number);
 
@@ -553,12 +579,11 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
     if(base!= nullptr && is_hot_mem){
       level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+      edit->AddLogicalFile(level, logica_meta);
     }else if(base!= nullptr && !is_hot_mem){
+      edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest);
       level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
     }
-    
-    edit->AddFile(level, meta.number, meta.file_size, meta.smallest,
-                  meta.largest);
   }
 
   CompactionStats stats;
@@ -1825,7 +1850,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       s = bg_error_;
       break;
     } else if (allow_delay && versions_->NumLevelFiles(0) >=
-                                  config::kL0_SlowdownWritesTrigger) {
+                                  config::kL0_SlowdownWritesTrigger*config::kTiering_and_leveling_Multiplier) {
       // We are getting close to hitting a hard limit on the number of
       // L0 files.  Rather than delaying a single write by several
       // seconds when we hit the hard limit, start delaying each
@@ -1846,7 +1871,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // one is still being compacted, so we wait.
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
-    } else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger) {
+    } else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger * config::kTiering_and_leveling_Multiplier) {
       // There are too many level-0 files.
       Log(options_.info_log, "Too many L0 files; waiting...\n");
       background_work_finished_signal_.Wait();

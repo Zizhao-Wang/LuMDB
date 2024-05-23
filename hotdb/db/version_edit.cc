@@ -42,9 +42,19 @@ void VersionEdit::Clear() {
 void Logica_File_MetaData::append_physical_file(FileMetaData &f) {
   if (actual_files.size() == 0) {
     smallest = f.smallest;
+    largest = f.largest;
+    actual_files.push_back(f);
+    return ;
   }
 
-  largest = f.largest;
+  if(smallest.user_key().compare(f.smallest.user_key()) > 0) {
+    smallest = f.smallest;
+  }
+
+  if(largest.user_key().compare(f.largest.user_key()) < 0) {
+    largest = f.largest;
+  }
+
   file_size += f.file_size;
   actual_files.push_back(f);
 }
