@@ -549,4 +549,11 @@ void range_identifier::add_data(const leveldb::Slice& data){
     }
 }
 
+
+bool range_identifier::is_hot(const Slice& key) const {
+    if(std::stoull (key.ToString())<10000)
+        return true;
+    return false; 
+}
+
 }  // namespace leveldb

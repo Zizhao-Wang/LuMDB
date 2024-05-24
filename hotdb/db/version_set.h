@@ -163,17 +163,14 @@ class Version {
 
   // List of files per level
   // std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
-  std::vector<Logica_File_MetaData*> logical_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
-
-  std::vector<Logica_File_MetaData*> tiering_logical_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
-
+  std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
   std::vector<FileMetaData*> leveling_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
 
 
   // Next file to compact based on seek stats.
   // FileMetaData* file_to_compact_;
-  Logica_File_MetaData* file_to_compact_in_leveling;
-  FileMetaData* file_to_compact_in_tiering;
+  FileMetaData* file_to_compact_in_leveling;
+  Logica_File_MetaData* file_to_compact_in_tiering;
   int file_to_compact_level_in_leveling, file_to_compact_level_in_tiering;
 
   // Level that should be compacted next and its compaction score.

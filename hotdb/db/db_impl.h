@@ -120,13 +120,15 @@ class DBImpl : public DB {
   };
 
 
-    struct new_LeveldataStats {
+  struct new_LeveldataStats {
     new_LeveldataStats()
     : micros(0), 
       bytes_read(0), 
       bytes_written(0), 
       bytes_read_hot(0), 
       bytes_written_hot(0), 
+      num_leveling_files(0),
+      num_tiering_files(0),
       number_of_compactions(0), 
       user_bytes_written(0), 
       moved_directly_from_last_level_bytes(0), 
@@ -158,6 +160,9 @@ class DBImpl : public DB {
     int64_t micros;
     int64_t bytes_read;
     int64_t bytes_written;
+
+    int64_t num_tiering_files;
+    int64_t num_leveling_files;
 
     // Newly added fields
     int64_t bytes_read_hot;
@@ -318,9 +323,9 @@ class DBImpl : public DB {
   std::atomic<bool> has_hot_imm_;         // So bg thread can detect non-null imm_
   // ==== End of modified code ====
 
-  WritableFile* logfile_;
-  uint64_t logfile_number_ GUARDED_BY(mutex_);
-  log::Writer* log_;
+  WritableFile* logfile_; // log file for write ahead logging
+  uint64_t logfile_number_ GUARDED_BY(mutex_); // log file number
+  log::Writer* log_; // for writing to logfile_
   uint32_t seed_ GUARDED_BY(mutex_);  // For sampling.
 
   // Queue of writers.

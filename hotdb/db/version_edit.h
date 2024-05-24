@@ -82,18 +82,23 @@ class VersionEdit {
   // REQUIRES: This version has not been saved (see VersionSet::SaveTo)
   // REQUIRES: "smallest" and "largest" are smallest and largest keys in file
   void AddFile(int level, uint64_t file, uint64_t file_size,
-               const InternalKey& smallest, const InternalKey& largest) {
+               const InternalKey& smallest, const InternalKey& largest, bool is_tiering = false) {
     FileMetaData f;
     f.number = file;
     f.file_size = file_size;
     f.smallest = smallest;
     f.largest = largest;
-    new_files_.push_back(std::make_pair(level, f));
+    if(is_tiering){
+      new_tiering_files.push_back(std::make_pair(level, f));
+    }else{
+      new_files_.push_back(std::make_pair(level, f));
+    }
   }
 
-  void AddLogicalFile(int level, const Logica_File_MetaData &logical_f) {
-		new_logical_files.push_back(std::make_pair(level, logical_f));
-	}
+  // void AddLogicalFile(int level, const Logica_File_MetaData &logical_f) {
+
+	// 	new_logical_files.push_back(std::make_pair(level, logical_f));
+	// }
 
 
   // Delete the specified "file" from the specified "level".
@@ -110,10 +115,6 @@ class VersionEdit {
   friend class VersionSet;
 
   typedef std::set<std::pair<int, uint64_t>> DeletedFileSet;
-
-  typedef std::set< uint64_t> DeletedPhysicalFileSet;
-  typedef std::set< std::pair<int, uint64_t> > DeletedLogicalFileSet;
-
   std::string comparator_;
   uint64_t log_number_;
   uint64_t prev_log_number_;
@@ -127,15 +128,17 @@ class VersionEdit {
 
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
 
-
   DeletedFileSet deleted_files_;
-  DeletedPhysicalFileSet deleted_physical_files_;
-  DeletedLogicalFileSet deleted_logical_files_;
 
+
+  // ==== Start of modified code ====
+  DeletedFileSet deleted_tiering_files_;
+  // typedef std::set< std::pair<int, uint64_t> > DeletedLogicalFileSet;
+  // DeletedLogicalFileSet deleted_logical_files_;
 
   std::vector<std::pair<int, FileMetaData>> new_files_;
-  std::vector<std::pair<int, Logica_File_MetaData>> new_logical_files;
-
+  std::vector<std::pair<int, FileMetaData>> new_tiering_files;
+  // ==== End of modified code ====
 };
 
 }  // namespace leveldb

@@ -518,11 +518,11 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   const uint64_t start_micros = env_->NowMicros();
 
   FileMetaData meta;
-  Logica_File_MetaData logica_meta;
+  // Logica_File_MetaData logica_meta;
 
-  if(is_hot_mem){
-    logica_meta.number = versions_->NewFileNumber();
-  }
+  // if(is_hot_mem){
+  //   logica_meta.number = versions_->NewFileNumber();
+  // }
   meta.number = versions_->NewFileNumber();
 
 
@@ -531,12 +531,11 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   
   if (is_hot_mem) {
     Log(options_.info_log,
-        "Level-0 Tiering: Logical Table #%llu (Actual Table #%llu) - Started",
-        (unsigned long long)logica_meta.number,
+        "Level-0 Tiering: Table #%llu minor compaction - Started",
         (unsigned long long)meta.number);
   } else {
       Log(options_.info_log,
-          "Level-0 Leveling: Table #%llu - Started",
+          "Level-0 Leveling: Table #%llu minor compaction - Started",
           (unsigned long long)meta.number);
   }
 
@@ -549,8 +548,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
   if (is_hot_mem) {
     Log(options_.info_log,
-        "Level-0 Tiering: Logical Table #%llu, Actual Table #%llu, Size: %lld bytes, Status: %s",
-        (unsigned long long)logica_meta.number,
+        "Level-0 Tiering: Table #%llu, Size: %lld bytes, Status: %s",
         (unsigned long long)meta.number,
         (unsigned long long)meta.file_size,
         s.ToString().c_str());
@@ -562,27 +560,22 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
           s.ToString().c_str());
   }
 
-  
-
-
   delete iter;
   pending_outputs_.erase(meta.number);
 
   // Note that if file_size is zero, the file has been deleted and
   // should not be added to the manifest.
   int level = 0;
-  logica_meta.append_physical_file(meta);
-  
   if (s.ok() && meta.file_size > 0) {
     const Slice min_user_key = meta.smallest.user_key();
     const Slice max_user_key = meta.largest.user_key();
 
     if(base!= nullptr && is_hot_mem){
-      level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
-      edit->AddLogicalFile(level, logica_meta);
+      // level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+      edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest,true);
     }else if(base!= nullptr && !is_hot_mem){
-      edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest);
       level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+      edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest);
     }
   }
 
@@ -593,18 +586,15 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
 
   // newly added source codes
-  // new_LeveldataStats new_stats;
-  // new_stats.micros = env_->NowMicros() - start_micros;
-  // new_stats.bytes_written = meta.file_size;
-  // new_stats.user_bytes_written = meta.file_size;
-  // level_stats_[level].Add(new_stats);
+  level_stats_[0].micros = env_->NowMicros() - start_micros;
+  level_stats_[0].bytes_written = meta.file_size;
+  level_stats_[0].user_bytes_written = meta.file_size;
+  if(is_hot_mem){
+    level_stats_[0].num_tiering_files++;
+  }else{
+    level_stats_[0].num_leveling_files++;
+  }
   
-  // if(!is_first){
-  //   batch_load_keys_from_CSV(hot_file_path, percentagesStr);
-  //   is_first = true;
-  // }
-  // fprintf(stderr, "bytes into level %d: %lu\n",level,stats_[0].bytes_written);
-
   return s;
 }
 
@@ -612,66 +602,63 @@ void DBImpl::CompactMemTable() {
   mutex_.AssertHeld();
   assert(imm_ != nullptr || hot_imm_ != nullptr);
 
-  // Save the contents of the memtable as a new Table
-  VersionEdit edit;
-  Version* base = versions_->current();
-  base->Ref();
-
-
-  Status s;
-  Status hot_s;
+  // Compact the regular immutable memtable
   if (imm_ != nullptr) {
-    s = WriteLevel0Table(imm_, &edit, base, false);
+    VersionEdit edit;
+    Version* base = versions_->current();
+    base->Ref();
+    Status s = WriteLevel0Table(imm_, &edit, base, false);
+    base->Unref();
+
+    if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
+      s = Status::IOError("Deleting DB during memtable compaction");
+    }
+
+    if (s.ok()) {
+      edit.SetPrevLogNumber(0);
+      edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+      s = versions_->LogAndApply(&edit, &mutex_);
+    }
+
+    if (s.ok()) {
+      // Commit to the new state
+      imm_->Unref();
+      imm_ = nullptr;
+      has_imm_.store(false, std::memory_order_release);
+    } else {
+      RecordBackgroundError(s);
+    }
   }
+
+  // Compact the hot immutable memtable
   if (hot_imm_ != nullptr) {
-    hot_s = WriteLevel0Table(hot_imm_, &edit, base, true);
-  }
-  base->Unref();
+    VersionEdit hot_edit;
+    Version* hot_base = versions_->current();
+    hot_base->Ref();
+    Status hot_s = WriteLevel0Table(hot_imm_, &hot_edit, hot_base, true);
+    hot_base->Unref();
 
+    if (hot_s.ok() && shutting_down_.load(std::memory_order_acquire)) {
+      hot_s = Status::IOError("Deleting DB during hot memtable compaction");
+    }
 
-  if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    s = Status::IOError("Deleting DB during memtable compaction");
-  }
+    if (hot_s.ok()) {
+      hot_edit.SetPrevLogNumber(0);
+      hot_edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+      hot_s = versions_->LogAndApply(&hot_edit, &mutex_);
+    }
 
-  if (hot_s.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    hot_s = Status::IOError("Deleting DB during hot memtable compaction");
-  }
-
-
-  // Replace immutable memtable with the generated Table
-  if (s.ok()) {
-    edit.SetPrevLogNumber(0);
-    edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-    s = versions_->LogAndApply(&edit, &mutex_);
-  }
-
-  if (hot_s.ok()) {
-    edit.SetPrevLogNumber(0);
-    edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-    hot_s = versions_->LogAndApply(&edit, &mutex_);
-  }
-
-  if (s.ok()) {
-    // Commit to the new state
-    imm_->Unref();
-    imm_ = nullptr;
-    has_imm_.store(false, std::memory_order_release);
-    RemoveObsoleteFiles();
-  } else {
-    RecordBackgroundError(s);
-  }
-
-  if (hot_s.ok()) {
-    // Commit to the new state
-    if (hot_imm_ != nullptr) {
+    if (hot_s.ok()) {
+      // Commit to the new state
       hot_imm_->Unref();
       hot_imm_ = nullptr;
       has_hot_imm_.store(false, std::memory_order_release);
-      RemoveObsoleteFiles();
+    } else {
+      RecordBackgroundError(hot_s);
     }
-  } else {
-    RecordBackgroundError(hot_s);
   }
+
+  RemoveObsoleteFiles();
 }
 
 void DBImpl::CompactRange(const Slice* begin, const Slice* end) {
@@ -1878,9 +1865,16 @@ Status DBImpl::MakeRoomForWrite(bool force) {
     } else {
       // Attempt to switch to a new memtable and trigger compaction of old
       assert(versions_->PrevLogNumber() == 0);
+      //确保没有前一个日志文件。这是一种安全检查，确保我们没有未完成的日志文件。
+
       uint64_t new_log_number = versions_->NewFileNumber();
+      // 生成一个新的文件编号，用于新的 WAL 文件。
+
       WritableFile* lfile = nullptr;
+      //声明一个指向新的 WAL 文件的指针。
+
       s = env_->NewWritableFile(LogFileName(dbname_, new_log_number), &lfile);
+      //创建一个新的 WAL 文件，文件名为根据 new_log_number 生成的
       if (!s.ok()) {
         // Avoid chewing through file number space in a tight loop.
         versions_->ReuseFileNumber(new_log_number);
