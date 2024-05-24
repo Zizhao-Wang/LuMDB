@@ -1567,11 +1567,11 @@ class Benchmark {
     std::string cell;
     std::vector<std::string> row_data;
 
-    // std::fprintf(stdout, "start benchmarking num_ = %ld entries in DoWrite_zipf2()\n", num_);
+    std::fprintf(stderr, "Processing %d entries in every Batch\n", entries_per_batch_);
 
-    for (int i = 0; i < num_; i += entries_per_batch_) {
+    for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
-      for (int j = 0; j < entries_per_batch_; j++) {
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
           line_stream.clear();
           line_stream.str("");
           row_data.clear();

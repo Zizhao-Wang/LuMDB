@@ -83,6 +83,8 @@ struct LEVELDB_EXPORT Options {
   // the next time the database is opened.
   size_t write_buffer_size = 4 * 1024 * 1024;
 
+  size_t write_hot_buffer_size = 1 * 1024 * 1024;
+
   // Number of open files that can be used by the DB.  You may need to
   // increase this if your database has a large working set (budget
   // one open file per 2MB of working set).

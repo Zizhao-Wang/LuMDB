@@ -1,4 +1,4 @@
-sudo rm -rf /mnt/nvm/level8B*
+sudo rm -rf /mnt/hotdb_test*
 sudo rm  /mnt/logs/*.log
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
@@ -9,7 +9,7 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
-DEVICE_NAME="nvme1n1"
+DEVICE_NAME="nvme0n1"
 
 
 convert_to_billion_format() {
@@ -74,10 +74,10 @@ for i in {10..10}; do
                     done
 
                     # 如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
-                    fi
+                    # if [ -f "$log_file" ]; then
+                    #     echo "Log file $log_file already exists. Skipping this iteration."
+                    #     continue
+                    # fi
 
                     echo "base_num: $base_num"
                     echo "num_entries: $num_entries"
@@ -85,56 +85,66 @@ for i in {10..10}; do
                     echo "stats_interval: $stats_interva"
                     echo "$num_format"
 
-                    iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
+                    pids=$(pgrep -af 'db_bench --db=/mnt/hotdb_test')
+                    if [ -n "$pids" ]; then
+                        echo "Killing the following processes:"
+                        echo "$pids"
+                        # 使用 kill 命令终止进程
+                        kill -9  $pids
+                        echo "Processes killed."
+                    else
+                        echo "No matching processes found."
+                    fi
+
+                    iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
                     PID_IOSTAT=$!
                     
-                        ../hotdb/release/db_bench \
-                        --db=/mnt/nvm/level8B \
-                        --num=$num_entries \
-                        --value_size=$value_size \
-                        --batch_size=1000 \
-                        --benchmarks=fillzipf,stats \
-                        --hot_file=$hot_files \
-                        --data_file=$data_file  \
-                        --percentages=$percentages_str \
-                        --logpath=/mnt/logs \
-                        --bloom_bits=10 \
-                        --log=1  \
-                        --cache_size=8388608 \
-                        --No_hot_percentage=$no_hot \
-                        --open_files=40000 \
-                        --compression=0 \
-                        --stats_interval=$stats_interva \
-                        --histogram=1 \
-                        --write_buffer_size=67108864 \
-                        --max_file_size=67108864   \
-                        --print_wa=true \
-                        &> >( tee $log_file) &  
+                    ../../hotdb/release/db_bench \
+                    --db=/mnt/hotdb_test \
+                    --num=$num_entries \
+                    --value_size=$value_size \
+                    --batch_size=1000 \
+                    --benchmarks=fillzipf,stats \
+                    --hot_file=$hot_files \
+                    --data_file=$data_file  \
+                    --percentages=$percentages_str \
+                    --logpath=/mnt/logs \
+                    --bloom_bits=10 \
+                    --log=1  \
+                    --cache_size=8388608 \
+                    --open_files=40000 \
+                    --compression=0 \
+                    --stats_interval=$stats_interva \
+                    --histogram=1 \
+                    --write_buffer_size=67108864 \
+                    --max_file_size=67108864   \
+                    --print_wa=true \
+                    &> >( tee $log_file) &  
 
-                        # 保存 db_bench 的 PID 供监控使用
-                        sleep 1
+                    # 保存 db_bench 的 PID 供监控使用
+                    sleep 1
 
-                        DB_BENCH_PID=$(pgrep -af 'db_bench' | grep -v 'sudo' | awk '{print $1}')
-                        echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
+                    DB_BENCH_PID=$(pgrep -af 'db_bench --db=/mnt/hotdb_test' | grep -v 'sudo' | awk '{print $1}')
+                    echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
-                        perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &
-                        PERF_PID=$!
+                    perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &
+                    PERF_PID=$!
 
-                        wait $DB_BENCH_PID
+                    wait $DB_BENCH_PID
 
-                        # 结束 iostat 进程
-                        echo "Checking if iostat process with PID $PID_IOSTAT is still running..."
-                        ps -p $PID_IOSTAT
+                    # 结束 iostat 进程
+                    echo "Checking if iostat process with PID $PID_IOSTAT is still running..."
+                    ps -p $PID_IOSTAT
+                    if [ $? -eq 0 ]; then
+                        echo "iostat process $PID_IOSTAT is still running, killing now..."
+                        kill -9 $PID_IOSTAT
                         if [ $? -eq 0 ]; then
-                            echo "iostat process $PID_IOSTAT is still running, killing now..."
-                            kill -9 $PID_IOSTAT
-                            if [ $? -eq 0 ]; then
-                                echo "iostat process $PID_IOSTAT has been successfully killed."
-                            else
-                                echo "Failed to kill iostat process $PID_IOSTAT."
-                            fi
+                            echo "iostat process $PID_IOSTAT has been successfully killed."
                         else
-                            echo "iostat process $PID_IOSTAT is no longer running."
+                            echo "Failed to kill iostat process $PID_IOSTAT."
+                        fi
+                    else
+                        echo "iostat process $PID_IOSTAT is no longer running."
                     fi
             done
         done

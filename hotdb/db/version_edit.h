@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "db/dbformat.h"
+#include "util/logging.h"
+#include "leveldb/env.h"
 
 namespace leveldb {
 
@@ -78,6 +80,23 @@ class VersionEdit {
     compact_pointers_.push_back(std::make_pair(level, key));
   }
 
+  void set_is_tiering() {
+    is_tiering_edit=true;
+  }
+
+  bool get_is_tiering() const {
+    return is_tiering_edit;
+  }
+
+  void set_logger(Logger* logger) {
+    logger_ = logger;
+  }
+
+  Logger* get_logger() const {
+    return logger_;
+  }
+
+
   // Add the specified file at the specified number.
   // REQUIRES: This version has not been saved (see VersionSet::SaveTo)
   // REQUIRES: "smallest" and "largest" are smallest and largest keys in file
@@ -88,6 +107,13 @@ class VersionEdit {
     f.file_size = file_size;
     f.smallest = smallest;
     f.largest = largest;
+
+    Log(logger_, "Adding file to %s files: #%llu, size: %llu, level: %d",
+      is_tiering ? "tiering" : "leveling", (unsigned long long)file, (unsigned long long)file_size, level);
+    Log(logger_, "File smallest key: %s, largest key: %s",
+      smallest.DebugString().c_str(), largest.DebugString().c_str());
+
+
     if(is_tiering){
       new_tiering_files.push_back(std::make_pair(level, f));
     }else{
@@ -125,6 +151,7 @@ class VersionEdit {
   bool has_prev_log_number_;
   bool has_next_file_number_;
   bool has_last_sequence_;
+  Logger* logger_;
 
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
 
@@ -138,6 +165,7 @@ class VersionEdit {
 
   std::vector<std::pair<int, FileMetaData>> new_files_;
   std::vector<std::pair<int, FileMetaData>> new_tiering_files;
+  bool is_tiering_edit;
   // ==== End of modified code ====
 };
 

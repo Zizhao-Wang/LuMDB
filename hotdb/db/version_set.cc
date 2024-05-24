@@ -797,6 +797,7 @@ class VersionSet::Builder {
     cmp.internal_comparator = &vset_->icmp_;
     for (int level = 0; level < config::kNumLevels; level++) {
       levels_[level].added_files = new FileSet(cmp);
+      levels_[level].added_tiering_files = new FileSet(cmp);
     }
   }
 
@@ -810,6 +811,22 @@ class VersionSet::Builder {
         to_unref.push_back(*it);
       }
       delete added;
+      for (uint32_t i = 0; i < to_unref.size(); i++) {
+        FileMetaData* f = to_unref[i];
+        f->refs--;
+        if (f->refs <= 0) {
+          delete f;
+        }
+      }
+
+
+      const FileSet* added_tiering = levels_[level].added_tiering_files;
+      to_unref.clear();
+      to_unref.reserve(added_tiering->size());
+      for (FileSet::const_iterator it = added_tiering->begin(); it != added_tiering->end(); ++it) {
+        to_unref.push_back(*it);
+      }
+      delete added_tiering;
       for (uint32_t i = 0; i < to_unref.size(); i++) {
         FileMetaData* f = to_unref[i];
         f->refs--;
@@ -881,7 +898,7 @@ class VersionSet::Builder {
 
     // Add new files
     for (size_t i = 0; i < edit->new_tiering_files.size(); i++) {
-      const int level = edit->new_files_[i].first;
+      const int level = edit->new_tiering_files[i].first;
       FileMetaData* f = new FileMetaData(edit->new_tiering_files[i].second);
       f->refs = 1;
 
@@ -1101,8 +1118,14 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
   Version* v = new Version(this);
   {
     Builder builder(this, current_);
-    builder.Apply(edit);
-    builder.SaveTo(v);
+    bool is_tiering = edit->get_is_tiering();
+    if(is_tiering){
+      builder.Apply(edit, is_tiering);
+      builder.SaveTo(v,is_tiering);
+    }else{
+      builder.Apply(edit);
+      builder.SaveTo(v);
+    }
   }
   Finalize(v);
 

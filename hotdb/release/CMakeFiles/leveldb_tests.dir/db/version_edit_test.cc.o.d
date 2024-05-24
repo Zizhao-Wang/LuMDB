@@ -176,6 +176,8 @@ CMakeFiles/leveldb_tests.dir/db/version_edit_test.cc.o: \
  /usr/include/c++/11/ext/concurrence.h /usr/include/c++/11/mutex \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./port/thread_annotations.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./util/logging.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/env.h \
+ /usr/include/c++/11/cstdarg \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googletest/include/gtest/gtest.h \
  /usr/include/c++/11/memory \
  /usr/include/c++/11/bits/stl_raw_storage_iter.h \

@@ -374,7 +374,7 @@ class DBImpl : public DB {
   std::unordered_set<uint64_t> hot_keys;
   std::map<int, std::unordered_set<uint64_t>> hot_keys_sets;
   bool is_first;
-  range_maintainer ranges_container;
+  range_identifier* hot_key_identifier;
   
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~

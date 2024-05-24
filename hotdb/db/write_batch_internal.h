@@ -7,6 +7,7 @@
 
 #include "db/dbformat.h"
 #include "leveldb/write_batch.h"
+#include "db/range_merge_split.h"
 
 namespace leveldb {
 
@@ -35,7 +36,7 @@ class WriteBatchInternal {
 
   static void SetContents(WriteBatch* batch, const Slice& contents);
 
-  static Status InsertInto(const WriteBatch* batch, MemTable* memtable, MemTable* hot_memtable = nullptr);
+  static Status InsertInto(const WriteBatch* batch, MemTable* memtable, MemTable* hot_memtable = nullptr, range_identifier* hot_key_idetiifer=nullptr, Logger* info_loger=nullptr);
 
   static void Append(WriteBatch* dst, const WriteBatch* src);
 };

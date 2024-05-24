@@ -157,7 +157,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       background_compaction_scheduled_(false),
       manual_compaction_(nullptr),
       versions_(new VersionSet(dbname_, &options_, table_cache_, &internal_comparator_)), 
-      ranges_container(options_.init_range) {}
+      hot_key_identifier(new range_identifier(options_.init_range,1000)) {}
 
 DBImpl::~DBImpl() {
   // Wait for background work to finish.
@@ -257,24 +257,29 @@ void DBImpl::RemoveObsoleteFiles() {
         case kLogFile:
           keep = ((number >= versions_->LogNumber()) ||
                   (number == versions_->PrevLogNumber()));
+          Log(options_.info_log, "Checking LogFile: #%llu, keep: %d", (unsigned long long)number, keep);
           break;
         case kDescriptorFile:
           // Keep my manifest file, and any newer incarnations'
           // (in case there is a race that allows other incarnations)
           keep = (number >= versions_->ManifestFileNumber());
+          Log(options_.info_log, "Checking DescriptorFile: #%llu, keep: %d", (unsigned long long)number, keep);
           break;
         case kTableFile:
           keep = (live.find(number) != live.end());
+          Log(options_.info_log, "Checking TableFile: #%llu, keep: %d", (unsigned long long)number, keep);
           break;
         case kTempFile:
           // Any temp files that are currently being written to must
           // be recorded in pending_outputs_, which is inserted into "live"
           keep = (live.find(number) != live.end());
+          Log(options_.info_log, "Checking TempFile: #%llu, keep: %d", (unsigned long long)number, keep);
           break;
         case kCurrentFile:
         case kDBLockFile:
         case kInfoLogFile:
           keep = true;
+          Log(options_.info_log, "Checking %s, keep: %d", filename.c_str(), keep);
           break;
       }
 
@@ -285,6 +290,8 @@ void DBImpl::RemoveObsoleteFiles() {
         }
         Log(options_.info_log, "Delete type=%d #%lld\n", static_cast<int>(type),
             static_cast<unsigned long long>(number));
+      }else{
+        Log(options_.info_log, "Unrecognized file name: %s", filename.c_str());
       }
     }
   }
@@ -294,6 +301,7 @@ void DBImpl::RemoveObsoleteFiles() {
   // are therefore safe to delete while allowing other threads to proceed.
   mutex_.Unlock();
   for (const std::string& filename : files_to_delete) {
+    Log(options_.info_log, "Removing file: %s", filename.c_str());
     env_->RemoveFile(dbname_ + "/" + filename);
   }
   mutex_.Lock();
@@ -524,6 +532,8 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   //   logica_meta.number = versions_->NewFileNumber();
   // }
   meta.number = versions_->NewFileNumber();
+  // 设置 logger
+  edit->set_logger(options_.info_log);
 
 
   pending_outputs_.insert(meta.number); 
@@ -645,6 +655,7 @@ void DBImpl::CompactMemTable() {
     if (hot_s.ok()) {
       hot_edit.SetPrevLogNumber(0);
       hot_edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+      hot_edit.set_is_tiering();
       hot_s = versions_->LogAndApply(&hot_edit, &mutex_);
     }
 
@@ -657,7 +668,7 @@ void DBImpl::CompactMemTable() {
       RecordBackgroundError(hot_s);
     }
   }
-
+  exit(0);
   RemoveObsoleteFiles();
 }
 
@@ -749,7 +760,7 @@ void DBImpl::MaybeScheduleCompaction() {
     // DB is being deleted; no more background compactions
   } else if (!bg_error_.ok()) {
     // Already got an error; no more changes
-  } else if (imm_ == nullptr && manual_compaction_ == nullptr &&
+  } else if (imm_ == nullptr && hot_imm_ == nullptr && manual_compaction_ == nullptr &&
              !versions_->NeedsCompaction()) {
     // No work to be done
   } else {
@@ -784,9 +795,18 @@ void DBImpl::BackgroundCall() {
 void DBImpl::BackgroundCompaction() {
   mutex_.AssertHeld();
 
-  if (imm_ != nullptr || hot_imm_ != nullptr) {
+   if (imm_ != nullptr) {
+    Log(options_.info_log, "Starting CompactMemTable");
     CompactMemTable();
-    return;
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished CompactMemTable");
+  }
+  if (hot_imm_ != nullptr) {
+    Log(options_.info_log, "Starting CompactHotMemTable");
+    CompactMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished CompactHotMemTable");
+    exit(0);
   }
 
   Compaction* c;
@@ -1737,7 +1757,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
 
       // write data into the memtable and hot memtable if it is hot data
       if (status.ok()) {
-        status = WriteBatchInternal::InsertInto(write_batch, mem_);
+        status = WriteBatchInternal::InsertInto(write_batch, mem_, hot_mem_,hot_key_identifier, options_.info_log);
       }
 
       mutex_.Lock();
@@ -1850,7 +1870,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       mutex_.Lock();
     } else if (!force &&
                (mem_->ApproximateMemoryUsage() <= options_.write_buffer_size) && 
-               (hot_mem_ == nullptr || hot_mem_->ApproximateMemoryUsage() <= options_.write_buffer_size)) {
+               (hot_mem_ == nullptr || hot_mem_->ApproximateMemoryUsage() <= options_.write_hot_buffer_size)) {
       // There is room in current memtable
       break;
     } else if (imm_ != nullptr || hot_imm_ != nullptr) {
@@ -1868,6 +1888,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       //确保没有前一个日志文件。这是一种安全检查，确保我们没有未完成的日志文件。
 
       uint64_t new_log_number = versions_->NewFileNumber();
+      fprintf(stderr, "new_log_number: %lu in MakeRoomForWrite\n", new_log_number);
       // 生成一个新的文件编号，用于新的 WAL 文件。
 
       WritableFile* lfile = nullptr;
@@ -1907,11 +1928,11 @@ Status DBImpl::MakeRoomForWrite(bool force) {
         mem_->Ref();
       } 
       
-      
-      if(hot_mem_ != nullptr && hot_mem_->ApproximateMemoryUsage() > options_.write_buffer_size){
+      if(hot_mem_ != nullptr && hot_mem_->ApproximateMemoryUsage() > options_.write_hot_buffer_size){
         hot_imm_ = hot_mem_;
         has_hot_imm_.store(true, std::memory_order_release);
         hot_mem_ = new MemTable(internal_comparator_);
+        Log(options_.info_log, "In-memory hot immutable(size:%lu) is saturated!",hot_imm_->ApproximateMemoryUsage());
         hot_mem_->Ref();
       }
 
@@ -2204,9 +2225,9 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
+    fprintf(stderr, "new_log_number: %lu in DB::Open\n", new_log_number);
     WritableFile* lfile;
-    s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
-                                     &lfile);
+    s = options.env->NewWritableFile(LogFileName(dbname, new_log_number), &lfile);
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
@@ -2214,6 +2235,8 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->log_ = new log::Writer(lfile);
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
+      impl->hot_mem_ = new MemTable(impl->internal_comparator_);
+      impl->hot_mem_->Ref();
     }
   }
   if (s.ok() && save_manifest) {

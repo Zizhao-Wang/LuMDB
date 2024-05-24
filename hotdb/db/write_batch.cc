@@ -21,6 +21,8 @@
 #include "leveldb/db.h"
 #include "util/coding.h"
 #include "db/range_merge_split.h"
+#include "util/logging.h"
+#include "leveldb/env.h"
 
 namespace leveldb {
 
@@ -76,8 +78,10 @@ Status WriteBatch::Iterate(Handler* handler) const {
   if (found != WriteBatchInternal::Count(this)) {
     return Status::Corruption("WriteBatch has wrong count");
   } else {
+    // fprintf(stderr, "%d entries founded in this batch!\n", found);
     return Status::OK();
   }
+  
 }
 
 int WriteBatchInternal::Count(const WriteBatch* b) {
@@ -121,29 +125,40 @@ class MemTableInserter : public WriteBatch::Handler {
   MemTable* hot_mem_;
   range_identifier* hot_identifier;
 
+  int mem_count;  // Counter for mem_
+  int hot_mem_count;  // Counter for hot_mem_
+
+  MemTableInserter()
+      : sequence_(0), mem_(nullptr), hot_mem_(nullptr), hot_identifier(nullptr), mem_count(0), hot_mem_count(0) {}
+
   void Put(const Slice& key, const Slice& value) override {
+    assert(hot_identifier != nullptr);
+    assert(hot_mem_ != nullptr);
     if(hot_identifier == nullptr || hot_mem_ == nullptr ){
       mem_->Add(sequence_, kTypeValue, key, value);
-    }
-    else{
+      mem_count++;
+    }else{
       if(hot_identifier->is_hot(key) == true){
         hot_mem_->Add(sequence_, kTypeValue, key, value);
-      }
-      else{
+        hot_mem_count++;
+      }else{
         mem_->Add(sequence_, kTypeValue, key, value);
+        mem_count++;
       }
     }
+
+    // fprintf(stderr, "hot key count: %d cold key count: %d \n", hot_mem_count, mem_count);
+
     sequence_++;
   }
+
   void Delete(const Slice& key) override {
     if(hot_identifier == nullptr || hot_mem_ == nullptr ){
       mem_->Add(sequence_, kTypeDeletion, key, Slice());
-    }
-    else{
+    }else{
       if(hot_identifier->is_hot(key) == true){
         hot_mem_->Add(sequence_, kTypeDeletion, key, Slice());
-      }
-      else{
+      }else{
         mem_->Add(sequence_, kTypeDeletion, key, Slice());
       }
     }
@@ -152,12 +167,18 @@ class MemTableInserter : public WriteBatch::Handler {
 };
 }  // namespace
 
-Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable) {
+Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger) {
   MemTableInserter inserter;
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
   inserter.mem_ = memtable;
   inserter.hot_mem_ = hot_memtable;
-  return b->Iterate(&inserter);
+  inserter.hot_identifier = hot_key_idetiifer;
+  Status s = b->Iterate(&inserter);
+
+  // if(info_loger!= nullptr)
+  //   Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
+
+  return s;
 }
 
 void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
