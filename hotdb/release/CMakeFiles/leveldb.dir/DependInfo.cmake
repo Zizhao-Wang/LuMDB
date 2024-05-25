@@ -15,6 +15,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/jeff-wang/WorkloadAnalysis/hotdb/db/dbformat.cc" "CMakeFiles/leveldb.dir/db/dbformat.cc.o" "gcc" "CMakeFiles/leveldb.dir/db/dbformat.cc.o.d"
   "/home/jeff-wang/WorkloadAnalysis/hotdb/db/dumpfile.cc" "CMakeFiles/leveldb.dir/db/dumpfile.cc.o" "gcc" "CMakeFiles/leveldb.dir/db/dumpfile.cc.o.d"
   "/home/jeff-wang/WorkloadAnalysis/hotdb/db/filename.cc" "CMakeFiles/leveldb.dir/db/filename.cc.o" "gcc" "CMakeFiles/leveldb.dir/db/filename.cc.o.d"
+  "/home/jeff-wang/WorkloadAnalysis/hotdb/db/global_stats.cc" "CMakeFiles/leveldb.dir/db/global_stats.cc.o" "gcc" "CMakeFiles/leveldb.dir/db/global_stats.cc.o.d"
   "/home/jeff-wang/WorkloadAnalysis/hotdb/db/log_reader.cc" "CMakeFiles/leveldb.dir/db/log_reader.cc.o" "gcc" "CMakeFiles/leveldb.dir/db/log_reader.cc.o.d"
   "/home/jeff-wang/WorkloadAnalysis/hotdb/db/log_writer.cc" "CMakeFiles/leveldb.dir/db/log_writer.cc.o" "gcc" "CMakeFiles/leveldb.dir/db/log_writer.cc.o.d"
   "/home/jeff-wang/WorkloadAnalysis/hotdb/db/memtable.cc" "CMakeFiles/leveldb.dir/db/memtable.cc.o" "gcc" "CMakeFiles/leveldb.dir/db/memtable.cc.o.d"

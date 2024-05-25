@@ -700,6 +700,30 @@ db/filename_test.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb_tests.dir/build.make CMakeFiles/leveldb_tests.dir/db/filename_test.cc.s
 .PHONY : db/filename_test.cc.s
 
+db/global_stats.o: db/global_stats.cc.o
+.PHONY : db/global_stats.o
+
+# target to build an object file
+db/global_stats.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/global_stats.cc.o
+.PHONY : db/global_stats.cc.o
+
+db/global_stats.i: db/global_stats.cc.i
+.PHONY : db/global_stats.i
+
+# target to preprocess a source file
+db/global_stats.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/global_stats.cc.i
+.PHONY : db/global_stats.cc.i
+
+db/global_stats.s: db/global_stats.cc.s
+.PHONY : db/global_stats.s
+
+# target to generate assembly for a file
+db/global_stats.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/global_stats.cc.s
+.PHONY : db/global_stats.cc.s
+
 db/leveldbutil.o: db/leveldbutil.cc.o
 .PHONY : db/leveldbutil.o
 
@@ -2106,6 +2130,9 @@ help:
 	@echo "... db/filename_test.o"
 	@echo "... db/filename_test.i"
 	@echo "... db/filename_test.s"
+	@echo "... db/global_stats.o"
+	@echo "... db/global_stats.i"
+	@echo "... db/global_stats.s"
 	@echo "... db/leveldbutil.o"
 	@echo "... db/leveldbutil.i"
 	@echo "... db/leveldbutil.s"

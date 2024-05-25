@@ -134,6 +134,8 @@ target_sources(leveldb
     "db/filename.cc"
     "db/range_merge_split.cc"
     "db/range_merge_split.h"
+    "db/global_stats.cc"
+    "db/global_stats.h"
     "db/filename.h"
     "db/log_format.h"
     "db/log_reader.cc"
@@ -288,6 +290,13 @@ endif(HAVE_TCMALLOC)
 find_package(Threads REQUIRED)
 target_link_libraries(leveldb Threads::Threads)
 
+
+# 添加 AddressSanitizer
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  target_compile_options(leveldb PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_libraries(leveldb -fsanitize=address)
+endif()
+
 add_executable(leveldbutil
   "db/leveldbutil.cc"
 )
@@ -438,6 +447,11 @@ if(LEVELDB_BUILD_BENCHMARKS)
           LEVELDB_HAS_PORT_CONFIG_H=1
       )
     endif(NOT HAVE_CXX17_HAS_INCLUDE)
+
+  # if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  #   target_compile_options("${bench_target_name}" PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  #   target_link_options("${bench_target_name}" PRIVATE -fsanitize=address)
+  # endif()
   endfunction(leveldb_benchmark)
 
   if(NOT BUILD_SHARED_LIBS)

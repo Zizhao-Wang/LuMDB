@@ -398,6 +398,8 @@ static bool NewestFirst(FileMetaData* a, FileMetaData* b) {
 
 void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
                                  bool (*func)(void*, int, FileMetaData*)) {
+
+  int64_t start_time = vset_->env_->NowMicros(); // 开始查找metadata的时间                                  
   const Comparator* ucmp = vset_->icmp_.user_comparator();
 
   // Search level-0 in order from newest to oldest.
@@ -410,13 +412,23 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
       tmp.push_back(f);
     }
   }
+  
+  int64_t end_time ; 
+
   if (!tmp.empty()) {
     std::sort(tmp.begin(), tmp.end(), NewestFirst);
+    end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+    vset_->search_stats.level0_search_time += (end_time - start_time);  // 记录时间
     for (uint32_t i = 0; i < tmp.size(); i++) {
       if (!(*func)(arg, 0, tmp[i])) {
+        end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+        vset_->search_stats.total_time += (end_time - start_time);
         return;
       }
     }
+  }else{
+    end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+    vset_->search_stats.level0_search_time += (end_time - start_time);  // 记录时间
   }
 
   // Search other levels.
@@ -424,14 +436,19 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
     size_t num_files = leveling_files_[level].size();
     if (num_files == 0) continue;
 
+    start_time = vset_->env_->NowMicros(); // 开始查找metadata的时间
     // Binary search to find earliest index whose largest key >= internal_key.
     uint32_t index = FindFile(vset_->icmp_, leveling_files_[level], internal_key);
+    end_time = vset_->env_->NowMicros(); // 结束查找metadata的时间
+    vset_->search_stats.other_levels_search_time += (end_time - start_time);
     if (index < num_files) {
       FileMetaData* f = leveling_files_[level][index];
       if (ucmp->Compare(user_key, f->smallest.user_key()) < 0) {
         // All of "f" is past any data for user_key
       } else {
         if (!(*func)(arg, level, f)) {
+          end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+          vset_->search_stats.total_time += (end_time - start_time);
           return;
         }
       }
@@ -591,11 +608,7 @@ void Version::Unref() {
 }
 
 bool Version::OverlapInLevel(int level, const Slice* smallest_user_key,
-                             const Slice* largest_user_key, bool is_tiering) {
-  if(is_tiering){
-    return SomeFileOverlapsRange(vset_->icmp_, (level > 0), tiering_files_[level],
-                               smallest_user_key, largest_user_key);
-  }
+                             const Slice* largest_user_key) {
   return SomeFileOverlapsRange(vset_->icmp_, (level > 0), leveling_files_[level],
                                smallest_user_key, largest_user_key);
 }
@@ -605,10 +618,10 @@ bool Version::OverlapInLevel(int level, const Slice* smallest_user_key,
 // 如果[small, large]与0层有重叠，则直接返回0
 // 如果与level + 1文件有重叠，或者与level + 2层文件重叠过大，则都不应该放入level
 // + 1，直接返回level 返回的level 最大为2
-int Version::PickLevelForMemTableOutput(const Slice& smallest_user_key, const Slice& largest_user_key, bool is_tiering) {
+int Version::PickLevelForMemTableOutput(const Slice& smallest_user_key, const Slice& largest_user_key) {
   // 默认放到level 0
   int level = 0;
-  if (!OverlapInLevel(0, &smallest_user_key, &largest_user_key, is_tiering)) {
+  if (!OverlapInLevel(0, &smallest_user_key, &largest_user_key)) {
     //如果这个MemTable的key range和level 0的文件的range没有交集
 
     // Push to next level if there is no overlap in next level,
@@ -619,7 +632,7 @@ int Version::PickLevelForMemTableOutput(const Slice& smallest_user_key, const Sl
     while (level < config::kMaxMemCompactLevel) {
       // 与level + 1(下一层)文件有交集，只能直接返回该层
       // 目的是为了保证下一层文件是有序的
-      if (OverlapInLevel(level + 1, &smallest_user_key, &largest_user_key, is_tiering)) {
+      if (OverlapInLevel(level + 1, &smallest_user_key, &largest_user_key)) {
         break;
       }
       if (level + 2 < config::kNumLevels) {
@@ -994,14 +1007,14 @@ class VersionSet::Builder {
       for (const auto& added_file : *added_tiering_files) {
         // Add all smaller files listed in base_
         for (std::vector<FileMetaData*>::const_iterator bpos = std::upper_bound(base_iter, base_end, added_file, cmp); base_iter != bpos; ++base_iter) {
-          MaybeAddFile(v, level, *base_iter);
+          MaybeAddFile(v, level, *base_iter,true);
         }
-        MaybeAddFile(v, level, added_file);
+        MaybeAddFile(v, level, added_file,true);
       }
 
       // Add remaining base files
       for (; base_iter != base_end; ++base_iter) {
-        MaybeAddFile(v, level, *base_iter);
+        MaybeAddFile(v, level, *base_iter,true);
       }
 
 #ifndef NDEBUG
@@ -1619,17 +1632,46 @@ uint64_t VersionSet::ApproximateOffsetOf(Version* v, const InternalKey& ikey) {
   return result;
 }
 
+
+/**
+ * @brief Add all live files to the specified set.
+ *
+ * This function iterates through all versions and levels, collecting the
+ * file numbers of all live files from both tiering and leveling strategies,
+ * and inserting them into the provided set. It is used to keep track of files
+ * that are still in use and should not be deleted.
+ *
+ * @param live A pointer to a set that will be populated with the numbers
+ *             of all live files.
+ */
 void VersionSet::AddLiveFiles(std::set<uint64_t>* live) {
-  for (Version* v = dummy_versions_.next_; v != &dummy_versions_;
-       v = v->next_) {
+  for (Version* v = dummy_versions_.next_; v != &dummy_versions_; v = v->next_) {
     for (int level = 0; level < config::kNumLevels; level++) {
-      const std::vector<FileMetaData*>& files = v->leveling_files_[level];
-      for (size_t i = 0; i < files.size(); i++) {
-        live->insert(files[i]->number);
+      // Log(options_->info_log, "Version %p", static_cast<void*>(v));
+      const std::vector<FileMetaData*>& leveling_files = v->leveling_files_[level];
+      // Log(options_->info_log, "  Level %d (leveling): %zu files", level, leveling_files.size());
+      for (size_t i = 0; i < leveling_files.size(); i++) {
+        live->insert(leveling_files[i]->number);
+        // Log(options_->info_log, "    Leveling File #%llu, size: %llu",
+        // (unsigned long long)leveling_files[i]->number,
+        // (unsigned long long)leveling_files[i]->file_size);
       }
+
+      // Process tiering files
+      const std::vector<FileMetaData*>& tiering_files = v->tiering_files_[level];
+      // Log(options_->info_log, "  Level %d (tiering): %zu files", level, tiering_files.size());
+      for (size_t i = 0; i < tiering_files.size(); i++) {
+        live->insert(tiering_files[i]->number);
+        // Log(options_->info_log, "    Tiering File #%llu, size: %llu",
+        //     (unsigned long long)tiering_files[i]->number,
+        //     (unsigned long long)tiering_files[i]->file_size);
+      }
+
     }
   }
 }
+
+
 
 int64_t VersionSet::NumLevelBytes(int level) const {
   assert(level >= 0);
@@ -1724,7 +1766,7 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
 
 Compaction* VersionSet::PickCompaction() {
   Compaction* c;
-  int level;
+  int level = -1;
 
   // Version* v = current_;  current_是当前可用的活动的version
   // We prefer compactions triggered by too much data in a level over
@@ -1732,6 +1774,7 @@ Compaction* VersionSet::PickCompaction() {
   const bool size_compaction = (current_->compaction_score_ >= 1);
   const bool seek_compaction = (current_->file_to_compact_in_leveling != nullptr);
 
+  Log(options_->info_log, "PickCompaction: size_compaction=%d, seek_compaction=%d", size_compaction, seek_compaction);
 
   if (size_compaction) {
     level = current_->compaction_level_;
@@ -1740,6 +1783,7 @@ Compaction* VersionSet::PickCompaction() {
     
     // 创建一个新的压缩任务（Compaction），指定压缩操作的层级
     c = new Compaction(options_, level);
+    Log(options_->info_log, "PickCompaction: size_compaction - level=%d, compaction_score=%.2f", level, current_->compaction_score_);
 
     // Pick the first file that comes after compact_pointer_[level]
     for (size_t i = 0; i < current_->leveling_files_[level].size(); i++) {
@@ -1763,16 +1807,18 @@ Compaction* VersionSet::PickCompaction() {
     level = current_->file_to_compact_level_in_leveling;
     c = new Compaction(options_, level);
     c->inputs_[0].push_back(current_->file_to_compact_in_leveling);
-
+    Log(options_->info_log, "PickCompaction: seek_compaction - level=%d", level);
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
     c->compaction_type = 2;
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
 
   } else {
-    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
+    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~
+    Log(options_->info_log, "PickCompaction: no compaction needed"); 
+    return nullptr;
     c->compaction_type = 4;
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
-    return nullptr;
+    
   }
 
   // 将当前数据库的版本（Version）赋值给压缩任务（Compaction）对象的input_version_。
@@ -1786,7 +1832,7 @@ Compaction* VersionSet::PickCompaction() {
     // 获取当前选定进行压缩的文件集的最小和最大键。
     InternalKey smallest, largest;
     GetRange(c->inputs_[0], &smallest, &largest);
-
+    Log(options_->info_log, "PickCompaction: level 0 compaction - smallest=%s, largest=%s", smallest.DebugString().c_str(), largest.DebugString().c_str());
 
     // Note that the next call will discard the file we placed in
     // c->inputs_[0] earlier and replace it with an overlapping set

@@ -668,7 +668,6 @@ void DBImpl::CompactMemTable() {
       RecordBackgroundError(hot_s);
     }
   }
-  exit(0);
   RemoveObsoleteFiles();
 }
 
@@ -805,8 +804,7 @@ void DBImpl::BackgroundCompaction() {
     Log(options_.info_log, "Starting CompactHotMemTable");
     CompactMemTable();
     background_work_finished_signal_.SignalAll();
-    Log(options_.info_log, "Finished CompactHotMemTable");
-    exit(0);
+    Log(options_.info_log, "Finished CompactHotMemTable\n\n");
   }
 
   Compaction* c;
@@ -1186,7 +1184,7 @@ void DBImpl::testSpecialKeys() {
         }
         totalKeysTested++;
         fflush(stdout);
-        exit(0);
+        // exit(0);
     }
     fprintf(stderr, "Test complete. %zu out of %zu keys tested are special.\n", specialKeysCount, totalKeysTested);
     fflush(stderr);
@@ -1630,21 +1628,35 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   bool have_stat_update = false;
   Version::GetStats stats;
 
+  Get_Time_Stats local_stats; // Local instance to store stats for this Get call
+  int64_t start_time = env_->NowMicros();
   // Unlock while reading from files and memtables
   {
     mutex_.Unlock();
     // First look in the memtable, then in the immutable memtable (if any).
     LookupKey lkey(key, snapshot);
+    int64_t mem_start_time = env_->NowMicros();
     if (mem->Get(lkey, value, &s)) {
-      // Done
-    } else if (imm != nullptr && imm->Get(lkey, value, &s)) {
+      local_stats.memtable_time = env_->NowMicros() - mem_start_time;
       // Done
     } else {
-      s = current->Get(options, lkey, value, &stats);
-      have_stat_update = true;
-    }
+      local_stats.memtable_time = env_->NowMicros() - mem_start_time;
+      int64_t imm_start_time = env_->NowMicros();
+      if (imm != nullptr && imm->Get(lkey, value, &s)) {
+        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+      } else {
+        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+        int64_t disk_start_time = env_->NowMicros();
+        s = current->Get(options, lkey, value, &stats);
+        local_stats.disk_time = env_->NowMicros() - disk_start_time;
+        have_stat_update = true;
+      }
+    } 
     mutex_.Lock();
   }
+
+  local_stats.total_time = env_->NowMicros() - start_time;
+  get_time_stats.Add(local_stats);  // Accumulate stats in the class-level instance
 
   if (have_stat_update && current->UpdateStats(stats)) {
     MaybeScheduleCompaction();
@@ -1921,7 +1933,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       logfile_number_ = new_log_number;
       log_ = new log::Writer(lfile);
 
-      if(mem_->ApproximateMemoryUsage()>options_.write_buffer_size){
+      if(mem_ != nullptr && mem_->ApproximateMemoryUsage()>options_.write_buffer_size){
         imm_ = mem_;
         has_imm_.store(true, std::memory_order_release);
         mem_ = new MemTable(internal_comparator_);

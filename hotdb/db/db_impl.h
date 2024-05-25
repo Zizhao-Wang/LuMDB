@@ -204,6 +204,29 @@ class DBImpl : public DB {
     int64_t bytes_written_cold;
   };
 
+  struct Get_Time_Stats {
+    int64_t memtable_time;  // Time spent in memtable
+    int64_t immtable_time;  // Time spent in immutable memtable
+
+    int64_t file_meata_data_time;
+    int64_t search_filter;
+    int64_t block_read;
+    int64_t disk_time;      // Time spent in disk access
+    
+
+    int64_t total_time;     // Total time spent in the Get operation
+
+
+    Get_Time_Stats() : memtable_time(0), immtable_time(0), disk_time(0), total_time(0) {}
+
+    void Add(const Get_Time_Stats& c) {
+      this->memtable_time += c.memtable_time;
+      this->immtable_time += c.immtable_time;
+      this->disk_time += c.disk_time;
+      this->total_time += c.total_time;
+    }
+  };
+
   Iterator* NewInternalIterator(const ReadOptions&,
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
@@ -349,6 +372,8 @@ class DBImpl : public DB {
   Status bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
+
+  Get_Time_Stats get_time_stats GUARDED_BY(mutex_);
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);

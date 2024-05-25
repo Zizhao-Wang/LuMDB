@@ -108,11 +108,10 @@ class VersionEdit {
     f.smallest = smallest;
     f.largest = largest;
 
-    Log(logger_, "Adding file to %s files: #%llu, size: %llu, level: %d",
-      is_tiering ? "tiering" : "leveling", (unsigned long long)file, (unsigned long long)file_size, level);
-    Log(logger_, "File smallest key: %s, largest key: %s",
-      smallest.DebugString().c_str(), largest.DebugString().c_str());
-
+    // Log(logger_, "Adding file to %s files: #%llu, size: %llu, level: %d",
+    //   is_tiering ? "tiering" : "leveling", (unsigned long long)file, (unsigned long long)file_size, level);
+    // Log(logger_, "File smallest key: %s, largest key: %s",
+      // smallest.DebugString().c_str(), largest.DebugString().c_str());
 
     if(is_tiering){
       new_tiering_files.push_back(std::make_pair(level, f));

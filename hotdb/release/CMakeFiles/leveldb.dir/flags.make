@@ -6,5 +6,5 @@ CXX_DEFINES = -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_PLATFORM_POSIX=1
 
 CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/hotdb/release/include -I/home/jeff-wang/WorkloadAnalysis/hotdb/. -I/home/jeff-wang/WorkloadAnalysis/hotdb/include
 
-CXX_FLAGS =  -fno-exceptions -fno-rtti -g -std=c++11
+CXX_FLAGS =  -fno-exceptions -fno-rtti -g -fsanitize=address -fno-omit-frame-pointer -std=c++11
 

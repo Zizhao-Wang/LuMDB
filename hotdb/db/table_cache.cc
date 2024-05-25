@@ -41,6 +41,8 @@ TableCache::~TableCache() { delete cache_; }
 Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
                              Cache::Handle** handle) {
   Status s;
+  int64_t start_time, end_time;
+  
   char buf[sizeof(file_number)];
   EncodeFixed64(buf, file_number);
   Slice key(buf, sizeof(buf));
@@ -101,13 +103,17 @@ Status TableCache::Get(const ReadOptions& options, uint64_t file_number,
                        uint64_t file_size, const Slice& k, void* arg,
                        void (*handle_result)(void*, const Slice&,
                                              const Slice&)) {
+  int64_t start_time, end_time;
+
   Cache::Handle* handle = nullptr;
   Status s = FindTable(file_number, file_size, &handle);
   if (s.ok()) {
     Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
+    start_time = env_->NowMicros();
     s = t->InternalGet(options, k, arg, handle_result);
     cache_->Release(handle);
   }
+  table_cache_time_stats.total_time += (env_->NowMicros()-start_time);
   return s;
 }
 

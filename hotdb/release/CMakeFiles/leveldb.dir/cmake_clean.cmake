@@ -13,6 +13,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/leveldb.dir/db/dumpfile.cc.o.d"
   "CMakeFiles/leveldb.dir/db/filename.cc.o"
   "CMakeFiles/leveldb.dir/db/filename.cc.o.d"
+  "CMakeFiles/leveldb.dir/db/global_stats.cc.o"
+  "CMakeFiles/leveldb.dir/db/global_stats.cc.o.d"
   "CMakeFiles/leveldb.dir/db/log_reader.cc.o"
   "CMakeFiles/leveldb.dir/db/log_reader.cc.o.d"
   "CMakeFiles/leveldb.dir/db/log_writer.cc.o"

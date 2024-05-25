@@ -111,11 +111,11 @@ class Version {
   // smallest_user_key==nullptr represents a key smaller than all the DB's keys.
   // largest_user_key==nullptr represents a key largest than all the DB's keys.
   bool OverlapInLevel(int level, const Slice* smallest_user_key,
-                      const Slice* largest_user_key, bool is_tiering=false);
+                      const Slice* largest_user_key);
 
   // Return the level at which we should place a new memtable compaction
   // result that covers the range [smallest_user_key,largest_user_key].
-  int PickLevelForMemTableOutput(const Slice& smallest_user_key,const Slice& largest_user_key, bool is_tiering=false);
+  int PickLevelForMemTableOutput(const Slice& smallest_user_key,const Slice& largest_user_key);
 
   int NumFiles(int level) const; // modified version by wzz
 
@@ -170,7 +170,7 @@ class Version {
   // Next file to compact based on seek stats.
   // FileMetaData* file_to_compact_;
   FileMetaData* file_to_compact_in_leveling;
-  Logica_File_MetaData* file_to_compact_in_tiering;
+  FileMetaData* file_to_compact_in_tiering;
   int file_to_compact_level_in_leveling, file_to_compact_level_in_tiering;
 
   // Level that should be compacted next and its compaction score.
@@ -306,6 +306,23 @@ class VersionSet {
                  const std::vector<FileMetaData*>& inputs2);
 
   bool compute_hot_cold_range(const Slice& key, const std::pair<Slice, Slice>& hot_range, bool& is_hot);
+
+  struct MetadataSearchStats {
+    int64_t level0_search_time;
+    int64_t other_levels_search_time;
+    int64_t total_time;
+
+    MetadataSearchStats() : level0_search_time(0), other_levels_search_time(0),total_time(0) {}
+
+    void AddLevel0Time(int64_t time) {
+      level0_search_time += time;
+    }
+
+    void AddOtherLevelsTime(int64_t time) {
+      other_levels_search_time += time;
+    }
+  };
+  MetadataSearchStats search_stats;  // 用于记录metadata搜索时间的实例
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 

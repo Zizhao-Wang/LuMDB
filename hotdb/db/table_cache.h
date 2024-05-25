@@ -47,6 +47,22 @@ class TableCache {
   // Evict any entry for the specified file number
   void Evict(uint64_t file_number);
 
+  struct TableCacheStats {
+    int64_t cache_lookup_time;      // 时间用于查找缓存
+    int64_t disk_load_time;         // 时间用于从磁盘加载文件
+    int64_t table_creation_time;    // 时间用于创建 Table 对象
+    int64_t total_time;
+
+    TableCacheStats() : cache_lookup_time(0), disk_load_time(0), table_creation_time(0),total_time(0) {}
+
+    void Reset() {
+      cache_lookup_time = 0;
+      disk_load_time = 0;
+      table_creation_time = 0;
+    }
+  };
+  TableCacheStats table_cache_time_stats;
+
  private:
   Status FindTable(uint64_t file_number, uint64_t file_size, Cache::Handle**);
 
