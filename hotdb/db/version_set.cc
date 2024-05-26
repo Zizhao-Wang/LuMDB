@@ -1378,9 +1378,10 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
+  double best_tier_score = -1;
 
   for (int level = 0; level < config::kNumLevels - 1; level++) {
-    double score;
+    double score, tier_score;
     if (level == 0) {
       // We treat level-0 specially by bounding the number of files
       // instead of number of bytes for two reasons:
@@ -1397,19 +1398,22 @@ void VersionSet::Finalize(Version* v) {
               static_cast<double>(config::kL0_CompactionTrigger*config::kTiering_and_leveling_Multiplier);
     } else {
       // Compute the ratio of current size to size limit.
-      const uint64_t level_bytes = (TotalFileSize(v->leveling_files_[level])+TotalFileSize(v->tiering_files_[level]));
-      score =
-          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level);
+      const uint64_t level_bytes = TotalFileSize(v->leveling_files_[level]);  
+      score=static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level);
+      const uint64_t tiering_bytes = TotalFileSize(v->tiering_files_[level]);
+      tier_score = static_cast<double>(tiering_bytes) / MaxBytesForLevel(options_, level);
     }
 
-    if (score > best_score) {
+    if ( (score+tier_score) > best_score) {
       best_level = level;
-      best_score = score;
+      best_score = score+tier_score;
+      best_tier_score = tier_score;
     }
   }
 
   v->compaction_level_ = best_level;
-  v->compaction_score_ = best_score;
+  v->compaction_score_ = best_score - best_tier_score;
+  v->tieirng_compaction_score_ = best_tier_score;
 }
 
 Status VersionSet::WriteSnapshot(log::Writer* log) {

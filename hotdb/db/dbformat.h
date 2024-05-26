@@ -37,7 +37,6 @@ static const int kL0_StopWritesTrigger = 12;
 // Tiering strategy limit multiplier
 static const int kTiering_and_leveling_Multiplier = 4;
 
-
 // Maximum level to which a new compacted memtable is pushed if it
 // does not create overlap.  We try to push to level 2 to avoid the
 // relatively expensive level 0=>1 compactions and to avoid some
@@ -50,6 +49,23 @@ static const int kMaxMemCompactLevel = 2;
 static const int kReadBytesPeriod = 1048576;
 
 }  // namespace config
+
+// Grouping of constants.  I do not want to make some of these parameters set via options.
+namespace CompactionConfig {
+
+struct LevelConfig_for_compaction {
+  double tieirng_percent; // 80% of the level space is used for tiering
+};
+
+// adaptive allocation of every level
+extern LevelConfig_for_compaction* adaptive_compaction_configs[config::kNumLevels];
+
+void InitializeCompactionConfigs();
+
+void CleanupCompactionConfigs();
+
+}  // namespace CompactionConfig
+
 
 class InternalKey;
 

@@ -12,6 +12,28 @@
 
 namespace leveldb {
 
+namespace CompactionConfig {
+
+// Initialize the array to nullptr or any other appropriate default value.
+LevelConfig_for_compaction* adaptive_compaction_configs[config::kNumLevels] = { nullptr };
+
+void InitializeCompactionConfigs() {
+  for (int i = 0; i < config::kNumLevels; ++i) {
+    adaptive_compaction_configs[i] = new LevelConfig_for_compaction();
+    // 根据层级设置不同的参数，可以在这里调整 tieirng_percent 等参数
+    adaptive_compaction_configs[i]->tieirng_percent = 0.8 + i * 0.05; // 示例设置，每个层级的参数不同
+  }
+}
+
+void CleanupCompactionConfigs() {
+  for (int i = 0; i < config::kNumLevels; ++i) {
+    delete adaptive_compaction_configs[i];
+    adaptive_compaction_configs[i] = nullptr;
+  }
+}
+
+}  // namespace CompactionConfig
+
 static uint64_t PackSequenceAndType(uint64_t seq, ValueType t) {
   assert(seq <= kMaxSequenceNumber);
   assert(t <= kValueTypeForSeek);

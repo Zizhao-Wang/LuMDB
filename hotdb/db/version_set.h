@@ -139,6 +139,7 @@ class Version {
         file_to_compact_level_in_leveling(-1),
         file_to_compact_level_in_tiering(-1),
         compaction_score_(-1),
+        tieirng_compaction_score_(-1),
         compaction_level_(-1) {}
 
   Version(const Version&) = delete;
@@ -177,6 +178,7 @@ class Version {
   // Score < 1 means compaction is not strictly needed.  These fields
   // are initialized by Finalize().
   double compaction_score_;
+  double tieirng_compaction_score_;
   int compaction_level_;
 };
 

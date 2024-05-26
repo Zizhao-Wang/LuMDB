@@ -186,6 +186,12 @@ DBImpl::~DBImpl() {
   if (owns_cache_) {
     delete options_.block_cache;
   }
+
+  // Call the cleanup function for compaction configs
+  delete hot_key_identifier;
+  CompactionConfig::CleanupCompactionConfigs();
+
+
 }
 
 Status DBImpl::NewDB() {
@@ -2226,8 +2232,11 @@ DB::~DB() = default;
 
 Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   *dbptr = nullptr;
-  std::fprintf(stderr, "entering db_impl.cc:%s\n", dbname.c_str());
-  fflush(stderr);
+  // std::fprintf(stderr, "entering db_impl.cc:%s\n", dbname.c_str());
+  // fflush(stderr);
+
+  // Initialize compaction configs before creating DBImpl instance
+  CompactionConfig::InitializeCompactionConfigs();
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();
   VersionEdit edit;
