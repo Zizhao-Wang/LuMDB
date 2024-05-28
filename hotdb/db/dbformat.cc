@@ -12,25 +12,45 @@
 
 namespace leveldb {
 
+// Grouping of constants.  We may want to make some of these
+// parameters set via options.
+namespace config {
+// Level-0 compaction is started when we hit this many files.
+int kL0_CompactionTrigger = 2;
+
+// Soft limit on number of level-0 files.  We slow down writes at this point.
+int kL0_SlowdownWritesTrigger = 4;
+
+// Maximum number of level-0 files.  We stop writes at this point.
+int kL0_StopWritesTrigger = 6;
+
+
+// Tiering strategy limit multiplier
+int kTiering_and_leveling_Multiplier = 24;
+
+}  // namespace config
+
+
 namespace CompactionConfig {
 
-// Initialize the array to nullptr or any other appropriate default value.
-LevelConfig_for_compaction* adaptive_compaction_configs[config::kNumLevels] = { nullptr };
+  // Initialize the array to nullptr or any other appropriate default value.
+  LevelConfig_for_compaction* adaptive_compaction_configs[config::kNumLevels] = { nullptr };
 
-void InitializeCompactionConfigs() {
-  for (int i = 0; i < config::kNumLevels; ++i) {
-    adaptive_compaction_configs[i] = new LevelConfig_for_compaction();
-    // 根据层级设置不同的参数，可以在这里调整 tieirng_percent 等参数
-    adaptive_compaction_configs[i]->tieirng_percent = 0.8 + i * 0.05; // 示例设置，每个层级的参数不同
+  void InitializeCompactionConfigs() {
+    for (int i = 0; i < config::kNumLevels; ++i) {
+      adaptive_compaction_configs[i] = new LevelConfig_for_compaction();
+      // 根据层级设置不同的参数，可以在这里调整 tieirng_percent 等参数
+      adaptive_compaction_configs[i]->tieirng_ratio = 0.8 - i * 0.05; // 示例设置，每个层级的参数不同
+      adaptive_compaction_configs[i]->levling_ratio = 1.00 - adaptive_compaction_configs[i]->tieirng_ratio;  // 默认值，可以根据需要调整
+    }
   }
-}
 
-void CleanupCompactionConfigs() {
-  for (int i = 0; i < config::kNumLevels; ++i) {
-    delete adaptive_compaction_configs[i];
-    adaptive_compaction_configs[i] = nullptr;
+  void CleanupCompactionConfigs() {
+    for (int i = 0; i < config::kNumLevels; ++i) {
+      delete adaptive_compaction_configs[i];
+      adaptive_compaction_configs[i] = nullptr;
+    }
   }
-}
 
 }  // namespace CompactionConfig
 

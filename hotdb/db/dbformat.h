@@ -25,17 +25,17 @@ namespace config {
 static const int kNumLevels = 7;
 
 // Level-0 compaction is started when we hit this many files.
-static const int kL0_CompactionTrigger = 4;
+extern int kL0_CompactionTrigger;
 
 // Soft limit on number of level-0 files.  We slow down writes at this point.
-static const int kL0_SlowdownWritesTrigger = 8;
+extern int kL0_SlowdownWritesTrigger;
 
 // Maximum number of level-0 files.  We stop writes at this point.
-static const int kL0_StopWritesTrigger = 12;
+extern int kL0_StopWritesTrigger;
 
 
 // Tiering strategy limit multiplier
-static const int kTiering_and_leveling_Multiplier = 4;
+extern int kTiering_and_leveling_Multiplier;
 
 // Maximum level to which a new compacted memtable is pushed if it
 // does not create overlap.  We try to push to level 2 to avoid the
@@ -54,7 +54,10 @@ static const int kReadBytesPeriod = 1048576;
 namespace CompactionConfig {
 
 struct LevelConfig_for_compaction {
-  double tieirng_percent; // 80% of the level space is used for tiering
+  double tieirng_ratio; // 80% of the level space is used for tiering
+  double levling_ratio; // 20% of the level space is used for leveling
+  double leveling_space; // Space allocated for leveling
+  double tiering_space;  // Space allocated for tiering
 };
 
 // adaptive allocation of every level

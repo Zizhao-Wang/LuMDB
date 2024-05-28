@@ -190,8 +190,6 @@ DBImpl::~DBImpl() {
   // Call the cleanup function for compaction configs
   delete hot_key_identifier;
   CompactionConfig::CleanupCompactionConfigs();
-
-
 }
 
 Status DBImpl::NewDB() {
@@ -810,7 +808,7 @@ void DBImpl::BackgroundCompaction() {
     Log(options_.info_log, "Starting CompactHotMemTable");
     CompactMemTable();
     background_work_finished_signal_.SignalAll();
-    Log(options_.info_log, "Finished CompactHotMemTable\n\n");
+    Log(options_.info_log, "Finished CompactHotMemTable");
   }
 
   Compaction* c;
@@ -1938,11 +1936,13 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       logfile_ = lfile;
       logfile_number_ = new_log_number;
       log_ = new log::Writer(lfile);
+      // Log(options_.info_log, "memory immutable(size:%lu) write_buffer_size:%lu ",mem_->ApproximateMemoryUsage(),options_.write_buffer_size);
 
       if(mem_ != nullptr && mem_->ApproximateMemoryUsage()>options_.write_buffer_size){
         imm_ = mem_;
         has_imm_.store(true, std::memory_order_release);
         mem_ = new MemTable(internal_comparator_);
+        Log(options_.info_log, "\n\nIn-memory immutable(size:%lu) is saturated!",imm_->ApproximateMemoryUsage());
         mem_->Ref();
       } 
       
@@ -1950,7 +1950,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
         hot_imm_ = hot_mem_;
         has_hot_imm_.store(true, std::memory_order_release);
         hot_mem_ = new MemTable(internal_comparator_);
-        Log(options_.info_log, "In-memory hot immutable(size:%lu) is saturated!",hot_imm_->ApproximateMemoryUsage());
+        Log(options_.info_log, "\n\nIn-memory hot immutable(size:%lu) is saturated!",hot_imm_->ApproximateMemoryUsage());
         hot_mem_->Ref();
       }
 

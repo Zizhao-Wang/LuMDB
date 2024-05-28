@@ -104,7 +104,7 @@ for i in {10..10}; do
                     --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
-                    --write_buffer_size=67108864 \
+                    --write_buffer_size=1048576 \
                     --max_file_size=67108864   \
                     --print_wa=true 
             done

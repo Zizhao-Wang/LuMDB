@@ -540,6 +540,14 @@ Status Version::Get(const ReadOptions& options, const LookupKey& k,
 int Version::NumFiles(int level) const {
   return leveling_files_[level].size()+tiering_files_[level].size();
 }
+
+int Version::NumLevelingFiles(int level) const {
+  return leveling_files_[level].size();
+}
+
+int Version::NumTieringFiles(int level) const {
+  return tiering_files_[level].size();
+}
 // ==== End of modified code ====
 
 
@@ -1394,14 +1402,16 @@ void VersionSet::Finalize(Version* v) {
       // file size is small (perhaps because of a small write-buffer
       // setting, or very high compression ratios, or lots of
       // overwrites/deletions).
-      score = v->NumFiles(0) /
-              static_cast<double>(config::kL0_CompactionTrigger*config::kTiering_and_leveling_Multiplier);
+      score = v->NumLevelingFiles(0) /
+              static_cast<double>(config::kL0_CompactionTrigger);
+      tier_score = v->NumTieringFiles(0) /
+              static_cast<double>(config::kTiering_and_leveling_Multiplier);
     } else {
       // Compute the ratio of current size to size limit.
       const uint64_t level_bytes = TotalFileSize(v->leveling_files_[level]);  
-      score=static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level);
+      score=static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
       const uint64_t tiering_bytes = TotalFileSize(v->tiering_files_[level]);
-      tier_score = static_cast<double>(tiering_bytes) / MaxBytesForLevel(options_, level);
+      tier_score = static_cast<double>(tiering_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
     }
 
     if ( (score+tier_score) > best_score) {
@@ -1768,6 +1778,138 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
   return result;
 }
 
+void VersionSet::UpdateCompactionSpaces() {
+  for (int i = 0; i < config::kNumLevels; i++) {
+    double leveling_ratio = CompactionConfig::adaptive_compaction_configs[i]->levling_ratio;
+    double tiering_ratio = CompactionConfig::adaptive_compaction_configs[i]->tieirng_ratio;
+
+    CompactionConfig::adaptive_compaction_configs[i]->leveling_space = MaxBytesForLevel(options_, i) * leveling_ratio;
+    CompactionConfig::adaptive_compaction_configs[i]->tiering_space = MaxBytesForLevel(options_, i) * tiering_ratio;
+
+    Log(options_->info_log, "Level %d: leveling_ratio = %f, tiering_ratio = %f, leveling_space = %f, tiering_space = %f",
+        i, leveling_ratio, tiering_ratio, CompactionConfig::adaptive_compaction_configs[i]->leveling_space, CompactionConfig::adaptive_compaction_configs[i]->tiering_space);
+  }
+}
+
+bool VersionSet::DetermineLevel0Compaction(int& level) {
+
+  int leveling_files = current_->leveling_files_[level].size();
+  int tiering_files = current_->tiering_files_[level].size();
+  int total_files = leveling_files + tiering_files;
+
+  Log(options_->info_log, "Level 0: leveling_files = %d, tiering_files = %d, total_files = %d", leveling_files, tiering_files, total_files);
+
+  if (current_->compaction_score_ >= 1.00 || current_->tieirng_compaction_score_ >= 1.00) {
+    int file_diff = std::abs(leveling_files - tiering_files);
+    int adjust_amount = file_diff / 2;
+
+    if(file_diff > 1){
+    }else if(file_diff == 1){
+      adjust_amount = 1;
+    }else if(file_diff <1){
+      Log(options_->info_log, "Level 0: file_diff < 1, triggering compaction");
+      return true;
+    }
+      
+    if (leveling_files > tiering_files) {
+      // 如果 leveling 文件更多，减少 leveling 增加 tiering
+      if (config::kL0_StopWritesTrigger + adjust_amount >= 2 && config::kTiering_and_leveling_Multiplier - adjust_amount >= 2) {   
+        config::kL0_StopWritesTrigger += adjust_amount;
+        config::kTiering_and_leveling_Multiplier -= adjust_amount;
+        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files > tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d",
+            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier);
+        return false;
+      }
+    } else {
+      // 调整 kL0_StopWritesTrigger 和 kTiering_and_leveling_Multiplier
+      if (config::kL0_StopWritesTrigger - adjust_amount >= 2 && config::kTiering_and_leveling_Multiplier + adjust_amount >= 2) {
+        config::kL0_StopWritesTrigger -= adjust_amount;
+        config::kTiering_and_leveling_Multiplier += adjust_amount;
+
+        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files <= tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d",
+            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier);
+
+        return false;
+      }
+    }
+    return true;
+  }
+  return false; // 表明不需要进行 compaction
+}
+
+
+bool VersionSet::DetermineCompaction(int& level) {
+  
+  if(level == -1){
+    return false;
+  }
+
+  if(level == 0){
+    return DetermineLevel0Compaction(level);
+  }
+
+  if(current_->compaction_score_ >= 1.00 || current_->tieirng_compaction_score_ >= 1.00) {
+
+    double leveling_space = CompactionConfig::adaptive_compaction_configs[current_->compaction_level_]->leveling_space;
+    double tiering_space = CompactionConfig::adaptive_compaction_configs[current_->compaction_level_]->tiering_space;
+
+    double leveling_used = TotalFileSize(current_->leveling_files_[current_->compaction_level_]);
+    double tiering_used = TotalFileSize(current_->tiering_files_[current_->compaction_level_]);
+
+    double leveling_free = leveling_space - leveling_used;
+    double tiering_free = tiering_space - tiering_used;
+
+    uint64_t next_sstable_size = options_->max_file_size;
+
+    Log(options_->info_log, "Level %d: leveling_space = %f, tiering_space = %f, leveling_used = %f, tiering_used = %f, leveling_free = %f, tiering_free = %f, next_sstable_size = %lu",
+        level, leveling_space, tiering_space, leveling_used, tiering_used, leveling_free, tiering_free, next_sstable_size);
+
+    double adjust_amount = std::abs(current_->compaction_score_ - current_->tieirng_compaction_score_) / 2;
+
+    if (current_->compaction_score_ > current_->tieirng_compaction_score_) {
+      // 如果 leveling 部分的分数较大，检查 tiering 部分的剩余空间
+      if (tiering_free >= next_sstable_size) {
+        // 调整 leveling 和 tiering 的比例
+        CompactionConfig::adaptive_compaction_configs[level]->levling_ratio += adjust_amount;
+        CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio -= adjust_amount;
+
+        // 确保 ratio 不小于 0.1
+        if (CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio < 0.1) {
+          CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio = 0.1;
+        }
+        if (CompactionConfig::adaptive_compaction_configs[level]->levling_ratio > 0.9) {
+          CompactionConfig::adaptive_compaction_configs[level]->levling_ratio = 0.9;
+        }
+        UpdateCompactionSpaces();
+        Log(options_->info_log, "Level %d: Adjusted ratios - compaction_score > tieirng_compaction_score, new leveling_ratio = %f, new tiering_ratio = %f",
+            level, CompactionConfig::adaptive_compaction_configs[level]->levling_ratio, CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
+        return false;
+      }
+    } else {
+      // 如果 tiering 部分的分数较大，检查 leveling 部分的剩余空间
+      if (leveling_free >= next_sstable_size) {
+        // 调整 leveling 和 tiering 的比例
+        CompactionConfig::adaptive_compaction_configs[level]->levling_ratio -= adjust_amount;
+        CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio += adjust_amount;
+
+        // 确保 ratio 不小于 0.1
+        if (CompactionConfig::adaptive_compaction_configs[level]->levling_ratio < 0.1) {
+          CompactionConfig::adaptive_compaction_configs[level]->levling_ratio = 0.1;
+        }
+        if (CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio > 0.9) {
+          CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio = 0.9;
+        }
+        UpdateCompactionSpaces(); 
+        Log(options_->info_log, "Level %d: Adjusted ratios - compaction_score <= tieirng_compaction_score, new leveling_ratio = %f, new tiering_ratio = %f",
+            level, CompactionConfig::adaptive_compaction_configs[level]->levling_ratio, CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 Compaction* VersionSet::PickCompaction() {
   Compaction* c;
   int level = -1;
@@ -1775,7 +1917,8 @@ Compaction* VersionSet::PickCompaction() {
   // Version* v = current_;  current_是当前可用的活动的version
   // We prefer compactions triggered by too much data in a level over
   // the compactions triggered by seeks.
-  const bool size_compaction = (current_->compaction_score_ >= 1);
+
+  const bool size_compaction = DetermineCompaction(current_->compaction_level_);
   const bool seek_compaction = (current_->file_to_compact_in_leveling != nullptr);
 
   Log(options_->info_log, "PickCompaction: size_compaction=%d, seek_compaction=%d", size_compaction, seek_compaction);
@@ -1787,26 +1930,57 @@ Compaction* VersionSet::PickCompaction() {
     
     // 创建一个新的压缩任务（Compaction），指定压缩操作的层级
     c = new Compaction(options_, level);
-    Log(options_->info_log, "PickCompaction: size_compaction - level=%d, compaction_score=%.2f", level, current_->compaction_score_);
+    Log(options_->info_log, "PickCompaction: size_compaction - level=%d, leveling_score=%.2f tiering_score=%.2f", 
+        level, current_->compaction_score_, current_->tieirng_compaction_score_);
 
-    // Pick the first file that comes after compact_pointer_[level]
-    for (size_t i = 0; i < current_->leveling_files_[level].size(); i++) {
-      FileMetaData* f = current_->leveling_files_[level][i];
-      if (compact_pointer_[level].empty() ||
-          icmp_.Compare(f->largest.Encode(), compact_pointer_[level]) > 0) {
-        c->inputs_[0].push_back(f);
-        break;
+    if(current_->compaction_score_ >= 1.00){
+      Log(options_->info_log, "DetermineCompaction: Compaction score >= 1.00 for level=%d, leveling_score=%.2f", 
+        level, current_->compaction_score_);
+      // Pick the first file that comes after compact_pointer_[level]
+      for (size_t i = 0; i < current_->leveling_files_[level].size(); i++) {
+        FileMetaData* f = current_->leveling_files_[level][i];
+        if (compact_pointer_[level].empty() ||
+            icmp_.Compare(f->largest.Encode(), compact_pointer_[level]) > 0) {
+          c->inputs_[0].push_back(f);
+          Log(options_->info_log, "DetermineCompaction: Adding leveling file with largest key=%s", 
+            f->largest.Encode().ToString().c_str());
+          break;
+        }
+      }
+      if (c->inputs_[0].empty()) {
+        // Wrap-around to the beginning of the key space
+        c->inputs_[0].push_back(current_->leveling_files_[level][0]);
+        Log(options_->info_log, "DetermineCompaction: Wrap-around, adding first leveling file with largest key=%s", 
+          current_->leveling_files_[level][0]->largest.Encode().ToString().c_str());
       }
     }
-    if (c->inputs_[0].empty()) {
-      // Wrap-around to the beginning of the key space
-      c->inputs_[0].push_back(current_->leveling_files_[level][0]);
+    
+    // If the tiering part also needs to be compressed, merge the tiering files.
+    if (current_->tieirng_compaction_score_ >= 1.00) {
+      Log(options_->info_log, "DetermineCompaction: Tiering compaction score >= 1.00 for level=%d, tiering_score=%.2f", 
+        level, current_->tieirng_compaction_score_);
+
+      for (size_t i = 0; i < current_->tiering_files_[level].size(); i++) {
+        FileMetaData* f = current_->tiering_files_[level][i];
+        if (compact_pointer_[level].empty() ||
+            icmp_.Compare(f->largest.Encode(), compact_pointer_[level]) > 0) {
+          c->tiering_inputs_[0].push_back(f);
+          Log(options_->info_log, "DetermineCompaction: Adding tiering file with largest key=%s", 
+            f->largest.Encode().ToString().c_str());
+          break;
+        }
+      }
+      if (c->tiering_inputs_[0].empty()) {
+        // Wrap-around to the beginning of the key space
+        c->tiering_inputs_[0].push_back(current_->tiering_files_[level][0]);
+        Log(options_->info_log, "DetermineCompaction: Wrap-around, adding first tiering file with largest key=%s", 
+          current_->tiering_files_[level][0]->largest.Encode().ToString().c_str());
+      }
     }
 
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
     c->compaction_type = 1;
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
-
   } else if (seek_compaction) {
     level = current_->file_to_compact_level_in_leveling;
     c = new Compaction(options_, level);

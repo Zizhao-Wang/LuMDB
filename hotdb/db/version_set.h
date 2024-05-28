@@ -119,6 +119,12 @@ class Version {
 
   int NumFiles(int level) const; // modified version by wzz
 
+  // ==== Start of modified code ====
+  int NumLevelingFiles(int level) const;
+
+  int NumTieringFiles(int level) const;
+  // ==== End of modified code ====
+
 
   // Return a human readable string that describes this version's contents.
   std::string DebugString() const;
@@ -250,6 +256,12 @@ class VersionSet {
   // Return the log file number for the log file that is currently
   // being compacted, or zero if there is no such log file.
   uint64_t PrevLogNumber() const { return prev_log_number_; }
+
+  void UpdateCompactionSpaces();
+
+  bool DetermineLevel0Compaction(int& level);
+
+  bool DetermineCompaction(int& level);
 
   // Pick level and inputs for a new compaction.
   // Returns nullptr if there is no compaction to be done.
@@ -436,6 +448,9 @@ class Compaction {
 
   // Each compaction reads inputs from "level_" and "level_+1"
   std::vector<FileMetaData*> inputs_[2];  // The two sets of inputs
+
+  // Each compaction reads inputs from "level_" and "level_+1" for tiering policies
+  std::vector<FileMetaData*> tiering_inputs_[2];  // The two sets of inputs
 
   // State used to check for number of overlapping grandparent files
   // (parent == level_ + 1, grandparent == level_ + 2)
