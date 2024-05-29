@@ -293,6 +293,8 @@ CMakeFiles/leveldb_tests.dir/db/corruption_test.cc.o: \
  /usr/include/c++/11/bits/unordered_map.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/filename.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_set.h \
+ /usr/include/c++/11/list /usr/include/c++/11/bits/stl_list.h \
+ /usr/include/c++/11/bits/list.tcc \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_edit.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/cache.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/table.h \

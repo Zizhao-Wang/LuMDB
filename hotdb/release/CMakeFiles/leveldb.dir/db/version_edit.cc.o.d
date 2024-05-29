@@ -180,4 +180,5 @@ CMakeFiles/leveldb.dir/db/version_edit.cc.o: \
  /usr/include/c++/11/cstdarg \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_set.h \
  /usr/include/c++/11/map /usr/include/c++/11/bits/stl_map.h \
- /usr/include/c++/11/bits/stl_multimap.h
+ /usr/include/c++/11/bits/stl_multimap.h /usr/include/c++/11/list \
+ /usr/include/c++/11/bits/stl_list.h /usr/include/c++/11/bits/list.tcc

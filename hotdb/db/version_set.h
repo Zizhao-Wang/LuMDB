@@ -18,6 +18,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <list>
 
 #include "db/dbformat.h"
 #include "db/version_edit.h"
@@ -105,6 +106,13 @@ class Version {
       const InternalKey* begin,  // nullptr means before all keys
       const InternalKey* end,    // nullptr means after all keys
       std::vector<FileMetaData*>* inputs);
+  
+
+  void GetOverlappingInputsWithTier(
+      int level, 
+      const InternalKey* begin, // nullptr means before all keys
+      const InternalKey* end, // nullptr means after all keys
+      std::vector<FileMetaData*>* tier_inputs);
 
   // Returns true iff some file in the specified level overlaps
   // some part of [*smallest_user_key,*largest_user_key].
@@ -123,6 +131,8 @@ class Version {
   int NumLevelingFiles(int level) const;
 
   int NumTieringFiles(int level) const;
+
+  void InitializeTieringRuns();
   // ==== End of modified code ====
 
 
@@ -146,7 +156,9 @@ class Version {
         file_to_compact_level_in_tiering(-1),
         compaction_score_(-1),
         tieirng_compaction_score_(-1),
-        compaction_level_(-1) {}
+        compaction_level_(-1) {
+          InitializeTieringRuns();
+        }
 
   Version(const Version&) = delete;
   Version& operator=(const Version&) = delete;
@@ -170,8 +182,9 @@ class Version {
 
   // List of files per level
   // std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
-  std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
-  std::vector<FileMetaData*> leveling_files_[config::kNumLevels]; // 新增，存储每个level的逻辑文件集合
+  std::vector<FileMetaData*> leveling_files_[config::kNumLevels];
+  std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; 
+  std::map<int, std::vector<FileMetaData*>> tiering_runs_[config::kNumLevels];
 
 
   // Next file to compact based on seek stats.
@@ -359,6 +372,8 @@ class VersionSet {
 
   void SetupOtherInputs(Compaction* c);
 
+  void SetupOtherInputsWithTier(Compaction* c);
+
   // Save current contents to *log
   Status WriteSnapshot(log::Writer* log);
 
@@ -476,6 +491,8 @@ class Compaction {
   // - 3 ==> Trivial Move: A lightweight operation where a file can simply be moved to the next level without merging or splitting, significantly reducing compaction overhead.
   // - 4 ==> None compaction
   int compaction_type;
+
+  bool is_tiering;
 
 };
 

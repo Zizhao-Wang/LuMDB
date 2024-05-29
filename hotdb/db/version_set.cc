@@ -548,6 +548,15 @@ int Version::NumLevelingFiles(int level) const {
 int Version::NumTieringFiles(int level) const {
   return tiering_files_[level].size();
 }
+
+void Version::InitializeTieringRuns() {
+  for (int level = 0; level < config::kNumLevels; ++level) {
+    tiering_runs_[level].clear();
+    for (int run = 0; run < config::kNum_SortedRuns; ++run) {
+      tiering_runs_[level][run] = std::vector<FileMetaData*>();
+    }
+  }
+}
 // ==== End of modified code ====
 
 
@@ -722,6 +731,117 @@ void Version::GetOverlappingInputs(int level, const InternalKey* begin,
 }
 
 
+// Store in "*inputs" all files in "level" that overlap [begin,end]
+/**
+ * @brief Store in "*inputs" all files in "level" that overlap [begin, end]
+ *
+ * This function scans through the specified level and stores all files that overlap
+ * with the given range [begin, end] into the provided vector tier_inputs.
+ *
+ * @param level The level to scan for overlapping files.
+ * @param begin The start of the range to check for overlaps. Can be nullptr.
+ * @param end The end of the range to check for overlaps. Can be nullptr.
+ * @param tier_inputs The vector to store the overlapping files.
+ */
+void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
+                                   const InternalKey* end,
+                                   std::vector<FileMetaData*>* tier_inputs) {
+  assert(level >= 0);
+  assert(level < config::kNumLevels);
+
+  // clear all files in inputs
+  tier_inputs->clear();
+
+  // get user key
+  Slice user_begin, user_end;
+  if (begin != nullptr) {
+    user_begin = begin->user_key();
+  }
+  if (end != nullptr) {
+    user_end = end->user_key();
+  }
+
+  const Comparator* user_cmp = vset_->icmp_.user_comparator();
+  if(level == 0){
+    for (size_t i = 0; i < tiering_files_[level].size();) {
+      // iterate all files in the specific level
+      FileMetaData* f = tiering_files_[level][i++];
+      const Slice file_start = f->smallest.user_key();
+      const Slice file_limit = f->largest.user_key();
+
+      // key space:
+      // |-----------------------------|------------------------------------|-----------------------------|
+      //           user_begin                       file_start                  file_limit
+      //                               <----------------f------------------>
+      if (begin != nullptr && user_cmp->Compare(file_limit, user_begin) < 0) {
+        // situation 1: f is completely before specified range; skip it
+        // |-------------------|----------------|--------------------------------|----------------------------|
+        //         file_start       file_limit           user_begin                      user_end
+        //       <------f------>
+      } else if (end != nullptr && user_cmp->Compare(file_start, user_end) > 0) {
+        // situation 2: "f" is completely after specified range; skip it
+        // |-----------------------------------|----------------------------|-----------------|----------|
+        //               user_begin                    user_end          file_start    file_limit
+        //                                                                 <-----f----->
+      } else {
+        tier_inputs->push_back(f);
+        if (level == 0) {
+          // Level-0 files may overlap each other.  So check if the newly
+          // added file has expanded the range.  If so, restart search.
+          if (begin != nullptr && user_cmp->Compare(file_start, user_begin) < 0) {
+            user_begin = file_start;
+            tier_inputs->clear();
+            i = 0;
+          } else if (end != nullptr && user_cmp->Compare(file_limit, user_end) > 0) {
+            user_end = file_limit;
+            tier_inputs->clear();
+            i = 0;
+          }
+        }
+      }
+    }
+  }else{
+    for (size_t i = 0; i < tiering_files_[level].size();) {
+      // iterate all files in the specific level
+      FileMetaData* f = tiering_files_[level][i++];
+      const Slice file_start = f->smallest.user_key();
+      const Slice file_limit = f->largest.user_key();
+
+      // key space:
+      // |-----------------------------|------------------------------------|-----------------------------|
+      //           user_begin                       file_start                  file_limit
+      //                               <----------------f------------------>
+      if (begin != nullptr && user_cmp->Compare(file_limit, user_begin) < 0) {
+        // situation 1: f is completely before specified range; skip it
+        // |-------------------|----------------|--------------------------------|----------------------------|
+        //         file_start       file_limit           user_begin                      user_end
+        //       <------f------>
+      } else if (end != nullptr && user_cmp->Compare(file_start, user_end) > 0) {
+        // situation 2: "f" is completely after specified range; skip it
+        // |-----------------------------------|----------------------------|-----------------|----------|
+        //               user_begin                    user_end          file_start    file_limit
+        //                                                                 <-----f----->
+      } else {
+        tier_inputs->push_back(f);
+        if (level == 0) {
+          // Level-0 files may overlap each other.  So check if the newly
+          // added file has expanded the range.  If so, restart search.
+          if (begin != nullptr && user_cmp->Compare(file_start, user_begin) < 0) {
+            user_begin = file_start;
+            tier_inputs->clear();
+            i = 0;
+          } else if (end != nullptr &&
+                    user_cmp->Compare(file_limit, user_end) > 0) {
+            user_end = file_limit;
+            tier_inputs->clear();
+            i = 0;
+          }
+        }
+      }
+    }
+  }
+}
+
 
 /**
  * @brief Generate a string that provides a detailed description of the current version.
@@ -872,6 +992,7 @@ class VersionSet::Builder {
       const int level = deleted_file_set_kvp.first;
       const uint64_t number = deleted_file_set_kvp.second;
       levels_[level].deleted_files.insert(number);
+      Log(vset_->options_->info_log, "Apply: Deleting file at level=%d, number=%lu", level, number);
     }
 
     // Add new files
@@ -898,6 +1019,7 @@ class VersionSet::Builder {
 
       levels_[level].deleted_files.erase(f->number);
       levels_[level].added_files->insert(f);
+      Log(vset_->options_->info_log, "Apply: Adding new file at level=%d, number=%lu, size=%lu", level, f->number, f->file_size);
     }
   }
 
@@ -975,6 +1097,13 @@ class VersionSet::Builder {
         MaybeAddFile(v, level, *base_iter);
       }
 
+      // Handle tiering files
+      v->tiering_files_[level] = base_->tiering_files_[level];
+      for(int i=0;i<v->tiering_files_[level].size();i++){
+        v->tiering_files_[level][i]->refs++;
+      }
+      
+
 #ifndef NDEBUG
       // Make sure there is no overlap in levels > 0
       if (level > 0) {
@@ -1023,6 +1152,12 @@ class VersionSet::Builder {
       // Add remaining base files
       for (; base_iter != base_end; ++base_iter) {
         MaybeAddFile(v, level, *base_iter,true);
+      }
+
+      // Handle tiering files
+      v->leveling_files_[level] = base_->leveling_files_[level];
+      for(int i=0;i<v->leveling_files_[level].size();i++){
+        v->leveling_files_[level][i]->refs++;
       }
 
 #ifndef NDEBUG
@@ -1661,24 +1796,24 @@ uint64_t VersionSet::ApproximateOffsetOf(Version* v, const InternalKey& ikey) {
 void VersionSet::AddLiveFiles(std::set<uint64_t>* live) {
   for (Version* v = dummy_versions_.next_; v != &dummy_versions_; v = v->next_) {
     for (int level = 0; level < config::kNumLevels; level++) {
-      // Log(options_->info_log, "Version %p", static_cast<void*>(v));
+      Log(options_->info_log, "Version %p", static_cast<void*>(v));
       const std::vector<FileMetaData*>& leveling_files = v->leveling_files_[level];
-      // Log(options_->info_log, "  Level %d (leveling): %zu files", level, leveling_files.size());
+      Log(options_->info_log, "  Level %d (leveling): %zu files", level, leveling_files.size());
       for (size_t i = 0; i < leveling_files.size(); i++) {
         live->insert(leveling_files[i]->number);
-        // Log(options_->info_log, "    Leveling File #%llu, size: %llu",
-        // (unsigned long long)leveling_files[i]->number,
-        // (unsigned long long)leveling_files[i]->file_size);
+        Log(options_->info_log, "    Leveling File #%llu, size: %llu",
+        (unsigned long long)leveling_files[i]->number,
+        (unsigned long long)leveling_files[i]->file_size);
       }
 
       // Process tiering files
       const std::vector<FileMetaData*>& tiering_files = v->tiering_files_[level];
-      // Log(options_->info_log, "  Level %d (tiering): %zu files", level, tiering_files.size());
+      Log(options_->info_log, "  Level %d (tiering): %zu files", level, tiering_files.size());
       for (size_t i = 0; i < tiering_files.size(); i++) {
         live->insert(tiering_files[i]->number);
-        // Log(options_->info_log, "    Tiering File #%llu, size: %llu",
-        //     (unsigned long long)tiering_files[i]->number,
-        //     (unsigned long long)tiering_files[i]->file_size);
+        Log(options_->info_log, "    Tiering File #%llu, size: %llu",
+            (unsigned long long)tiering_files[i]->number,
+            (unsigned long long)tiering_files[i]->file_size);
       }
 
     }
@@ -1951,8 +2086,9 @@ Compaction* VersionSet::PickCompaction() {
         // Wrap-around to the beginning of the key space
         c->inputs_[0].push_back(current_->leveling_files_[level][0]);
         Log(options_->info_log, "DetermineCompaction: Wrap-around, adding first leveling file with largest key=%s", 
-          current_->leveling_files_[level][0]->largest.Encode().ToString().c_str());
+          current_->leveling_files_[level][0]->largest.DebugString().c_str());
       }
+      c->is_tiering = false;
     }
     
     // If the tiering part also needs to be compressed, merge the tiering files.
@@ -1966,7 +2102,7 @@ Compaction* VersionSet::PickCompaction() {
             icmp_.Compare(f->largest.Encode(), compact_pointer_[level]) > 0) {
           c->tiering_inputs_[0].push_back(f);
           Log(options_->info_log, "DetermineCompaction: Adding tiering file with largest key=%s", 
-            f->largest.Encode().ToString().c_str());
+            f->largest.DebugString().c_str());
           break;
         }
       }
@@ -1974,8 +2110,9 @@ Compaction* VersionSet::PickCompaction() {
         // Wrap-around to the beginning of the key space
         c->tiering_inputs_[0].push_back(current_->tiering_files_[level][0]);
         Log(options_->info_log, "DetermineCompaction: Wrap-around, adding first tiering file with largest key=%s", 
-          current_->tiering_files_[level][0]->largest.Encode().ToString().c_str());
+          current_->tiering_files_[level][0]->largest.DebugString().c_str());
       }
+      c->is_tiering = true;
     }
 
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
@@ -2009,17 +2146,31 @@ Compaction* VersionSet::PickCompaction() {
   if (level == 0) {
     // 获取当前选定进行压缩的文件集的最小和最大键。
     InternalKey smallest, largest;
-    GetRange(c->inputs_[0], &smallest, &largest);
+    if(c->is_tiering){
+      GetRange(c->tiering_inputs_[0], &smallest, &largest);
+    }else{
+      GetRange(c->inputs_[0], &smallest, &largest);
+    }
     Log(options_->info_log, "PickCompaction: level 0 compaction - smallest=%s, largest=%s", smallest.DebugString().c_str(), largest.DebugString().c_str());
 
     // Note that the next call will discard the file we placed in
     // c->inputs_[0] earlier and replace it with an overlapping set
     // which will include the picked file.
-    current_->GetOverlappingInputs(0, &smallest, &largest, &c->inputs_[0]);
-    assert(!c->inputs_[0].empty());
+    if(c->is_tiering){
+      current_->GetOverlappingInputsWithTier(0, &smallest, &largest, &c->tiering_inputs_[0]);
+      assert(!c->tiering_inputs_[0].empty());
+    }else{
+      current_->GetOverlappingInputs(0, &smallest, &largest, &c->inputs_[0]);
+      assert(!c->inputs_[0].empty());
+    }
   }
 
-  SetupOtherInputs(c);
+  if(c->is_tiering){
+    SetupOtherInputsWithTier(c);
+  }else{
+    SetupOtherInputs(c);
+  }
+  
 
   // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
   if (c->IsTrivialMove()) {
@@ -2183,6 +2334,81 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
 
 }
 
+
+void VersionSet::SetupOtherInputsWithTier(Compaction* c) {
+  const int level = c->level();
+  InternalKey smallest, largest;
+
+  // find boundary files and add to compaction then get new range
+  // Possibly extends tiering_inputs_[0] 
+  // AddBoundaryInputs(icmp_, current_->leveling_files_[level], &c->tiering_inputs_[0]);
+  GetRange(c->tiering_inputs_[0], &smallest, &largest);
+
+  // also find boundary files for the next level and add to inputs_[1]
+  current_->GetOverlappingInputsWithTier(level + 1, &smallest, &largest, &c->inputs_[1]);
+  AddBoundaryInputs(icmp_, current_->leveling_files_[level + 1], &c->inputs_[1]);
+
+  // Get entire range covered by compaction
+  // insert all files from inputs_[0] and inputs_[1] then utilize GetRange() to get lagger range 
+  InternalKey all_start, all_limit;
+  GetRange2(c->inputs_[0], c->inputs_[1], &all_start, &all_limit);
+
+  // See if we can grow the number of inputs in "level" without
+  // changing the number of "level+1" files we pick up.
+  if (!c->inputs_[1].empty()) {
+
+    std::vector<FileMetaData*> expanded0;
+    current_->GetOverlappingInputs(level, &all_start, &all_limit, &expanded0);
+    AddBoundaryInputs(icmp_, current_->leveling_files_[level], &expanded0);
+    const int64_t inputs0_size = TotalFileSize(c->inputs_[0]);
+    const int64_t inputs1_size = TotalFileSize(c->inputs_[1]);
+    const int64_t expanded0_size = TotalFileSize(expanded0);
+
+    if (expanded0.size() > c->inputs_[0].size() &&
+        inputs1_size + expanded0_size <
+            ExpandedCompactionByteSizeLimit(options_)) {
+      InternalKey new_start, new_limit;
+      GetRange(expanded0, &new_start, &new_limit);
+      std::vector<FileMetaData*> expanded1;
+      current_->GetOverlappingInputs(level + 1, &new_start, &new_limit,
+                                     &expanded1);
+      AddBoundaryInputs(icmp_, current_->leveling_files_[level + 1], &expanded1);
+      if (expanded1.size() == c->inputs_[1].size()) {
+        Log(options_->info_log,
+            "Expanding@%d %d+%d (%ld+%ld bytes) to %d+%d (%ld+%ld bytes)\n",
+            level, int(c->inputs_[0].size()), int(c->inputs_[1].size()),
+            long(inputs0_size), long(inputs1_size), int(expanded0.size()),
+            int(expanded1.size()), long(expanded0_size), long(inputs1_size));
+        smallest = new_start;
+        largest = new_limit;
+        c->inputs_[0] = expanded0;
+        c->inputs_[1] = expanded1;
+        GetRange2(c->inputs_[0], c->inputs_[1], &all_start, &all_limit);
+      }
+    }
+  }
+
+
+  // Compute the set of grandparent files that overlap this compaction
+  // (parent == level+1; grandparent == level+2)
+  if (level + 2 < config::kNumLevels) {
+    current_->GetOverlappingInputs(level + 2, &all_start, &all_limit,
+                                   &c->grandparents_);
+  }
+
+  // Update the place where we will do the next compaction for this level.
+  // We update this immediately instead of waiting for the VersionEdit
+  // to be applied so that if the compaction fails, we will try a different
+  // key range next time.
+  compact_pointer_[level] = largest.Encode().ToString();
+  c->edit_.SetCompactPointer(level, largest);
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  set_overlap_range(c->inputs_[0], c->inputs_[1]);
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+}
+
 Compaction* VersionSet::CompactRange(int level, const InternalKey* begin,
                                      const InternalKey* end) {
   std::vector<FileMetaData*> inputs;
@@ -2223,7 +2449,8 @@ Compaction::Compaction(const Options* options, int level)
       grandparent_index_(0),
       seen_key_(false),
       overlapped_bytes_(0),
-      compaction_type(0) {
+      compaction_type(0),
+      is_tiering(false) {
   for (int i = 0; i < config::kNumLevels; i++) {
     level_ptrs_[i] = 0;
   }

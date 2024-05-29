@@ -118,7 +118,7 @@ for i in {10..10}; do
                         # 保存 db_bench 的 PID 供监控使用
                         sleep 1
 
-                        DB_BENCH_PID=$(pgrep -af 'db_bench' | grep -v 'sudo' | awk '{print $1}')
+                        DB_BENCH_PID=$(pgrep -af 'db_bench --db=/mnt/nvm/level8B' | grep -v 'sudo' | awk '{print $1}')
                         echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
                         perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &
