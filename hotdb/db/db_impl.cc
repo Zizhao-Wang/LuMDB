@@ -587,7 +587,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
     if(base!= nullptr && is_hot_mem){
       // level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
-      edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest,true);
+      edit->AddTieringFile(level, 0, meta.number, meta.file_size, meta.smallest, meta.largest);
     }else if(base!= nullptr && !is_hot_mem){
       level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
       edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest);
@@ -1024,13 +1024,13 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
 
 Status DBImpl::InstallTieringCompactionResults(CompactionState* compact) {
   mutex_.AssertHeld();
-  Log(options_.info_log, "Compacted %d@%d + %d@%d files => %lld bytes",
+  Log(options_.info_log, "Compacted %d@%d + %d@%d tiering files => %lld bytes",
       compact->compaction->num_input_tier_files(0), compact->compaction->level(),
       compact->compaction->num_input_tier_files(1), compact->compaction->level() + 1,
       static_cast<long long>(compact->total_bytes));
 
   // Add compaction outputs
-  compact->compaction->AddTieringInputDeletions(compact->compaction->edit());
+  compact->compaction->AddTieringInputDeletions(compact->compaction->edit(), compact->compaction->get_selected_run_in_next_level());
   const int level = compact->compaction->level();
   for (size_t i = 0; i < compact->outputs.size(); i++) {
     const CompactionState::Output& out = compact->outputs[i];
@@ -1428,7 +1428,7 @@ Status DBImpl::DoTieringCompactionWork(CompactionState* compact) {
     status = Status::IOError("Deleting DB during compaction");
   }
   if (status.ok() && compact->builder != nullptr) {
-    Log(options_.info_log, "Finished all compaction output files, total number of output files: %lu", compact->outputs.size());
+    // Log(options_.info_log, "Finished all compaction output files, total number of output files: %lu", compact->outputs.size());
     status = FinishCompactionOutputFile(compact, input);
   }
   if (status.ok()) {
@@ -1456,27 +1456,10 @@ Status DBImpl::DoTieringCompactionWork(CompactionState* compact) {
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
   level_stats_[compact->compaction->level() + 1].bytes_read += stats.bytes_read;
-
-  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-
-  // double hot_data_percentage = (double)hot_data_count / total_data_count;
-  // double cold_data_percentage = (double)cold_data_count / total_data_count;
-
-  // level_stats_[compact->compaction->level()].bytes_read_hot += init_level_bytes_read*hot_data_percentage;
-  // level_stats_[compact->compaction->level()].bytes_read_cold += init_level_bytes_read*cold_data_percentage;
-
-  // uint64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
-  // level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
-  // level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
-
   level_stats_[compact->compaction->level() + 1].bytes_written += stats.bytes_written;
-  // level_stats_[compact->compaction->level() + 1].bytes_written_hot += stats.bytes_written*hot_data_percentage;
-  // level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
-  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-
 
   if (status.ok()) {
-    status = InstallCompactionResults(compact);
+    status = InstallTieringCompactionResults(compact);
   }
   if (!status.ok()) {
     RecordBackgroundError(status);

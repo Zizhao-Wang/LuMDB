@@ -101,7 +101,7 @@ class VersionEdit {
   // REQUIRES: This version has not been saved (see VersionSet::SaveTo)
   // REQUIRES: "smallest" and "largest" are smallest and largest keys in file
   void AddFile(int level, uint64_t file, uint64_t file_size,
-               const InternalKey& smallest, const InternalKey& largest, bool is_tiering = false) {
+               const InternalKey& smallest, const InternalKey& largest) {
     FileMetaData f;
     f.number = file;
     f.file_size = file_size;
@@ -112,23 +112,30 @@ class VersionEdit {
     //   is_tiering ? "tiering" : "leveling", (unsigned long long)file, (unsigned long long)file_size, level);
     // Log(logger_, "File smallest key: %s, largest key: %s",
       // smallest.DebugString().c_str(), largest.DebugString().c_str());
-
-    if(is_tiering){
-      new_tiering_files.push_back(std::make_pair(level, f));
-    }else{
-      new_files_.push_back(std::make_pair(level, f));
-    }
+    new_files_.push_back(std::make_pair(level, f));
   }
 
-  // void AddLogicalFile(int level, const Logica_File_MetaData &logical_f) {
 
-	// 	new_logical_files.push_back(std::make_pair(level, logical_f));
-	// }
+  void AddTieringFile(int level, int run, uint64_t file, uint64_t file_size,
+               const InternalKey& smallest, const InternalKey& largest) {
+    FileMetaData f;
+    f.number = file;
+    f.file_size = file_size;
+    f.smallest = smallest;
+    f.largest = largest;
+
+    new_tiering_files.push_back(std::make_tuple(level,run,f));
+    
+  }
 
 
   // Delete the specified "file" from the specified "level".
   void RemoveFile(int level, uint64_t file) {
     deleted_files_.insert(std::make_pair(level, file));
+  }
+
+  void RemovetieringFile(int level, int run, uint64_t file) {
+    deleted_tiering_files_.insert(std::make_tuple(level, run, file));
   }
 
   void EncodeTo(std::string* dst) const;
@@ -140,6 +147,10 @@ class VersionEdit {
   friend class VersionSet;
 
   typedef std::set<std::pair<int, uint64_t>> DeletedFileSet;
+  
+  typedef std::tuple<int, int, uint64_t> DeletedTieringFileTuple;
+  typedef std::set<DeletedTieringFileTuple> DeletedTieringFileSet;
+
   std::string comparator_;
   uint64_t log_number_;
   uint64_t prev_log_number_;
@@ -158,12 +169,12 @@ class VersionEdit {
 
 
   // ==== Start of modified code ====
-  DeletedFileSet deleted_tiering_files_;
-  // typedef std::set< std::pair<int, uint64_t> > DeletedLogicalFileSet;
-  // DeletedLogicalFileSet deleted_logical_files_;
+  DeletedTieringFileSet deleted_tiering_files_;
+
 
   std::vector<std::pair<int, FileMetaData>> new_files_;
-  std::vector<std::pair<int, FileMetaData>> new_tiering_files;
+
+  std::vector<std::tuple<int, int, FileMetaData>> new_tiering_files;
   bool is_tiering_edit;
   // ==== End of modified code ====
 };

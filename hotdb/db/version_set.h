@@ -134,6 +134,10 @@ class Version {
   int NumTieringFiles(int level) const;
 
   void InitializeTieringRuns();
+
+  int NumTieringFilesInLevel(int level) const;
+
+  int NumTieringFilesInLevelAndRun(int level, int run) const;
   // ==== End of modified code ====
 
 
@@ -184,7 +188,7 @@ class Version {
   // List of files per level
   // std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
   std::vector<FileMetaData*> leveling_files_[config::kNumLevels];
-  std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; 
+  // std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; 
   std::map<int, std::vector<FileMetaData*>> tiering_runs_[config::kNumLevels];
 
 
@@ -332,6 +336,8 @@ class VersionSet {
   const char* LevelSummary(LevelSummaryStorage* scratch) const;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  void init_tieirng_compaction_pointer();
+
   void set_overlap_range(const std::vector<FileMetaData*>& inputs1,
                  const std::vector<FileMetaData*>& inputs2);
 
@@ -403,6 +409,8 @@ class VersionSet {
   // Either an empty string, or a valid InternalKey.
   std::string compact_pointer_[config::kNumLevels];
 
+  std::map<int, int> tiering_compact_pointer_[config::kNumLevels];
+
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   std::vector<std::pair<Slice, Slice>> overlap_ranges;
 };
@@ -438,8 +446,7 @@ class Compaction {
   // Add all inputs to this compaction as delete operations to *edit.
   void AddInputDeletions(VersionEdit* edit);
 
-
-  void AddTieringInputDeletions(VersionEdit* edit);
+  void AddTieringInputDeletions(VersionEdit* edit, int run);
 
   // Returns true if the information we have available guarantees that
   // the compaction is producing data in "level+1" for which no data exists
@@ -463,6 +470,10 @@ class Compaction {
   void set_tiering() { is_tiering = true; }
 
   bool get_is_tieirng() const { return is_tiering; }
+
+  int get_selected_run_in_next_level() const { return selected_run_in_next_level; }
+
+  int get_selected_run_in_input_level() const { return selected_run_in_input_level; }
 
 
  private:
@@ -509,7 +520,7 @@ class Compaction {
 
   bool is_tiering;
 
-  int selected_run_in_next_level;
+  int selected_run_in_next_level, selected_run_in_input_level;;
 
 };
 
