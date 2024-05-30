@@ -107,6 +107,8 @@ DEFINE_int32(key_prefix,0, "Common key prefix length.");
 // static const char* FLAGS_data_file = nullptr;
 DEFINE_string(data_file, "", "Use the db with the following name.");
 
+DEFINE_string(mem_log_file,"", "log path");
+
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
 
 // Number of key/values to place in database
@@ -120,6 +122,8 @@ DEFINE_int32(prefix_length, 16,
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 DEFINE_int64(reads, -1, "");
+
+DEFINE_int64(range_query_length, -1, "range query length");
 
 DEFINE_int64(ycsb_ops_num, 1000000, "YCSB operations num");
 
@@ -342,7 +346,7 @@ class variable_Buffer{
   variable_Buffer& operator=(variable_Buffer& other) = delete;
   variable_Buffer(variable_Buffer& other) = delete;
 
-  void Set(uint64_t k,int key_size) {
+  void Set(uint64_t k,int key_size=16) {
     // std::snprintf(buffer_ + FLAGS_key_prefix, sizeof(buffer_) - FLAGS_key_prefix, "%016d", k);
     assert(key_size <= sizeof(buffer_) - FLAGS_key_prefix);
     char format[20];
@@ -572,6 +576,7 @@ class Stats {
   uint64_t last_report_finish_;
   uint64_t next_report_;
   double next_report_time_;
+  int call_ref;
   int64_t   bytes_;
   double last_op_finish_;
   Histogram hist_;
@@ -590,6 +595,7 @@ class Stats {
     hist_.Clear();
     done_ = 0;
     bytes_ = 0;
+    call_ref = 0;
     seconds_ = 0;
     finish_ = start_;
     message_.clear();
@@ -648,6 +654,82 @@ class Stats {
     fflush(stdout);
   }
 
+  void print_mem_usage() {
+
+    std::ofstream log_file;
+    if (call_ref == 0) {
+      // 如果call_ref为0，清空文件并从头开始写
+      log_file.open(FLAGS_mem_log_file, std::ios::trunc);
+    } else {
+      // 如果call_ref不为0，以追加模式打开文件
+      log_file.open(FLAGS_mem_log_file, std::ios::app);
+    }
+
+    if (!log_file.is_open()) {
+      fprintf(stderr, "Failed to open the mem_log file: %s.\n",FLAGS_mem_log_file.c_str());  
+      return ;
+    }
+    
+    std::ifstream statm("/proc/self/statm");
+    if (!statm) {
+      fprintf(stderr, "Failed to open /proc/self/statm.\n");
+      return;
+    }
+    unsigned long size, resident, shr_size;
+    if (!(statm >> size >> resident >> shr_size)) {
+      fprintf(stderr, "Failed to read memory usage from /proc/self/statm.\n");
+      return;
+    }
+    long page_size = sysconf(_SC_PAGESIZE); // 页面大小，字节
+
+     // 使用ostream的插入操作符来写入信息
+    log_file << getCurrentTime() << " ... thread " << id_ << ": (" << (done_ - last_report_done_) << "," << done_ << ") ops have been finished!\n";
+    log_file << "virtual memory used: " << size * page_size << " bytes, "
+             << "Resident set size: " << resident * page_size << " bytes, "  
+             << "Shared Memory Usage: " << shr_size * page_size << " bytes \n\n";  
+    
+    call_ref++;
+  }
+
+  void FinishedSingleOp(DB* db = nullptr) {
+    if (FLAGS_histogram) {
+      double now = g_env->NowMicros();
+      double micros = now - last_op_finish_;
+      hist_.Add(micros);
+      if (micros > 20000) {
+        fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
+        fflush(stderr);
+      }
+      last_op_finish_ = now;
+    }
+
+    done_++;
+    if (done_ >= next_report_) {
+      if      (next_report_ < 1000)   next_report_ += 100;
+      else if (next_report_ < 5000)   next_report_ += 500;
+      else if (next_report_ < 10000)  next_report_ += 1000;
+      else if (next_report_ < 50000)  next_report_ += 5000;
+      else if (next_report_ < 100000) next_report_ += 10000;
+      else if (next_report_ < 500000) next_report_ += 50000;
+      else                            next_report_ += 100000;
+
+      if((FLAGS_stats_interval != -1) && done_ % FLAGS_stats_interval == 0) {
+        PrintSpeed(); 
+        if (FLAGS_print_wa && db) {
+          std::string stats;
+          if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
+            stats = "(failed)";
+          }
+          fprintf(stdout, "%s\n", stats.c_str());
+          fprintf(stdout, "%lu operations have been finished (user has been written %.3f MB data into db.)\n\n\n", done_, bytes_/1048576.0);
+          fflush(stdout);
+        }
+      }
+      fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
+      fflush(stderr);
+    }
+  }
+
   void FinishedSingleOp2(DB* db = nullptr) {
     if (FLAGS_histogram) {
       double now = g_env->NowMicros();
@@ -687,7 +769,7 @@ class Stats {
     }
   }
 
-  void FinishedSingleOp(DB* db = nullptr) {
+  void FinishedSingleOp3(DB* db = nullptr) {
     if (FLAGS_histogram) {
       double now = g_env->NowMicros();
       double micros = now - last_op_finish_;
@@ -700,7 +782,7 @@ class Stats {
     }
 
     done_++;
-    if (done_ >= next_report_) {
+    if (done_ >= next_report_ || done_ % FLAGS_stats_interval == 0) {
       if      (next_report_ < 1000)   next_report_ += 100;
       else if (next_report_ < 5000)   next_report_ += 500;
       else if (next_report_ < 10000)  next_report_ += 1000;
@@ -711,9 +793,11 @@ class Stats {
 
       if((FLAGS_stats_interval != -1) && done_ % FLAGS_stats_interval == 0) {
         PrintSpeed(); 
+        print_mem_usage();
+
         if (FLAGS_print_wa && db) {
           std::string stats;
-          if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
+          if (!db->GetProperty_with_read("leveldb.stats", &stats)) {
             stats = "(failed)";
           }
           fprintf(stdout, "%s\n", stats.c_str());
@@ -1056,7 +1140,11 @@ class Benchmark {
         method = &Benchmark::ReadSequential;
       } else if (name == Slice("readreverse")) {
         method = &Benchmark::ReadReverse;
-      } else if (name == Slice("readrandom")) {
+      } else if (name == Slice("pointread")) {
+        method = &Benchmark::point_query_read;
+      } else if (name == Slice("rangeread")) {
+        method = &Benchmark::range_query_read;
+      }else if (name == Slice("readrandom")) {
         method = &Benchmark::ReadRandom;
       } else if (name == Slice("readmissing")) {
         method = &Benchmark::ReadMissing;
@@ -1646,8 +1734,95 @@ class Benchmark {
       if (db_->Get(options, key.slice(), &value).ok()) {
         found++;
       }
-      thread->stats.FinishedSingleOp();
+      thread->stats.FinishedSingleOp3();
     }
+    char msg[100];
+    std::snprintf(msg, sizeof(msg), "(%d of %ld found)", found, num_);
+    thread->stats.AddMessage(msg);
+  }
+
+
+    void point_query_read(ThreadState* thread) {
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+    variable_Buffer Key;
+    int64_t bytes1 = 0;
+
+    std::ifstream k_file(FLAGS_data_file);  // 打开存储k值的文本文件
+    if (!k_file.is_open()) {
+        std::cerr << "Unable to open file" << std::endl;
+        return;
+    }
+    std::string line;
+
+    if (!getline(k_file, line)) {
+      fprintf(stderr,"Unable to read the first line from the file\n");
+      return;  
+    }
+    const uint64_t total_entries = std::stoull(line);
+
+    assert(total_entries == reads_);
+
+    for (int i = 0; i < reads_; i++) {
+      if (!getline(k_file, line)) {
+        std::cerr << "Reached end of file or error reading from file" << std::endl;
+        continue;  
+      }
+      const uint64_t k = std::stoll(line);  
+      Key.Set(k);
+      if (db_->Get(options, Key.slice(), &value).ok()) {
+        found++;
+      }
+      thread->stats.FinishedSingleOp3(db_);
+      bytes1 = (16 + FLAGS_value_size);
+      thread->stats.AddBytes(bytes1);
+    }
+    char msg[100];
+    std::snprintf(msg, sizeof(msg), "(%d of %ld found)", found, num_);
+    thread->stats.AddMessage(msg);
+  }
+
+  void range_query_read(ThreadState* thread) {
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+    variable_Buffer Key;
+    Iterator* iter = db_->NewIterator(options);
+
+    std::ifstream k_file(FLAGS_data_file);  
+    if (!k_file.is_open()) {
+      fprintf(stderr, "Unable to open file\n");
+      return;
+    }
+    std::string line;
+
+    if (!getline(k_file, line)) {
+      fprintf(stderr,"Unable to read the first line from the file\n");
+      return;  
+    }
+
+    const uint64_t total_entries = std::stoull(line);
+    assert(total_entries == reads_);
+    uint64_t seek_length = FLAGS_range_query_length;
+
+    for (int i = 0; i < reads_; i++) {
+
+      if (!getline(k_file, line)) {
+        fprintf(stderr, "Reached end of file or error reading from file\n");
+        return ;  
+      }
+      const uint64_t k = std::stoll(line);
+      Key.Set(k);
+
+      iter->Seek(Key.slice());
+      while (seek_length--){
+        iter->Next();
+      }
+
+    }
+  
+    thread->stats.FinishedSingleOp3(db_);
     char msg[100];
     std::snprintf(msg, sizeof(msg), "(%d of %ld found)", found, num_);
     thread->stats.AddMessage(msg);

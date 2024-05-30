@@ -38,6 +38,7 @@
 #include "util/coding.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
+#include "global_stats.h"
 
 namespace leveldb {
 
@@ -872,7 +873,12 @@ void DBImpl::BackgroundCompaction() {
 
 
     CompactionState* compact = new CompactionState(c);
-    status = DoCompactionWork(compact);
+    if(c->get_is_tieirng()){
+      status = DoTieringCompactionWork(compact);
+    }else{
+      status = DoCompactionWork(compact);
+    }
+    
     if (!status.ok()) {
       RecordBackgroundError(status);
     }
@@ -1012,6 +1018,26 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
     compact->compaction->edit()->AddFile(level + 1, out.number, out.file_size,
                                          out.smallest, out.largest);
   }
+  return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
+}
+
+
+Status DBImpl::InstallTieringCompactionResults(CompactionState* compact) {
+  mutex_.AssertHeld();
+  Log(options_.info_log, "Compacted %d@%d + %d@%d files => %lld bytes",
+      compact->compaction->num_input_tier_files(0), compact->compaction->level(),
+      compact->compaction->num_input_tier_files(1), compact->compaction->level() + 1,
+      static_cast<long long>(compact->total_bytes));
+
+  // Add compaction outputs
+  compact->compaction->AddTieringInputDeletions(compact->compaction->edit());
+  const int level = compact->compaction->level();
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    const CompactionState::Output& out = compact->outputs[i];
+    compact->compaction->edit()->AddFile(level + 1, out.number, out.file_size,
+                                         out.smallest, out.largest);
+  }
+  compact->compaction->edit()->set_is_tiering();
   return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
 }
 
@@ -1248,6 +1274,219 @@ void  DBImpl::initialize_level_hotcoldstats(){
     }
     fprintf(stderr,"initialize %zu objects(LevelHotColdStats) within these %d levels\n", percents.size(),config::kNumLevels );
 }
+
+Status DBImpl::DoTieringCompactionWork(CompactionState* compact) {
+  const uint64_t start_micros = env_->NowMicros();
+  int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
+
+  new_LeveldataStats new_compact_statistics;
+
+  // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
+  // compact->compaction->num_input_files(1) 示与当前级别有重叠的下一个级别（level + 1）中参与压缩的文件数量。
+  Log(options_.info_log, "Compacting %d@%d + %d@%d files",
+      compact->compaction->num_input_tier_files(0), compact->compaction->level(),
+      compact->compaction->num_input_tier_files(1),
+      compact->compaction->level() + 1);
+
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  // record the number of files that involved in every compaction!
+  level_stats_[compact->compaction->level()].number_of_compactions++;
+  if(compact->compaction->get_compaction_type() == 1){ // size compaction
+    level_stats_[compact->compaction->level()].number_size_compaction_initiator_files += compact->compaction->num_input_tier_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_tier_files(1);
+  }
+  else if(compact->compaction->get_compaction_type() == 2){ // seek compaction 
+    level_stats_[compact->compaction->level()].number_seek_compaction_initiator_files += compact->compaction->num_input_tier_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_tier_files(1);
+  }
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
+  // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
+  assert(versions_->NumLevelFiles(compact->compaction->level()) > 0);
+  assert(compact->builder == nullptr);
+  assert(compact->outfile == nullptr);
+  if (snapshots_.empty()) {
+    compact->smallest_snapshot = versions_->LastSequence();
+  } else {
+    compact->smallest_snapshot = snapshots_.oldest()->sequence_number();
+  }
+
+  // 制作一个迭代器
+  Iterator* input = versions_->MakeTieringInputIterator(compact->compaction);
+
+  // Release mutex while we're actually doing the compaction work
+  mutex_.Unlock();
+
+  input->SeekToFirst();
+  Status status;
+  ParsedInternalKey ikey;
+  std::string current_user_key;
+  bool has_current_user_key = false;
+  SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
+
+  while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
+    // Prioritize immutable compaction work
+    if (has_hot_imm_.load(std::memory_order_relaxed)) {
+      const uint64_t imm_start = env_->NowMicros();
+      mutex_.Lock();
+      if (hot_imm_ != nullptr) {
+        CompactMemTable();
+        // Wake up MakeRoomForWrite() if necessary.
+        background_work_finished_signal_.SignalAll();
+      }
+      mutex_.Unlock();
+      imm_micros += (env_->NowMicros() - imm_start);
+    }
+
+    Slice key = input->key();
+
+    // if (compact->compaction->ShouldStopBefore(key) &&
+    //     compact->builder != nullptr) {
+    //   status = FinishCompactionOutputFile(compact, input);
+    //   if (!status.ok()) {
+    //     break;
+    //   }
+    // }
+
+    // Handle key/value, add to state, etc.
+    bool drop = false;
+    if (!ParseInternalKey(key, &ikey)) {
+      // Do not hide error keys
+      current_user_key.clear();
+      has_current_user_key = false;
+      last_sequence_for_key = kMaxSequenceNumber;
+    } else {
+      if (!has_current_user_key ||
+          user_comparator()->Compare(ikey.user_key, Slice(current_user_key)) !=
+              0) {
+        // First occurrence of this user key
+        current_user_key.assign(ikey.user_key.data(), ikey.user_key.size());
+        has_current_user_key = true;
+        last_sequence_for_key = kMaxSequenceNumber;
+      }
+
+      if (last_sequence_for_key <= compact->smallest_snapshot) {
+        // Hidden by an newer entry for same user key
+        drop = true;  // (A)
+      } else if (ikey.type == kTypeDeletion &&
+                 ikey.sequence <= compact->smallest_snapshot &&
+                 compact->compaction->IsBaseLevelForKey(ikey.user_key)) {
+        // For this user key:
+        // (1) there is no data in higher levels
+        // (2) data in lower levels will have larger sequence numbers
+        // (3) data in layers that are being compacted here and have
+        //     smaller sequence numbers will be dropped in the next
+        //     few iterations of this loop (by rule (A) above).
+        // Therefore this deletion marker is obsolete and can be dropped.
+        drop = true;
+      }
+      last_sequence_for_key = ikey.sequence;
+    }
+    
+#if 0
+    Log(options_.info_log,
+        "  Compact: %s, seq %d, type: %d %d, drop: %d, is_base: %d, "
+        "%d smallest_snapshot: %d",
+        ikey.user_key.ToString().c_str(),
+        (int)ikey.sequence, ikey.type, kTypeValue, drop,
+        compact->compaction->IsBaseLevelForKey(ikey.user_key),
+        (int)last_sequence_for_key, (int)compact->smallest_snapshot);
+#endif
+
+    if (!drop) {
+      // Open output file if necessary
+      if (compact->builder == nullptr) {
+        status = OpenCompactionOutputFile(compact);
+        if (!status.ok()) {
+          Log(options_.info_log, "Failed to open new compaction output file: %s", status.ToString().c_str());
+          break;
+        }
+      }
+      if (compact->builder->NumEntries() == 0) {
+        Log(options_.info_log, "First entry in the new output file, key");
+        compact->current_output()->smallest.DecodeFrom(key);
+      }
+      compact->current_output()->largest.DecodeFrom(key);
+      compact->builder->Add(key, input->value());
+
+      // Close output file if it is big enough
+      if (compact->builder->FileSize() >=
+          compact->compaction->MaxOutputFileSize()) {
+        Log(options_.info_log, "Output file size reached max limit, closing the file");
+        status = FinishCompactionOutputFile(compact, input);
+        if (!status.ok()) {
+          Log(options_.info_log, "Failed to finish compaction output file: %s", status.ToString().c_str());
+          break;
+        }
+      }
+    }
+
+    input->Next();
+  }
+
+  if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    status = Status::IOError("Deleting DB during compaction");
+  }
+  if (status.ok() && compact->builder != nullptr) {
+    Log(options_.info_log, "Finished all compaction output files, total number of output files: %lu", compact->outputs.size());
+    status = FinishCompactionOutputFile(compact, input);
+  }
+  if (status.ok()) {
+    status = input->status();
+  }
+  delete input;
+  input = nullptr;
+
+  CompactionStats stats;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  uint64_t init_level_bytes_read = 0;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+  stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  for (int which = 0; which < 2; which++) {
+    for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
+      stats.bytes_read += compact->compaction->input(which, i)->file_size;
+    }
+  }
+
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    stats.bytes_written += compact->outputs[i].file_size;
+  }
+
+  mutex_.Lock();
+  stats_[compact->compaction->level() + 1].Add(stats);
+  level_stats_[compact->compaction->level() + 1].bytes_read += stats.bytes_read;
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+  // double hot_data_percentage = (double)hot_data_count / total_data_count;
+  // double cold_data_percentage = (double)cold_data_count / total_data_count;
+
+  // level_stats_[compact->compaction->level()].bytes_read_hot += init_level_bytes_read*hot_data_percentage;
+  // level_stats_[compact->compaction->level()].bytes_read_cold += init_level_bytes_read*cold_data_percentage;
+
+  // uint64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
+  // level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
+  // level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
+
+  level_stats_[compact->compaction->level() + 1].bytes_written += stats.bytes_written;
+  // level_stats_[compact->compaction->level() + 1].bytes_written_hot += stats.bytes_written*hot_data_percentage;
+  // level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+
+  if (status.ok()) {
+    status = InstallCompactionResults(compact);
+  }
+  if (!status.ok()) {
+    RecordBackgroundError(status);
+  }
+  VersionSet::LevelSummaryStorage tmp;
+  Log(options_.info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  return status;
+}
+
+
 
 
 Status DBImpl::DoCompactionWork(CompactionState* compact) {
@@ -1662,9 +1901,8 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   local_stats.total_time = env_->NowMicros() - start_time;
   get_time_stats.Add(local_stats);  // Accumulate stats in the class-level instance
 
-  if (have_stat_update && current->UpdateStats(stats)) {
-    MaybeScheduleCompaction();
-  }
+  // 
+  
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
@@ -2195,6 +2433,94 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
 
   return false;
 }
+
+
+bool DBImpl::GetProperty_with_read(const Slice& property, std::string* value) {
+  
+  value->clear();
+  MutexLock l(&mutex_);
+  Slice in = property;
+  Slice prefix("leveldb.");
+  if (!in.starts_with(prefix)) return false;
+  in.remove_prefix(prefix.size());
+
+  if (in.starts_with("num-files-at-level")) {
+    in.remove_prefix(strlen("num-files-at-level"));
+    uint64_t level;
+    bool ok = ConsumeDecimalNumber(&in, &level) && in.empty();
+    if (!ok || level >= config::kNumLevels) {
+      return false;
+    } else {
+      char buf[100];
+      std::snprintf(buf, sizeof(buf), "%d",
+                    versions_->NumLevelFiles(static_cast<int>(level)));
+      *value = buf;
+      return true;
+    }
+  } else if (in == "stats") {
+
+    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+    // I modified this part for print more details of a whole LSM
+
+    char buf[500];
+    // 计算所有时间统计的总和
+    double total_time_sum =0.0;
+    total_time_sum += 
+      versions_->search_stats.level0_search_time / 1000000.0 +
+      versions_->search_stats.other_levels_search_time / 1000000.0 +
+      table_cache_->table_cache_time_stats.cache_lookup_time / 1000000.0 +
+      table_cache_->table_cache_time_stats.disk_load_time / 1000000.0 +
+      table_cache_->table_cache_time_stats.table_creation_time / 1000000.0 +
+      global_stats.index_block_seek_time.load(std::memory_order_relaxed) / 1000000.0 +
+      global_stats.filter_check_time.load(std::memory_order_relaxed) / 1000000.0 +
+      global_stats.block_load_seek_time.load(std::memory_order_relaxed) / 1000000.0 +
+      get_time_stats.disk_time / 1000000.0;
+      std::snprintf(buf, sizeof(buf),
+              "Mem    | Imm    | L0Meta  | LoMeta  | Cache   | I/O    | Table_Cre | in_Bl_Se  | Fil_Ch   | Bl_Lo    | Disk    | Total\n"
+              "-------------------------------------------------------------------------------------------------------------\n"
+              "%6.3f | %6.3f | %6.3f  | %6.3f  | %6.3f  | %6.3f | %8.3f  |%8.3f   | %6.3f   | %6.3f   | %6.3f(%.3f)(%.3f)(%.3f)  | %6.3f\n",
+              get_time_stats.memtable_time / 1000000.0, 
+              get_time_stats.immtable_time / 1000000.0,
+              versions_->search_stats.level0_search_time / 1000000.0,
+              versions_->search_stats.other_levels_search_time / 1000000.0,
+              table_cache_->table_cache_time_stats.cache_lookup_time / 1000000.0,
+              table_cache_->table_cache_time_stats.disk_load_time / 1000000.0,
+              table_cache_->table_cache_time_stats.table_creation_time / 1000000.0,
+              global_stats.index_block_seek_time.load(std::memory_order_relaxed) / 1000000.0,
+              global_stats.filter_check_time.load(std::memory_order_relaxed) / 1000000.0,
+              global_stats.block_load_seek_time.load(std::memory_order_relaxed) / 1000000.0,
+              get_time_stats.disk_time / 1000000.0, 
+              versions_->search_stats.total_time /1000000.0,
+              table_cache_->table_cache_time_stats.total_time/1000000.0,
+              global_stats.taotal_time/1000000.0,
+              get_time_stats.total_time / 1000000.0);
+
+
+    value->append(buf);
+    return true;
+    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  } else if (in == "sstables") {
+    *value = versions_->current()->DebugString();
+    return true;
+  } else if (in == "approximate-memory-usage") {
+    size_t total_usage = options_.block_cache->TotalCharge();
+    if (mem_) {
+      total_usage += mem_->ApproximateMemoryUsage();
+    }
+    if (imm_) {
+      total_usage += imm_->ApproximateMemoryUsage();
+    }
+    char buf[50];
+    std::snprintf(buf, sizeof(buf), "%llu",
+                  static_cast<unsigned long long>(total_usage));
+    value->append(buf);
+    return true;
+  }
+
+  return false;
+}
+
+
 
 void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
   // TODO(opt): better implementation

@@ -135,6 +135,8 @@ class LEVELDB_EXPORT DB {
   //  This enhanced visibility is crucial for debugging and fine-tuning the store's performance and storage efficiency.
   virtual bool GetProperty_with_whole_lsm(const Slice& property, std::string* value) = 0;
 
+  virtual bool GetProperty_with_read(const Slice& property, std::string* value) = 0;
+
 
   // For each i in [0,n-1], store in "sizes[i]", the approximate
   // file system space used by keys in "[range[i].start .. range[i].limit)".

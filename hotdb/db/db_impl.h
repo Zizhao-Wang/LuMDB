@@ -72,6 +72,8 @@ class DBImpl : public DB {
   //  This enhanced visibility is crucial for debugging and fine-tuning the store's performance and storage efficiency.
   bool GetProperty_with_whole_lsm(const Slice& property, std::string* value);
 
+  bool GetProperty_with_read(const Slice& property, std::string* value);
+
   // Force current memtable contents to be compacted.
   Status TEST_CompactMemTable();
 
@@ -272,10 +274,16 @@ class DBImpl : public DB {
   Status DoCompactionWork(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  Status DoTieringCompactionWork(CompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   Status OpenCompactionOutputFile(CompactionState* compact);
   Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
   Status InstallCompactionResults(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  
+  Status InstallTieringCompactionResults(CompactionState* compact)
+    EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   const Comparator* user_comparator() const {
     return internal_comparator_.user_comparator();

@@ -249,4 +249,5 @@ CMakeFiles/leveldb.dir/db/db_impl.cc.o: \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./table/block.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./table/merger.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./table/two_level_iterator.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/./util/mutexlock.h
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/mutexlock.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/db/global_stats.h

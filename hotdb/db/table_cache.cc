@@ -46,11 +46,19 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
   char buf[sizeof(file_number)];
   EncodeFixed64(buf, file_number);
   Slice key(buf, sizeof(buf));
+
+  start_time = env_->NowMicros();
   *handle = cache_->Lookup(key);
+  end_time = env_->NowMicros();
+  table_cache_time_stats.cache_lookup_time += (end_time - start_time);
+
+
   if (*handle == nullptr) {
     std::string fname = TableFileName(dbname_, file_number);
     RandomAccessFile* file = nullptr;
     Table* table = nullptr;
+
+    start_time = env_->NowMicros();
     s = env_->NewRandomAccessFile(fname, &file);
     if (!s.ok()) {
       std::string old_fname = SSTTableFileName(dbname_, file_number);
@@ -58,8 +66,15 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
         s = Status::OK();
       }
     }
+    end_time = env_->NowMicros();
+    table_cache_time_stats.disk_load_time += (end_time - start_time);
+
+
     if (s.ok()) {
+      start_time = env_->NowMicros();
       s = Table::Open(options_, file, file_size, &table);
+      end_time = env_->NowMicros();
+      table_cache_time_stats.table_creation_time += (end_time - start_time);
     }
 
     if (!s.ok()) {

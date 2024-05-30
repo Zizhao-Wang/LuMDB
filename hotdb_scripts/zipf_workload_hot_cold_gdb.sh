@@ -1,5 +1,8 @@
-sudo rm -rf /mnt/hotdb_test*
-sudo rm  /mnt/logs/*.log
+./config.sh
+
+
+rm -rf /mnt/hotdb_test*
+rm  /mnt/logs/*.log
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
 sudo bash -c 'ulimit -n 800000'

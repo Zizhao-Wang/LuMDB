@@ -14,6 +14,7 @@
 #include "table/format.h"
 #include "table/two_level_iterator.h"
 #include "util/coding.h"
+#include "db/global_stats.h"
 
 namespace leveldb {
 
@@ -33,6 +34,8 @@ struct Table::Rep {
 
   BlockHandle metaindex_handle;  // Handle to metaindex_block: saved from footer
   Block* index_block;
+
+  InternalGetStats stats;  // 添加性能统计实例
 };
 
 Status Table::Open(const Options& options, RandomAccessFile* file,
@@ -215,16 +218,30 @@ Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
                           void (*handle_result)(void*, const Slice&,
                                                 const Slice&)) {
   Status s;
+
+  auto start_time = std::chrono::high_resolution_clock::now();
+  auto start_time1 = std::chrono::high_resolution_clock::now();
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
   iiter->Seek(k);
+  auto end_time = std::chrono::high_resolution_clock::now();
+  rep_->stats.index_block_seek_time += std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
   if (iiter->Valid()) {
+    start_time = std::chrono::high_resolution_clock::now();
     Slice handle_value = iiter->value();
     FilterBlockReader* filter = rep_->filter;
     BlockHandle handle;
     if (filter != nullptr && handle.DecodeFrom(&handle_value).ok() &&
         !filter->KeyMayMatch(handle.offset(), k)) {
       // Not found
+      end_time = std::chrono::high_resolution_clock::now();
+      rep_->stats.filter_check_time += std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
     } else {
+      
+      end_time = std::chrono::high_resolution_clock::now();
+      rep_->stats.filter_check_time += std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+      start_time = std::chrono::high_resolution_clock::now();
       Iterator* block_iter = BlockReader(this, options, iiter->value());
       block_iter->Seek(k);
       if (block_iter->Valid()) {
@@ -232,12 +249,20 @@ Status Table::InternalGet(const ReadOptions& options, const Slice& k, void* arg,
       }
       s = block_iter->status();
       delete block_iter;
+      end_time = std::chrono::high_resolution_clock::now();
+      rep_->stats.block_load_seek_time += std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
     }
   }
   if (s.ok()) {
     s = iiter->status();
   }
   delete iiter;
+
+  end_time = std::chrono::high_resolution_clock::now();
+  rep_->stats.taotal_time += std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time1).count();
+  global_stats.Add(rep_->stats);
+  rep_->stats.Reset();
+
   return s;
 }
 

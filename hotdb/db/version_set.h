@@ -112,7 +112,8 @@ class Version {
       int level, 
       const InternalKey* begin, // nullptr means before all keys
       const InternalKey* end, // nullptr means after all keys
-      std::vector<FileMetaData*>* tier_inputs);
+      std::vector<FileMetaData*>* tier_inputs,
+      int& selected_run);
 
   // Returns true iff some file in the specified level overlaps
   // some part of [*smallest_user_key,*largest_user_key].
@@ -297,6 +298,8 @@ class VersionSet {
   // The caller should delete the iterator when no longer needed.
   Iterator* MakeInputIterator(Compaction* c);
 
+  Iterator* MakeTieringInputIterator(Compaction* c);
+
   /**
  * @brief Checks if any level in the current version needs a compaction.
  *
@@ -430,8 +433,13 @@ class Compaction {
   // moving a single input file to the next level (no merging or splitting)
   bool IsTrivialMove() const;
 
+  bool IsTrivialMoveWithTier() const;
+
   // Add all inputs to this compaction as delete operations to *edit.
   void AddInputDeletions(VersionEdit* edit);
+
+
+  void AddTieringInputDeletions(VersionEdit* edit);
 
   // Returns true if the information we have available guarantees that
   // the compaction is producing data in "level+1" for which no data exists
@@ -448,6 +456,13 @@ class Compaction {
 
   //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
   int get_compaction_type();
+
+  // "which" must be either 0 or 1
+  int num_input_tier_files(int which) const { return tiering_inputs_[which].size(); }
+
+  void set_tiering() { is_tiering = true; }
+
+  bool get_is_tieirng() const { return is_tiering; }
 
 
  private:
@@ -493,6 +508,8 @@ class Compaction {
   int compaction_type;
 
   bool is_tiering;
+
+  int selected_run_in_next_level;
 
 };
 
