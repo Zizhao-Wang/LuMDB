@@ -9,7 +9,7 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
-DEVICE_NAME="nvme1n1"
+DEVICE_NAME="nvme3n1"
 
 
 convert_to_billion_format() {
@@ -37,7 +37,7 @@ for i in {10..10}; do
         cd $dir1
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 10000))
 
             num_format=$(convert_to_billion_format $num_entries)
 

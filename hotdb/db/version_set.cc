@@ -44,7 +44,7 @@ static double MaxBytesForLevel(const Options* options, int level) {
   // the level-0 compaction threshold based on number of files.
 
   // Result for both level-0 and level-1
-  double result = 10. * 1048576.0;
+  double result = 20. * 1048576.0;
   while (level > 1) {
     result *= 10;
     level--;
@@ -822,17 +822,17 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
         //                                                                 <-----f----->
       } else {
         tier_inputs->push_back(f);
-        Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
+        // Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
 
         // Level-0 files may overlap each other.  So check if the newly
         // added file has expanded the range.  If so, restart search.
         if (begin != nullptr && user_cmp->Compare(file_start, user_begin) < 0) {
-          Log(vset_->options_->info_log, "File %llu expanded range on the left. Restarting search.", static_cast<unsigned long long>(f->number));
+          // Log(vset_->options_->info_log, "File %llu expanded range on the left. Restarting search.", static_cast<unsigned long long>(f->number));
           user_begin = file_start;
           tier_inputs->clear();
           i = 0;
         } else if (end != nullptr && user_cmp->Compare(file_limit, user_end) > 0) {
-          Log(vset_->options_->info_log, "File %llu expanded range on the right. Restarting search.", static_cast<unsigned long long>(f->number));
+          // Log(vset_->options_->info_log, "File %llu expanded range on the right. Restarting search.", static_cast<unsigned long long>(f->number));
           user_end = file_limit;
           tier_inputs->clear();
           i = 0;
@@ -879,7 +879,7 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
       if(num_overlappping_files_in_this_run > num_overlapping_files){
         num_overlapping_files = num_overlappping_files_in_this_run;
         selected_run = run;
-        Log(vset_->options_->info_log, "Selected run %d for level %d based on number of overlapping files", selected_run, level);
+        // Log(vset_->options_->info_log, "Selected run %d for level %d based on number of overlapping files", selected_run, level);
       }
     }
 
@@ -895,7 +895,7 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
       } else if (end != nullptr && user_cmp->Compare(file_start, user_end) > 0) {
       } else { 
         tier_inputs->push_back(f);
-        Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
+        // Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
       }
     }
   }
@@ -1243,18 +1243,18 @@ class VersionSet::Builder {
         for (const auto& added_file : *added_tier_files_this_run) {
           // Add all smaller files listed in base_
           for (std::vector<FileMetaData*>::const_iterator bpos = std::upper_bound(base_iter, base_end, added_file, cmp); base_iter != bpos; ++base_iter) {
-            MaybeAddFile(v, level,0, *base_iter);
+            MaybeAddFile(v, level,run_entry.first, *base_iter);
             index++;
           }
           if(vset_->tiering_compact_pointer_[level][run_entry.first] == -1 || added_file->number > vset_->tiering_compact_pointer_[level][run_entry.first]){
             vset_->tiering_compact_pointer_[level][run_entry.first] = index;
           }
-          MaybeAddFile(v, level,0, added_file);
+          MaybeAddFile(v, level,run_entry.first, added_file);
           index++;
         }
         // Add remaining base files
         for (; base_iter != base_end; ++base_iter) {
-          MaybeAddFile(v, level,0, *base_iter);
+          MaybeAddFile(v, level,run_entry.first, *base_iter);
         }
       }
 
@@ -2225,7 +2225,7 @@ Compaction* VersionSet::PickCompaction() {
             icmp_.Compare(f->largest.Encode(), compact_pointer_[level]) > 0) {
           c->inputs_[0].push_back(f);
           Log(options_->info_log, "DetermineCompaction: Adding leveling file with largest key=%s", 
-            f->largest.Encode().ToString().c_str());
+            f->largest.DebugString().c_str());
           break;
         }
       }
@@ -2263,9 +2263,8 @@ Compaction* VersionSet::PickCompaction() {
         (unsigned long long)selected_file->file_size);
     }
 
-    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
     c->compaction_type = 1;
-    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
+
   } else if (seek_compaction) {
     level = current_->file_to_compact_level_in_leveling;
     c = new Compaction(options_, level);
@@ -2638,9 +2637,10 @@ void Compaction::AddInputDeletions(VersionEdit* edit) {
   }
 }
 
-void Compaction::AddTieringInputDeletions(VersionEdit* edit, int run) {
+void Compaction::AddTieringInputDeletions(VersionEdit* edit) {
   for (int which = 0; which < 2; which++) {
     for (size_t i = 0; i < tiering_inputs_[which].size(); i++) {
+      int run = (which == 0 ? selected_run_in_input_level : selected_run_in_next_level);
       edit->RemovetieringFile(level_ + which, run, tiering_inputs_[which][i]->number);
     }
   }

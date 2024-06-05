@@ -125,43 +125,54 @@ class DBImpl : public DB {
   struct new_LeveldataStats {
     new_LeveldataStats()
     : micros(0), 
-      bytes_read(0), 
-      bytes_written(0), 
+      leveling_bytes_read(0), 
+      leveling_bytes_written(0),
+      tiering_bytes_read(0),
+      tiering_bytes_written(0),
       bytes_read_hot(0), 
       bytes_written_hot(0), 
       num_leveling_files(0),
       num_tiering_files(0),
-      number_of_compactions(0), 
+      number_of_leveling_compactions(0), 
+      number_of_tiering_compactions(0),
       user_bytes_written(0), 
       moved_directly_from_last_level_bytes(0), 
       moved_from_this_level_bytes(0),
-      number_size_compaction(0),
-      number_size_compaction_initiator_files(0),
-      number_size_compaction_participant_files(0),
-      number_seek_compaction(0),
-      number_seek_compaction_initiator_files(0),
-      number_seek_compaction_participant_files(0),
+      number_size_leveling_compactions(0),
+      number_size_tieirng_compactions(0),
+      number_size_compaction_leveling_initiator_files(0),
+      number_size_compaction_tieirng_initiator_files(0),
+      number_size_compaction_tieirng_participant_files(0),
+      number_size_compaction_leveling_participant_files(0),
+      number_seek_leveling_compactions(0),
+      number_seek_leveling_compaction_initiator_files(0),
+      number_seek_leveling_compaction_participant_files(0),
+      number_seek_tiering_compactions(0),
+      number_seek_tiering_compaction_initiator_files(0),
+      number_seek_tiering_compaction_participant_files(0),
       number_manual_compaction(0),
       number_TrivialMove(0),
       bytes_read_cold(0),
       bytes_written_cold(0) {}
 
-    void Add(const new_LeveldataStats& c) {
-      this->micros += c.micros;
-      this->bytes_read += c.bytes_read;
-      this->bytes_written += c.bytes_written;
+    // void Add(const new_LeveldataStats& c) {
+    //   this->micros += c.micros;
+    //   this->bytes_read += c.bytes_read;
+    //   this->bytes_written += c.bytes_written;
 
-      // Note: Assuming user_bytes_written should be accumulated as well.
-      this->bytes_read_hot += c.bytes_read_hot;
-      this->bytes_written_hot += c.bytes_written_hot;
-      this->number_of_compactions += c.number_of_compactions;
-      this->user_bytes_written += c.user_bytes_written;
+    //   // Note: Assuming user_bytes_written should be accumulated as well.
+    //   this->bytes_read_hot += c.bytes_read_hot;
+    //   this->bytes_written_hot += c.bytes_written_hot;
+    //   this->number_of_compactions += c.number_of_compactions;
+    //   this->user_bytes_written += c.user_bytes_written;
       
-    }
+    // }
 
     int64_t micros;
-    int64_t bytes_read;
-    int64_t bytes_written;
+    int64_t leveling_bytes_read;
+    int64_t leveling_bytes_written;
+    int64_t tiering_bytes_read;
+    int64_t tiering_bytes_written;
 
     int64_t num_tiering_files;
     int64_t num_leveling_files;
@@ -171,7 +182,10 @@ class DBImpl : public DB {
     int64_t bytes_read_cold;
     int64_t bytes_written_hot;
     int64_t bytes_written_cold;
-    int32_t number_of_compactions;
+
+    int32_t number_of_leveling_compactions;
+    int32_t number_of_tiering_compactions;
+
     int64_t user_bytes_written;
     int64_t moved_directly_from_last_level_bytes;
     int64_t moved_from_this_level_bytes;
@@ -179,14 +193,20 @@ class DBImpl : public DB {
     // Count of size compactions performed.
     // Number of files that initiated size compactions.
     // These are the files that directly triggered a size compaction due to exceeding certain thresholds.
-    int32_t number_size_compaction;
-    int32_t number_size_compaction_initiator_files;
-    int32_t number_size_compaction_participant_files;
+    int32_t number_size_leveling_compactions;
+    int32_t number_size_tieirng_compactions;
+    int32_t number_size_compaction_leveling_initiator_files;
+    int32_t number_size_compaction_tieirng_initiator_files;
+    int32_t number_size_compaction_tieirng_participant_files;
+    int32_t number_size_compaction_leveling_participant_files;
 
     // Count of seek compactions performed.
-    int32_t number_seek_compaction;
-    int32_t number_seek_compaction_initiator_files;
-    int32_t number_seek_compaction_participant_files;
+    int32_t number_seek_leveling_compactions;
+    int32_t number_seek_leveling_compaction_initiator_files;
+    int32_t number_seek_leveling_compaction_participant_files;
+    int32_t number_seek_tiering_compactions;
+    int32_t number_seek_tiering_compaction_initiator_files;
+    int32_t number_seek_tiering_compaction_participant_files;
 
     int32_t number_manual_compaction;
     int32_t number_TrivialMove;

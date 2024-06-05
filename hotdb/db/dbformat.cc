@@ -16,13 +16,13 @@ namespace leveldb {
 // parameters set via options.
 namespace config {
 // Level-0 compaction is started when we hit this many files.
-int kL0_CompactionTrigger = 2;
+int kL0_CompactionTrigger = 4;
 
 // Soft limit on number of level-0 files.  We slow down writes at this point.
-int kL0_SlowdownWritesTrigger = 4;
+int kL0_SlowdownWritesTrigger = 8;
 
 // Maximum number of level-0 files.  We stop writes at this point.
-int kL0_StopWritesTrigger = 6;
+int kL0_StopWritesTrigger = 12;
 
 
 // Tiering strategy limit multiplier

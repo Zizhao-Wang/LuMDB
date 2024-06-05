@@ -446,7 +446,7 @@ class Compaction {
   // Add all inputs to this compaction as delete operations to *edit.
   void AddInputDeletions(VersionEdit* edit);
 
-  void AddTieringInputDeletions(VersionEdit* edit, int run);
+  void AddTieringInputDeletions(VersionEdit* edit);
 
   // Returns true if the information we have available guarantees that
   // the compaction is producing data in "level+1" for which no data exists
@@ -466,6 +466,9 @@ class Compaction {
 
   // "which" must be either 0 or 1
   int num_input_tier_files(int which) const { return tiering_inputs_[which].size(); }
+
+  // Return the ith input file at "level()+which" ("which" must be 0 or 1).
+  FileMetaData* tier_input(int which, int i) const { return tiering_inputs_[which][i]; }
 
   void set_tiering() { is_tiering = true; }
 

@@ -39,7 +39,7 @@ for i in {10..10}; do
     fi
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 10000))
 
             num_format=$(convert_to_billion_format $num_entries)
 
@@ -87,8 +87,8 @@ for i in {10..10}; do
                     echo "stats_interval: $stats_interva"
                     echo "$num_format"
 
-                    iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
-                    PID_IOSTAT=$!
+                    # iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
+                    # PID_IOSTAT=$!
                     
                     gdb --args ../hotdb/release/db_bench \
                     --db=/mnt/hotdb_test \
@@ -108,7 +108,7 @@ for i in {10..10}; do
                     --stats_interval=$stats_interva \
                     --histogram=1 \
                     --write_buffer_size=1048576 \
-                    --max_file_size=67108864   \
+                    --max_file_size=2097152   \
                     --print_wa=true 
             done
         done

@@ -120,7 +120,7 @@ for i in {10..10}; do
                     --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
-                    --max_file_size=67108864   \
+                    --max_file_size=2097152   \
                     --print_wa=true \
                     &> >( tee $log_file) &  
 

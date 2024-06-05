@@ -979,6 +979,7 @@ class Benchmark {
     std::fprintf(stdout, "  hot_file_path: %s\n", FLAGS_hot_file.c_str());
     std::fprintf(stdout, "  data_file_path: %s\n", FLAGS_data_file.c_str());
     std::fprintf(stdout, "  percentages: %s\n", FLAGS_percentages.c_str());
+    std::fprintf(stdout, "  Print Interval: %ld\n", FLAGS_stats_interval);
     std::fprintf(stdout, "------------------------------------------------\n");
   }
 
@@ -1630,7 +1631,7 @@ class Benchmark {
     thread->stats.AddBytes(bytes);
   }
 
-    void DoWrite_zipf2(ThreadState* thread, bool seq) {
+  void DoWrite_zipf2(ThreadState* thread, bool seq) {
     
     if (num_ != FLAGS_num) {
       char msg[100];

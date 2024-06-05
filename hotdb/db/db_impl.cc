@@ -602,12 +602,13 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
   // newly added source codes
   level_stats_[0].micros = env_->NowMicros() - start_micros;
-  level_stats_[0].bytes_written = meta.file_size;
   level_stats_[0].user_bytes_written = meta.file_size;
   if(is_hot_mem){
     level_stats_[0].num_tiering_files++;
+    level_stats_[0].tiering_bytes_written += meta.file_size;
   }else{
     level_stats_[0].num_leveling_files++;
+    level_stats_[0].leveling_bytes_written += meta.file_size;
   }
   
   return s;
@@ -861,17 +862,6 @@ void DBImpl::BackgroundCompaction() {
     level_stats_[c->level()].number_TrivialMove++;
     
   } else {
-
-    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
-    if(c->get_compaction_type() == 1){
-      level_stats_[c->level()].number_size_compaction++;
-    }
-    else if(c->get_compaction_type()==2){
-      level_stats_[c->level()].number_seek_compaction++;
-    }
-    //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
-
-
     CompactionState* compact = new CompactionState(c);
     if(c->get_is_tieirng()){
       status = DoTieringCompactionWork(compact);
@@ -1030,11 +1020,11 @@ Status DBImpl::InstallTieringCompactionResults(CompactionState* compact) {
       static_cast<long long>(compact->total_bytes));
 
   // Add compaction outputs
-  compact->compaction->AddTieringInputDeletions(compact->compaction->edit(), compact->compaction->get_selected_run_in_next_level());
+  compact->compaction->AddTieringInputDeletions(compact->compaction->edit());
   const int level = compact->compaction->level();
   for (size_t i = 0; i < compact->outputs.size(); i++) {
     const CompactionState::Output& out = compact->outputs[i];
-    compact->compaction->edit()->AddFile(level + 1, out.number, out.file_size,
+    compact->compaction->edit()->AddTieringFile(level + 1, compact->compaction->get_selected_run_in_next_level(), out.number, out.file_size,
                                          out.smallest, out.largest);
   }
   compact->compaction->edit()->set_is_tiering();
@@ -1290,14 +1280,16 @@ Status DBImpl::DoTieringCompactionWork(CompactionState* compact) {
 
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // record the number of files that involved in every compaction!
-  level_stats_[compact->compaction->level()].number_of_compactions++;
+  
   if(compact->compaction->get_compaction_type() == 1){ // size compaction
-    level_stats_[compact->compaction->level()].number_size_compaction_initiator_files += compact->compaction->num_input_tier_files(0);
-    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_tier_files(1);
-  }
+    level_stats_[compact->compaction->level()].number_size_tieirng_compactions++;
+    level_stats_[compact->compaction->level()].number_size_compaction_tieirng_initiator_files += compact->compaction->num_input_tier_files(0);
+    level_stats_[compact->compaction->level()+1].number_size_compaction_tieirng_participant_files += compact->compaction->num_input_tier_files(1);
+  }   
   else if(compact->compaction->get_compaction_type() == 2){ // seek compaction 
-    level_stats_[compact->compaction->level()].number_seek_compaction_initiator_files += compact->compaction->num_input_tier_files(0);
-    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_tier_files(1);
+    level_stats_[compact->compaction->level()].number_seek_tiering_compactions++;
+    level_stats_[compact->compaction->level()].number_seek_tiering_compaction_initiator_files += compact->compaction->num_input_tier_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_tiering_compaction_participant_files += compact->compaction->num_input_tier_files(1);
   }
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
 
@@ -1444,8 +1436,8 @@ Status DBImpl::DoTieringCompactionWork(CompactionState* compact) {
 
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
-    for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
-      stats.bytes_read += compact->compaction->input(which, i)->file_size;
+    for (int i = 0; i < compact->compaction->num_input_tier_files(which); i++) {
+      stats.bytes_read += compact->compaction->tier_input(which, i)->file_size;
     }
   }
 
@@ -1455,8 +1447,8 @@ Status DBImpl::DoTieringCompactionWork(CompactionState* compact) {
 
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
-  level_stats_[compact->compaction->level() + 1].bytes_read += stats.bytes_read;
-  level_stats_[compact->compaction->level() + 1].bytes_written += stats.bytes_written;
+  level_stats_[compact->compaction->level() + 1].tiering_bytes_read += stats.bytes_read;
+  level_stats_[compact->compaction->level() + 1].tiering_bytes_written += stats.bytes_written;
 
   if (status.ok()) {
     status = InstallTieringCompactionResults(compact);
@@ -1487,14 +1479,15 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // record the number of files that involved in every compaction!
-  level_stats_[compact->compaction->level()].number_of_compactions++;
   if(compact->compaction->get_compaction_type() == 1){ // size compaction
-    level_stats_[compact->compaction->level()].number_size_compaction_initiator_files += compact->compaction->num_input_files(0);
-    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_files(1);
+  level_stats_[compact->compaction->level()].number_size_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_size_compaction_leveling_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_size_compaction_leveling_participant_files += compact->compaction->num_input_files(1);
   }
   else if(compact->compaction->get_compaction_type() == 2){ // seek compaction 
-    level_stats_[compact->compaction->level()].number_seek_compaction_initiator_files += compact->compaction->num_input_files(0);
-    level_stats_[compact->compaction->level()+1].number_seek_compaction_participant_files += compact->compaction->num_input_files(1);
+    level_stats_[compact->compaction->level()].number_seek_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_seek_leveling_compaction_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_leveling_compaction_participant_files += compact->compaction->num_input_files(1);
   }
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
 
@@ -1683,7 +1676,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
-  level_stats_[compact->compaction->level() + 1].bytes_read += stats.bytes_read;
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
@@ -1697,7 +1691,6 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   // level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
   // level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
 
-  level_stats_[compact->compaction->level() + 1].bytes_written += stats.bytes_written;
   // level_stats_[compact->compaction->level() + 1].bytes_written_hot += stats.bytes_written*hot_data_percentage;
   // level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
@@ -2115,7 +2108,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // one is still being compacted, so we wait.
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
-    } else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger * config::kTiering_and_leveling_Multiplier) {
+    } else if (versions_->NumLevel_leveling_Files(0) >= config::kL0_StopWritesTrigger || versions_->NumLevel_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
       // There are too many level-0 files.
       Log(options_.info_log, "Too many L0 files; waiting...\n");
       background_work_finished_signal_.Wait();
@@ -2125,7 +2118,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       //确保没有前一个日志文件。这是一种安全检查，确保我们没有未完成的日志文件。
 
       uint64_t new_log_number = versions_->NewFileNumber();
-      fprintf(stderr, "new_log_number: %lu in MakeRoomForWrite\n", new_log_number);
+      // fprintf(stderr, "new_log_number: %lu in MakeRoomForWrite\n", new_log_number);
       // 生成一个新的文件编号，用于新的 WAL 文件。
 
       WritableFile* lfile = nullptr;
@@ -2285,10 +2278,10 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     // I modified this part for print more details of a whole LSM
     double user_io = 0;
     double total_io = 0;
-    char buf[250];
+    char buf[300];
     std::snprintf(buf, sizeof(buf),
                   "                               Compactions\n"
-                  "Level Files Size(M) Time(s) ReadH(M) ReadC(M) WriteH(M) WriteC(M) m_comp si_comp ifile pfile se_comp ifiles pfiles comps triv_move t_last_b t_next_b\n"
+                  "Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b\n"
                   "--------------------------------------------------\n");
     value->append(buf);
     for (int level = 0; level < config::kNumLevels; level++) {
@@ -2296,24 +2289,31 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
       if(level == 0){
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
-      int files = versions_->NumLevelFiles(level);
-      if (stats_[level].micros > 0 || files > 0) {
+      int files = versions_->NumLevel_leveling_Files(level);
+      int tierfiles = versions_->NumLevel_tiering_Files(level);
+      if (stats_[level].micros > 0 || files > 0 || tierfiles >0) {
         std::vector<int> percents = GetLevelPercents();
-        std::snprintf(buf, sizeof(buf), "%5d %5d %7.0f %7.0f %8.0f %8.0f %9.0f %9.0f %6d %7d %5d %5d %7d %5d %6d %5d %9d %8.0f %8.0f\n",
-                      level, files, versions_->NumLevelBytes(level) / 1048576.0,
+        std::snprintf(buf, sizeof(buf), "%5d %5d(%4d) %7.0f %7.0f %7.0f %7.0f %8.0f %8.0f %6d %7d(%7d) %5d(%7d) %5d(%7d) %7d(%7d) %6d(%7d) %6d(%7d) %5d %9d %8.0f %8.0f\n",
+                      level, files,tierfiles, versions_->NumLevelBytes(level) / 1048576.0,
                       stats_[level].micros / 1e6,
-                      stats_[level].bytes_read / 1048576.0,
-                      stats_[level].bytes_read / 1048576.0,            
-                      stats_[level].bytes_written / 1048576.0,
-                      stats_[level].bytes_written / 1048576.0,                      
+                      level_stats_[level].leveling_bytes_read / 1048576.0,
+                      level_stats_[level].tiering_bytes_read / 1048576.0,            
+                      level_stats_[level].leveling_bytes_written / 1048576.0,
+                      level_stats_[level].tiering_bytes_written / 1048576.0,                      
                       level_stats_[level].number_manual_compaction,
-                      level_stats_[level].number_size_compaction,
-                      level_stats_[level].number_size_compaction_initiator_files,
-                      level_stats_[level].number_size_compaction_participant_files,
-                      level_stats_[level].number_seek_compaction,
-                      level_stats_[level].number_seek_compaction_initiator_files,
-                      level_stats_[level].number_seek_compaction_participant_files,
-                      level_stats_[level].number_of_compactions,
+                      level_stats_[level].number_size_leveling_compactions,
+                      level_stats_[level].number_size_tieirng_compactions,
+                      level_stats_[level].number_size_compaction_leveling_initiator_files,
+                      level_stats_[level].number_size_compaction_tieirng_initiator_files,
+                      level_stats_[level].number_size_compaction_leveling_participant_files,
+                      level_stats_[level].number_size_compaction_tieirng_participant_files,
+                      level_stats_[level].number_seek_leveling_compactions,
+                      level_stats_[level].number_seek_tiering_compactions,
+                      level_stats_[level].number_seek_leveling_compaction_initiator_files,
+                      level_stats_[level].number_seek_tiering_compaction_initiator_files,
+                      level_stats_[level].number_seek_leveling_compaction_participant_files,
+                      level_stats_[level].number_seek_tiering_compaction_participant_files,
+                      level_stats_[level].number_size_leveling_compactions+level_stats_[level].number_size_tieirng_compactions,
                       level_stats_[level].number_TrivialMove,
                       level_stats_[level].moved_directly_from_last_level_bytes / 1048576.0,
                       level_stats_[level].moved_from_this_level_bytes / 1048576.0);
@@ -2324,70 +2324,70 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
         }
         unsigned level_un = level;
         bool is_exe = false;
-        for (auto percent : percents) {
-          auto& stats1 = level_hot_cold_stats[level][percent];
-          double total_bytes_read = level_stats_[level].bytes_read;
-          double total_bytes_written = level_stats_[level].bytes_written;
+        // for (auto percent : percents) {
+        //   auto& stats1 = level_hot_cold_stats[level][percent];
+        //   double total_bytes_read = level_stats_[level].bytes_read;
+        //   double total_bytes_written = level_stats_[level].bytes_written;
 
-          uint64_t total_count_read = stats1.bytes_read_hot+stats1.bytes_read_cold;
-          uint64_t total_count_written = stats1.bytes_written_hot+stats1.bytes_written_cold;
+        //   uint64_t total_count_read = stats1.bytes_read_hot+stats1.bytes_read_cold;
+        //   uint64_t total_count_written = stats1.bytes_written_hot+stats1.bytes_written_cold;
 
-          if(total_count_written == 0 && total_count_read == 0){
-            continue;
-          }
+        //   if(total_count_written == 0 && total_count_read == 0){
+        //     continue;
+        //   }
           
-          double hotBytesRead =0.0;
-          double coldBytesRead =0.0;
-          double hotBytesWritten =0.0; 
-          double coldBytesWritten =0.0;  
-          double w_hot_data_percentage =0.0;
-          double w_cold_data_percentage = 0.0;
-          double hot_data_percentage = 0.0;
-          double cold_data_percentage =0.0;
+        //   double hotBytesRead =0.0;
+        //   double coldBytesRead =0.0;
+        //   double hotBytesWritten =0.0; 
+        //   double coldBytesWritten =0.0;  
+        //   double w_hot_data_percentage =0.0;
+        //   double w_cold_data_percentage = 0.0;
+        //   double hot_data_percentage = 0.0;
+        //   double cold_data_percentage =0.0;
 
-          if(total_count_read > 0){
-            hot_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_hot / total_count_read : 0;
-            cold_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_cold / total_count_read : 0;
-            hotBytesRead = (level_stats_[level].bytes_read*hot_data_percentage) / 1048576.0;
-            coldBytesRead = (level_stats_[level].bytes_read*cold_data_percentage) / 1048576.0;
-          }
+        //   if(total_count_read > 0){
+        //     hot_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_hot / total_count_read : 0;
+        //     cold_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_cold / total_count_read : 0;
+        //     hotBytesRead = (level_stats_[level].bytes_read*hot_data_percentage) / 1048576.0;
+        //     coldBytesRead = (level_stats_[level].bytes_read*cold_data_percentage) / 1048576.0;
+        //   }
 
-          if(total_count_written>0){
-            w_hot_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_hot / total_count_written : 0;
-            w_cold_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_cold / total_count_written : 0;
-            hotBytesWritten = (level_stats_[level].bytes_written*w_hot_data_percentage) / 1048576.0;
-            coldBytesWritten = (level_stats_[level].bytes_written*w_cold_data_percentage) / 1048576.0;
-          }
+        //   if(total_count_written>0){
+        //     w_hot_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_hot / total_count_written : 0;
+        //     w_cold_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_cold / total_count_written : 0;
+        //     hotBytesWritten = (level_stats_[level].bytes_written*w_hot_data_percentage) / 1048576.0;
+        //     coldBytesWritten = (level_stats_[level].bytes_written*w_cold_data_percentage) / 1048576.0;
+        //   }
 
-          if(total_count_written>0 && total_count_read > 0){
-            assert(hot_data_percentage == w_hot_data_percentage);
-            assert(cold_data_percentage == w_cold_data_percentage);
-          }
+        //   if(total_count_written>0 && total_count_read > 0){
+        //     assert(hot_data_percentage == w_hot_data_percentage);
+        //     assert(cold_data_percentage == w_cold_data_percentage);
+        //   }
 
-          std::snprintf(buf, sizeof(buf), 
-              "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f\n",
-              percent, "       ",
-              hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten );
-          value->append(buf);
-          is_exe = true;
+        //   std::snprintf(buf, sizeof(buf), 
+        //       "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f\n",
+        //       percent, "       ",
+        //       hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten );
+        //   value->append(buf);
+        //   is_exe = true;
 
-          // fprintf(stdout, "Level: %d percentage:%d\n", level, percent);
-          // fprintf(stdout, "Total bytes read: %f\n", total_bytes_read);
-          // fprintf(stdout, "Total bytes written: %f\n", total_bytes_written);
-          // fprintf(stdout, "Accumulated bytes_read_hot: %ld\n", level_hot_cold_stats[2][percent].bytes_read_hot);
-          // fprintf(stdout, "Accumulated bytes_read_cold: %f\n", (double)stats1.bytes_read_cold);
-          // fprintf(stdout, "Accumulated bytes_written_hot: %f\n", (double)stats1.bytes_written_hot);
-          // fprintf(stdout, "Accumulated bytes_written_cold: %f\n", (double)stats1.bytes_written_cold);
+        //   // fprintf(stdout, "Level: %d percentage:%d\n", level, percent);
+        //   // fprintf(stdout, "Total bytes read: %f\n", total_bytes_read);
+        //   // fprintf(stdout, "Total bytes written: %f\n", total_bytes_written);
+        //   // fprintf(stdout, "Accumulated bytes_read_hot: %ld\n", level_hot_cold_stats[2][percent].bytes_read_hot);
+        //   // fprintf(stdout, "Accumulated bytes_read_cold: %f\n", (double)stats1.bytes_read_cold);
+        //   // fprintf(stdout, "Accumulated bytes_written_hot: %f\n", (double)stats1.bytes_written_hot);
+        //   // fprintf(stdout, "Accumulated bytes_written_cold: %f\n", (double)stats1.bytes_written_cold);
 
-          // fprintf(stdout, "Read hot data percentage: %f\n", hot_data_percentage);
-          // fprintf(stdout, "Read cold data percentage: %f\n", cold_data_percentage);
-          // fprintf(stdout, "Written hot data percentage: %f\n", w_hot_data_percentage);
-          // fprintf(stdout, "Written cold data percentage: %f\n", w_cold_data_percentage);
-        }
-        if(is_exe){
-          std::snprintf(buf, sizeof(buf), "\n" );
-          value->append(buf);
-        }
+        //   // fprintf(stdout, "Read hot data percentage: %f\n", hot_data_percentage);
+        //   // fprintf(stdout, "Read cold data percentage: %f\n", cold_data_percentage);
+        //   // fprintf(stdout, "Written hot data percentage: %f\n", w_hot_data_percentage);
+        //   // fprintf(stdout, "Written cold data percentage: %f\n", w_cold_data_percentage);
+        // }
+        // if(is_exe){
+        //   std::snprintf(buf, sizeof(buf), "\n" );
+        //   value->append(buf);
+        // }
         
       }
     }
@@ -2555,7 +2555,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
-    fprintf(stderr, "new_log_number: %lu in DB::Open\n", new_log_number);
+    // fprintf(stderr, "new_log_number: %lu in DB::Open\n", new_log_number);
     WritableFile* lfile;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number), &lfile);
     if (s.ok()) {

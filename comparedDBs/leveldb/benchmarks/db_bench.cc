@@ -105,7 +105,7 @@ DEFINE_int32(key_prefix,0, "Common key prefix length.");
 // Use the data_file with the following name.
 // static const char* FLAGS_data_file = nullptr;
 DEFINE_string(data_file, "", "Use the db with the following name.");
-DEFINE_int64(No_hot_percentage, -1, "");
+DEFINE_int64(No_hot_percentage, 0, "");
 
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
 
