@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <sstream>
+#include <cmath>
 
 #include "port/port.h"
 #include "util/coding.h"
@@ -40,7 +41,11 @@ namespace CompactionConfig {
     for (int i = 0; i < config::kNumLevels; ++i) {
       adaptive_compaction_configs[i] = new LevelConfig_for_compaction();
       // 根据层级设置不同的参数，可以在这里调整 tieirng_percent 等参数
-      adaptive_compaction_configs[i]->tieirng_ratio = 0.8 - i * 0.05; // 示例设置，每个层级的参数不同
+      if (i == 0) {
+      adaptive_compaction_configs[i]->tieirng_ratio = 0.8;
+      } else {
+        adaptive_compaction_configs[i]->tieirng_ratio = 0.6 * pow(0.5, i-1);  // 示例设置，根据指数衰减调整
+      }
       adaptive_compaction_configs[i]->levling_ratio = 1.00 - adaptive_compaction_configs[i]->tieirng_ratio;  // 默认值，可以根据需要调整
     }
   }

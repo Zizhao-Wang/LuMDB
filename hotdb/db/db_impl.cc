@@ -813,6 +813,11 @@ void DBImpl::BackgroundCompaction() {
     Log(options_.info_log, "Finished CompactHotMemTable");
   }
 
+  if(!versions_->NeedsCompaction()){
+    return ;
+  }
+
+  Log(options_.info_log, "start Compaction test!");
   Compaction* c;
   bool is_manual = (manual_compaction_ != nullptr);
   InternalKey manual_end;
@@ -2108,9 +2113,14 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // one is still being compacted, so we wait.
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
-    } else if (versions_->NumLevel_leveling_Files(0) >= config::kL0_StopWritesTrigger || versions_->NumLevel_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
+    } else if (versions_->NumLevel_leveling_Files(0) >= config::kL0_StopWritesTrigger ) {
       // There are too many level-0 files.
-      Log(options_.info_log, "Too many L0 files; waiting...\n");
+      Log(options_.info_log, "Too many L0 leveling files; waiting...\n");
+      background_work_finished_signal_.Wait();
+    }else if (versions_->NumLevel_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
+      // There are too many level-0 files.
+      Log(options_.info_log, "Too many L0 tiering files; waiting... NumLevel_tiering_Files = %d, kTiering_and_leveling_Multiplier = %d\n",
+      versions_->NumLevel_tiering_Files(0), config::kTiering_and_leveling_Multiplier);
       background_work_finished_signal_.Wait();
     } else {
       // Attempt to switch to a new memtable and trigger compaction of old

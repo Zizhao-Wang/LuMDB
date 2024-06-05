@@ -317,7 +317,7 @@ class VersionSet {
  */
   bool NeedsCompaction() const {
     Version* v = current_;
-    return (v->compaction_score_ >= 1) || (v->file_to_compact_in_leveling != nullptr) || (v->file_to_compact_in_tiering != nullptr);
+    return (v->compaction_score_ >= 1) || (v->file_to_compact_in_leveling != nullptr) || (v->file_to_compact_in_tiering != nullptr) || (v->tieirng_compaction_score_ >= 1);
   }
 
   // Add all files listed in any live version to *live.

@@ -103,7 +103,7 @@ for i in {10..10}; do
                     iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
                     PID_IOSTAT=$!
                     
-                    valgrind --leak-check=full --show-reachable=yes --track-origins=yes ../../hotdb/release/db_bench \
+                     ../../hotdb/release/db_bench \
                     --db=/mnt/hotdb_test \
                     --num=$num_entries \
                     --value_size=$value_size \
@@ -120,6 +120,7 @@ for i in {10..10}; do
                     --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
+                    --write_buffer_size=1048576 \
                     --max_file_size=2097152   \
                     --print_wa=true \
                     &> >( tee $log_file) &  

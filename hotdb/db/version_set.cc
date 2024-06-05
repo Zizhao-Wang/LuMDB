@@ -44,7 +44,7 @@ static double MaxBytesForLevel(const Options* options, int level) {
   // the level-0 compaction threshold based on number of files.
 
   // Result for both level-0 and level-1
-  double result = 20. * 1048576.0;
+  double result = 10. * 1048576.0;
   while (level > 1) {
     result *= 10;
     level--;
@@ -891,11 +891,28 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
       const Slice file_start = f->smallest.user_key();
       const Slice file_limit = f->largest.user_key();
 
+      Log(vset_->options_->info_log, "Processing file %llu in level %d, file_start = %s, file_limit = %s", 
+      static_cast<unsigned long long>(f->number), level, file_start.ToString().c_str(), file_limit.ToString().c_str());
+
+       if (begin != nullptr) {
+        int cmp_result = user_cmp->Compare(file_limit, user_begin);
+        Log(vset_->options_->info_log, "Comparing file_limit = %s with user_begin = %s, cmp_result = %d", 
+            file_limit.ToString().c_str(), user_begin.ToString().c_str(), cmp_result);
+      }
+
+      if (end != nullptr) {
+        int cmp_result = user_cmp->Compare(file_start, user_end);
+        Log(vset_->options_->info_log, "Comparing file_start = %s with user_end = %s, cmp_result = %d", 
+            file_start.ToString().c_str(), user_end.ToString().c_str(), cmp_result);
+      }
+
       if (begin != nullptr && user_cmp->Compare(file_limit, user_begin) < 0) {
+        Log(vset_->options_->info_log, "Skipping file %llu: file_limit < user_begin", static_cast<unsigned long long>(f->number));
       } else if (end != nullptr && user_cmp->Compare(file_start, user_end) > 0) {
+        Log(vset_->options_->info_log, "Skipping file %llu: file_start > user_end", static_cast<unsigned long long>(f->number));
       } else { 
         tier_inputs->push_back(f);
-        // Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
+        Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
       }
     }
   }
@@ -1638,6 +1655,12 @@ void VersionSet::Finalize(Version* v) {
               static_cast<double>(config::kL0_CompactionTrigger);
       tier_score = v->NumTieringFiles(0) /
               static_cast<double>(config::kTiering_and_leveling_Multiplier);
+      if (v->NumLevelingFiles(0) >= config::kL0_CompactionTrigger ) {
+        score = 100.0;  
+      }
+      if (v->NumTieringFiles(0) >= config::kTiering_and_leveling_Multiplier) {
+        tier_score = 100.0;  
+      }
     } else {
       // Compute the ratio of current size to size limit.
       const uint64_t level_bytes = TotalFileSize(v->leveling_files_[level]);  
@@ -1656,6 +1679,7 @@ void VersionSet::Finalize(Version* v) {
   v->compaction_level_ = best_level;
   v->compaction_score_ = best_score - best_tier_score;
   v->tieirng_compaction_score_ = best_tier_score;
+  Log(options_->info_log, "Finalize: Best level = %d, best_score = %f, best_tier_score = %f", best_level, best_score, best_tier_score);
 }
 
 Status VersionSet::WriteSnapshot(log::Writer* log) {
@@ -2072,6 +2096,8 @@ void VersionSet::UpdateCompactionSpaces() {
   }
 }
 
+
+
 bool VersionSet::DetermineLevel0Compaction(int& level) {
 
   assert(level == 0);
@@ -2085,35 +2111,41 @@ bool VersionSet::DetermineLevel0Compaction(int& level) {
     int file_diff = std::abs(leveling_files - tiering_files);
     int adjust_amount = file_diff / 2;
 
-    if(file_diff > 1){
-    }else if(file_diff == 1){
+    if (file_diff > 1) {
+    } else if (file_diff == 1) {
       adjust_amount = 1;
-    }else if(file_diff <1){
-      Log(options_->info_log, "Level 0: file_diff < 1, triggering compaction");
+    } else if (file_diff < 1) {
       return true;
     }
-      
+    
+    bool adjusted = false;
     if (leveling_files > tiering_files) {
       // 如果 leveling 文件更多，减少 leveling 增加 tiering
       if (config::kL0_StopWritesTrigger + adjust_amount >= 2 && config::kTiering_and_leveling_Multiplier - adjust_amount >= 2) {   
         config::kL0_StopWritesTrigger += adjust_amount;
         config::kTiering_and_leveling_Multiplier -= adjust_amount;
-        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files > tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d",
-            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier);
-        return false;
+        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files > tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d, adjust_amount = %d",
+            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier, adjust_amount);
+        adjusted = true;
       }
     } else {
       // 调整 kL0_StopWritesTrigger 和 kTiering_and_leveling_Multiplier
       if (config::kL0_StopWritesTrigger - adjust_amount >= 2 && config::kTiering_and_leveling_Multiplier + adjust_amount >= 2) {
         config::kL0_StopWritesTrigger -= adjust_amount;
         config::kTiering_and_leveling_Multiplier += adjust_amount;
-
-        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files <= tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d",
-            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier);
-
-        return false;
+        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files <= tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d, adjust_amount = %d",
+            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier, adjust_amount);
+        adjusted = true;
       }
     }
+
+    if (adjusted) {
+      // 更新 compaction_score
+      Finalize(current_);
+      Log(options_->info_log, "Level 0: Updated compaction scores - compaction_score_ = %f, tieirng_compaction_score_ = %f", current_->compaction_score_, current_->tieirng_compaction_score_);
+      return false;
+    }
+
     return true;
   }
   return false; // 表明不需要进行 compaction
@@ -2127,7 +2159,9 @@ bool VersionSet::DetermineCompaction(int& level) {
   }
 
   if(level == 0){
-    return DetermineLevel0Compaction(level);
+    // return DetermineLevel0Compaction(level);
+    assert(current_->compaction_score_ >= 1.00 || current_->tieirng_compaction_score_ >= 1.00);
+    return true;
   }
 
   if(current_->compaction_score_ >= 1.00 || current_->tieirng_compaction_score_ >= 1.00) {
@@ -2492,8 +2526,8 @@ void VersionSet::SetupOtherInputsWithTier(Compaction* c) {
   GetRange(c->tiering_inputs_[0], &smallest, &largest);
 
   // also find boundary files for the next level and add to inputs_[1]
-  current_->GetOverlappingInputsWithTier(level + 1, &smallest, &largest, &c->inputs_[1], c->selected_run_in_next_level);
-  AddBoundaryInputs(icmp_, current_->leveling_files_[level + 1], &c->inputs_[1]);
+  current_->GetOverlappingInputsWithTier(level + 1, &smallest, &largest, &c->tiering_inputs_[1], c->selected_run_in_next_level);
+  // AddBoundaryInputs(icmp_, current_->leveling_files_[level + 1], &c->inputs_[1]);
 
   // Get entire range covered by compaction
   // insert all files from inputs_[0] and inputs_[1] then utilize GetRange() to get lagger range 

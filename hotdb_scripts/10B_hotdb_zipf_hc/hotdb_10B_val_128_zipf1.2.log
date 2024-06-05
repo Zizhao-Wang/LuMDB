@@ -1,77 +1,6 @@
-==3248480== Memcheck, a memory error detector
-==3248480== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
-==3248480== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
-==3248480== Command: ../../hotdb/release/db_bench --db=/mnt/hotdb_test --num=10000000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --hot_file= --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --percentages= --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --max_file_size=67108864 --print_wa=true
-==3248480== 
-LevelDB:    version 1.23
-Date:       Sat May 25 20:52:12 2024
-CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
-CPUCache:   39424 KB
-open dbs:in fresh_db()
-open dbs:in Open()
-entering db_impl.cc:/mnt/hotdb_test
-new_log_number: 3 in DB::Open
-initialize 0 objects(LevelHotColdStats) within these 7 levels
-Processing 1 entries in every Batch
-long op: 425659.0 micros                              long op: 33566.0 micros                              ... finished 100 ops                              ... finished 200 ops                              ... finished 300 ops                              ... finished 400 ops                              ... finished 500 ops                              ... finished 600 ops                              ... finished 700 ops                              ... finished 800 ops                              ... finished 900 ops                              ... finished 1000 ops                              ... finished 1500 ops                              ... finished 2000 ops                              ... finished 2500 ops                              ... finished 3000 ops                              ... finished 3500 ops                              ... finished 4000 ops                              ... finished 4500 ops                              ... finished 5000 ops                              ... finished 6000 ops                              new_log_number: 4 in MakeRoomForWrite
-long op: 79141.0 micros                              long op: 667004.0 micros                              long op: 103942.0 micros                              long op: 82380.0 micros                              long op: 34190.0 micros                              ==3248480== Thread 3:
-==3248480== Use of uninitialised value of size 8
-==3248480==    at 0x15F415: leveldb::VersionSet::PickCompaction() (version_set.cc:1802)
-==3248480==    by 0x12063A: leveldb::DBImpl::BackgroundCompaction() (db_impl.cc:830)
-==3248480==    by 0x120201: leveldb::DBImpl::BackgroundCall() (db_impl.cc:783)
-==3248480==    by 0x12014D: leveldb::DBImpl::BGWork(void*) (db_impl.cc:772)
-==3248480==    by 0x17A606: leveldb::(anonymous namespace)::PosixEnv::BackgroundThreadMain() (env_posix.cc:850)
-==3248480==    by 0x17A26D: leveldb::(anonymous namespace)::PosixEnv::BackgroundThreadEntryPoint(leveldb::(anonymous namespace)::PosixEnv*) (env_posix.cc:751)
-==3248480==    by 0x17C2B5: void std::__invoke_impl<void, void (*)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*>(std::__invoke_other, void (*&&)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*&&) (invoke.h:61)
-==3248480==    by 0x17C238: std::__invoke_result<void (*)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*>::type std::__invoke<void (*)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*>(void (*&&)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*&&) (invoke.h:96)
-==3248480==    by 0x17C1A8: void std::thread::_Invoker<std::tuple<void (*)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*> >::_M_invoke<0ul, 1ul>(std::_Index_tuple<0ul, 1ul>) (std_thread.h:259)
-==3248480==    by 0x17C161: std::thread::_Invoker<std::tuple<void (*)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*> >::operator()() (std_thread.h:266)
-==3248480==    by 0x17C145: std::thread::_State_impl<std::thread::_Invoker<std::tuple<void (*)(leveldb::(anonymous namespace)::PosixEnv*), leveldb::(anonymous namespace)::PosixEnv*> > >::_M_run() (std_thread.h:211)
-==3248480==    by 0x4973252: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.30)
-==3248480==  Uninitialised value was created by a stack allocation
-==3248480==    at 0x15F051: leveldb::VersionSet::PickCompaction() (version_set.cc:1754)
-==3248480== 
-... finished 7000 ops                              ... finished 8000 ops                              ... finished 9000 ops                              ... finished 10000 ops                              new_log_number: 6 in MakeRoomForWrite
-long op: 296331.0 micros                              long op: 262948.0 micros                              ... finished 15000 ops                              ... finished 20000 ops                              new_log_number: 8 in MakeRoomForWrite
-long op: 552381.0 micros                              ... finished 25000 ops                              new_log_number: 10 in MakeRoomForWrite
-long op: 554042.0 micros                              ... finished 30000 ops                              new_log_number: 12 in MakeRoomForWrite
-long op: 550425.0 micros                              ... finished 35000 ops                              ... finished 40000 ops                              new_log_number: 14 in MakeRoomForWrite
-long op: 214100.0 micros                              long op: 340397.0 micros                              new_log_number: 16 in MakeRoomForWrite
-long op: 22272.0 micros                              long op: 26547.0 micros                              long op: 27244.0 micros                              long op: 29596.0 micros                              long op: 28470.0 micros                              long op: 28577.0 micros                              long op: 28343.0 micros                              long op: 29596.0 micros                              long op: 57536.0 micros                              long op: 27984.0 micros                              long op: 162414.0 micros                              long op: 24531.0 micros                              long op: 22231.0 micros                              ... finished 45000 ops                              new_log_number: 18 in MakeRoomForWrite
-long op: 32849.0 micros                              long op: 30200.0 micros                              long op: 28617.0 micros                              long op: 246124.0 micros                              long op: 29068.0 micros                              long op: 28986.0 micros                              long op: 28988.0 micros                              long op: 87070.0 micros                              long op: 28946.0 micros                              long op: 22054.0 micros                              ... finished 50000 ops                              new_log_number: 20 in MakeRoomForWrite
-long op: 552612.0 micros                              ... finished 60000 ops                              new_log_number: 22 in MakeRoomForWrite
-long op: 548870.0 micros                              new_log_number: 24 in MakeRoomForWrite
-long op: 502308.0 micros                              long op: 64898.0 micros                              ... finished 70000 ops                              new_log_number: 26 in MakeRoomForWrite
-long op: 28802.0 micros                              long op: 523996.0 micros                              ... finished 80000 ops                              new_log_number: 28 in MakeRoomForWrite
-long op: 562584.0 micros                              new_log_number: 30 in MakeRoomForWrite
-long op: 535282.0 micros                              new_log_number: 32 in MakeRoomForWrite
-long op: 47833.0 micros                              long op: 24247.0 micros                              long op: 23451.0 micros                              long op: 24260.0 micros                              long op: 26880.0 micros                              long op: 20422.0 micros                              long op: 101216.0 micros                              long op: 31004.0 micros                              long op: 43253.0 micros                              long op: 28533.0 micros                              ... finished 90000 ops                              new_log_number: 34 in MakeRoomForWrite
-long op: 224404.0 micros                              long op: 43661.0 micros                              long op: 295575.0 micros                              ... finished 100000 ops                              new_log_number: 36 in MakeRoomForWrite
-long op: 21363.0 micros                              long op: 346556.0 micros                              long op: 186274.0 micros                              new_log_number: 38 in MakeRoomForWrite
-long op: 558584.0 micros                              new_log_number: 40 in MakeRoomForWrite
-long op: 40058.0 micros                              long op: 533856.0 micros                              new_log_number: 42 in MakeRoomForWrite
-long op: 20941.0 micros                              long op: 530224.0 micros                              new_log_number: 44 in MakeRoomForWrite
-long op: 522993.0 micros                              new_log_number: 46 in MakeRoomForWrite
-long op: 257037.0 micros                              long op: 299647.0 micros                              new_log_number: 48 in MakeRoomForWrite
-long op: 28036.0 micros                              long op: 530418.0 micros                              new_log_number: 50 in MakeRoomForWrite
-long op: 556851.0 micros                              new_log_number: 52 in MakeRoomForWrite
-long op: 554076.0 micros                              ... finished 150000 ops                              new_log_number: 54 in MakeRoomForWrite
-long op: 37456.0 micros                              long op: 204621.0 micros                              long op: 57817.0 micros                              long op: 267259.0 micros                              new_log_number: 56 in MakeRoomForWrite
-long op: 556410.0 micros                              new_log_number: 58 in MakeRoomForWrite
-long op: 273067.0 micros                              long op: 129041.0 micros                              long op: 114319.0 micros                              new_log_number: 60 in MakeRoomForWrite
-long op: 352164.0 micros                              long op: 202759.0 micros                              new_log_number: 62 in MakeRoomForWrite
-long op: 552148.0 micros                              new_log_number: 64 in MakeRoomForWrite
-long op: 551790.0 micros                              new_log_number: 66 in MakeRoomForWrite
-long op: 115705.0 micros                              long op: 447252.0 micros                              new_log_number: 68 in MakeRoomForWrite
-long op: 541810.0 micros                              ... finished 200000 ops                              new_log_number: 70 in MakeRoomForWrite
-long op: 558291.0 micros                              new_log_number: 72 in MakeRoomForWrite
-long op: 523243.0 micros                              new_log_number: 74 in MakeRoomForWrite
-long op: 217806.0 micros                              long op: 339498.0 micros                              new_log_number: 76 in MakeRoomForWrite
-long op: 546687.0 micros                              new_log_number: 78 in MakeRoomForWrite
-long op: 462402.0 micros                              long op: 92850.0 micros                              new_log_number: 80 in MakeRoomForWrite
-long op: 560520.0 micros                              new_log_number: 82 in MakeRoomForWrite
-long op: 551347.0 micros                              new_log_number: 84 in MakeRoomForWrite
-long op: 545948.0 micros                              new_log_number: 86 in MakeRoomForWrite
-long op: 215804.0 micros                              long op: 305471.0 micros                              new_log_number: 88 in MakeRoomForWrite
-long op: 33157.0 micros                              long op: 217631.0 micros                              long op: 57983.0 micros                              long op: 115857.0 micros                              long op: 131537.0 micros                              ... finished 250000 ops                              new_log_number: 90 in MakeRoomForWrite
-long op: 548366.0 micros                              new_log_number: 92 in MakeRoomForWrite
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
+AddressSanitizer:DEADLYSIGNAL
