@@ -62,6 +62,11 @@ class MemTable {
   // Else, return false.
   bool Get(const LookupKey& key, std::string* value, Status* s);
 
+
+  bool GetMaxElement(std::string* key); 
+
+  int kv_number;
+
  private:
   friend class MemTableIterator;
   friend class MemTableBackwardIterator;
@@ -78,7 +83,7 @@ class MemTable {
 
   KeyComparator comparator_;
   int refs_;
-  bool is_hot;
+  
   Arena arena_;
   Table table_;
 };

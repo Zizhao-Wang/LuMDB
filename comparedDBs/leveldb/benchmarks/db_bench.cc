@@ -109,6 +109,8 @@ DEFINE_int64(No_hot_percentage, 0, "");
 
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
 
+DEFINE_string(mem_log_file,"", "log path");
+
 // Number of key/values to place in database
 DEFINE_int64(num, 1000000, "Number of key/values to place in database");
 DEFINE_int64(range, 0, "key range space");
@@ -568,6 +570,7 @@ class Stats {
   uint64_t next_report_;
   double next_report_time_;
   int64_t   bytes_;
+  int call_ref;
   uint64_t real_ops;
   double last_op_finish_;
   Histogram hist_;
@@ -587,6 +590,7 @@ class Stats {
     done_ = 0;
     real_ops = 0;
     bytes_ = 0;
+    call_ref = 0;
     seconds_ = 0;
     finish_ = start_;
     message_.clear();
@@ -618,7 +622,7 @@ class Stats {
     time_t now = time(NULL);
     strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", localtime(&now));
     return std::string(timeStr);
-} 
+  } 
 
   void PrintSpeed() {
 
@@ -643,6 +647,57 @@ class Stats {
     // std::string io_res = GetStdoutFromCommand("echo q| htop -u hanson | aha --line-fix | html2text -width 999 | grep -v 'F1Help' | grep -v 'xml version=' | grep kv_bench ");
     // Log(io_log, " --- %s\n%s", cur_time.c_str(), io_res.c_str());
     fflush(stdout);
+  }
+
+  std::string format_memory(unsigned long bytes) {
+    const double GIGABYTE = 1024.0 * 1024.0 * 1024.0;
+    const double MEGABYTE = 1024.0 * 1024.0;
+    std::ostringstream oss;
+
+    if (bytes >= GIGABYTE) {
+        oss << std::fixed << std::setprecision(2) << (bytes / GIGABYTE) << " GB";
+    } else {
+        oss << std::fixed << std::setprecision(2) << (bytes / MEGABYTE) << " MB";
+    }
+
+    return oss.str();
+  }
+
+  void print_mem_usage() {
+
+    std::ofstream log_file;
+    if (call_ref == 0) {
+      // 如果call_ref为0，清空文件并从头开始写
+      log_file.open(FLAGS_mem_log_file, std::ios::trunc);
+    } else {
+      // 如果call_ref不为0，以追加模式打开文件
+      log_file.open(FLAGS_mem_log_file, std::ios::app);
+    }
+
+    if (!log_file.is_open()) {
+      fprintf(stderr, "Failed to open the mem_log file: %s.\n",FLAGS_mem_log_file.c_str());  
+      return ;
+    }
+    
+    std::ifstream statm("/proc/self/statm");
+    if (!statm) {
+      fprintf(stderr, "Failed to open /proc/self/statm.\n");
+      return;
+    }
+    unsigned long size, resident, shr_size;
+    if (!(statm >> size >> resident >> shr_size)) {
+      fprintf(stderr, "Failed to read memory usage from /proc/self/statm.\n");
+      return;
+    }
+    long page_size = sysconf(_SC_PAGESIZE); // 页面大小，字节
+
+    // 使用ostream的插入操作符来写入信息
+    log_file << getCurrentTime() << " ... thread " << id_ << ": (" << (done_ - last_report_done_) << "," << done_ << ") ops have been finished!\n";
+    log_file << "virtual memory used: " << format_memory(size * page_size) << ", "
+             << "Resident set size: " << format_memory(resident * page_size) << ", "
+             << "Shared Memory Usage: " << format_memory(shr_size * page_size) << " \n\n";    
+    
+    call_ref++;
   }
 
   void FinishedSingleOp2(DB* db = nullptr) {
@@ -672,6 +727,7 @@ class Stats {
 
     if (g_env->NowMicros() > next_report_time_) {
         PrintSpeed(); 
+        print_mem_usage();
         next_report_time_ += FLAGS_report_interval * 1000000;
         if (FLAGS_print_wa && db) {
           std::string stats;
@@ -689,7 +745,7 @@ class Stats {
       double now = g_env->NowMicros();
       double micros = now - last_op_finish_;
       hist_.Add(micros);
-      if (micros > 20000) {
+      if (micros > 2000000) {
         fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
         fflush(stderr);
       }
@@ -731,6 +787,7 @@ class Stats {
     real_ops++;
     if((FLAGS_stats_interval != -1) && real_ops % FLAGS_stats_interval == 0) {
       PrintSpeed(); 
+      print_mem_usage();
       if (FLAGS_print_wa && db) {
         std::string stats;
         if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {

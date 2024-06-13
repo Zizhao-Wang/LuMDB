@@ -19,6 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <unistd.h>  // for sysconf
+#include <ctime>     // for time functions
+#include <iomanip>
 
 #include "db/db_impl.h"
 #include "db/version_set.h"
@@ -112,6 +115,7 @@ DEFINE_int64(range, -1, "key range space");
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 DEFINE_int64(reads, -1, "");
 DEFINE_int64(writes, -1, "");
+DEFINE_string(mem_log_file,"", "log path");
 DEFINE_int32(rwdelay, 10, "readwhilewriting delay in us");
 DEFINE_int32(sleep, 100, "sleep for write in readwhilewriting2");
 
@@ -344,6 +348,7 @@ class Stats {
   uint64_t next_report_;
   double next_report_time_;
   int64_t bytes_;
+  int call_ref;
   double last_op_finish_;
   HistogramImpl hist_;
   std::string message_;
@@ -360,6 +365,7 @@ class Stats {
     last_report_finish_ = start_;
     hist_.Clear();
     done_ = 0;
+    call_ref =0;
     bytes_ = 0;
     seconds_ = 0;
     finish_ = start_;
@@ -387,6 +393,13 @@ class Stats {
     AppendWithSpace(&message_, msg);
   }
 
+  std::string getCurrentTime() {
+    char timeStr[100];
+    time_t now = time(NULL);
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    return std::string(timeStr);
+  } 
+
 
   void PrintSpeed() {
     uint64_t now = Env::Default()->NowMicros();
@@ -406,6 +419,57 @@ class Stats {
     last_report_finish_ = now;
     last_report_done_ = done_;
     fflush(stdout);
+  }
+
+  std::string format_memory(unsigned long bytes) {
+    const double GIGABYTE = 1024.0 * 1024.0 * 1024.0;
+    const double MEGABYTE = 1024.0 * 1024.0;
+    std::ostringstream oss;
+
+    if (bytes >= GIGABYTE) {
+        oss << std::fixed << std::setprecision(2) << (bytes / GIGABYTE) << " GB";
+    } else {
+        oss << std::fixed << std::setprecision(2) << (bytes / MEGABYTE) << " MB";
+    }
+
+    return oss.str();
+  }
+
+  void print_mem_usage() {
+
+    std::ofstream log_file;
+    if (call_ref == 0) {
+      // 如果call_ref为0，清空文件并从头开始写
+      log_file.open(FLAGS_mem_log_file, std::ios::trunc);
+    } else {
+      // 如果call_ref不为0，以追加模式打开文件
+      log_file.open(FLAGS_mem_log_file, std::ios::app);
+    }
+
+    if (!log_file.is_open()) {
+      fprintf(stderr, "Failed to open the mem_log file: %s.\n",FLAGS_mem_log_file.c_str());  
+      return ;
+    }
+    
+    std::ifstream statm("/proc/self/statm");
+    if (!statm) {
+      fprintf(stderr, "Failed to open /proc/self/statm.\n");
+      return;
+    }
+    unsigned long size, resident, shr_size;
+    if (!(statm >> size >> resident >> shr_size)) {
+      fprintf(stderr, "Failed to read memory usage from /proc/self/statm.\n");
+      return;
+    }
+    long page_size = sysconf(_SC_PAGESIZE); // 页面大小，字节
+
+    // 使用ostream的插入操作符来写入信息
+    log_file << getCurrentTime() << " ... thread " << id_ << ": (" << (done_ - last_report_done_) << "," << done_ << ") ops have been finished!\n";
+    log_file << "virtual memory used: " << format_memory(size * page_size) << ", "
+             << "Resident set size: " << format_memory(resident * page_size) << ", "
+             << "Shared Memory Usage: " << format_memory(shr_size * page_size) << " \n\n";    
+    
+    call_ref++;
   }
 
 
@@ -438,6 +502,7 @@ class Stats {
 
     if (Env::Default()->NowMicros() > next_report_time_) {
         PrintSpeed(); 
+        print_mem_usage();
         next_report_time_ += FLAGS_report_interval * 1000000;
         std::string stats;
         if (db && !db->GetProperty("leveldb.stats", &stats)) {
@@ -452,7 +517,7 @@ class Stats {
       double now = Env::Default()->NowMicros();
       double micros = now - last_op_finish_;
       hist_.Add(micros);
-      if (micros > 20000) {
+      if (micros > 2000000) {
         fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
         // fflush(stderr);
       }
@@ -468,10 +533,11 @@ class Stats {
       else if (next_report_ < 100000) next_report_ += 10000;
       else if (next_report_ < 500000) next_report_ += 50000;
       else                            next_report_ += 100000;
-      fprintf(stderr, "... finished %d ops%30s\r", done_, "");
+      // fprintf(stderr, "... finished %d ops%30s\r", done_, "");
 
       if(done_ % FLAGS_stats_interval == 0) {
         PrintSpeed(); 
+        print_mem_usage();
         std::string stats;
         if (db && !db->GetProperty("leveldb.stats", &stats)) {
           stats = "(failed)";
@@ -1929,33 +1995,39 @@ random_double(void)
     std::stringstream line_stream;
     std::string cell;
     std::vector<std::string> row_data;
-
+    entries_per_batch_ = 1;
+    std::fprintf(stdout, "start benchmarking num_ = %ld entries(batches:%ld) in DoWrite_zipf()\n", num_,entries_per_batch_);
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-          line_stream.clear();
-          line_stream.str("");
-          row_data.clear();
-          // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
-          if (!std::getline(csv_file, line)) { // 从文件中读取一行
-              fprintf(stderr, "Error reading key from file\n");
-              return;
-          }
-          line_stream << line;
-          while (getline(line_stream, cell, ',')) {
-              row_data.push_back(cell);
-          }
-          if (row_data.size() != 1) {
-              fprintf(stderr, "Invalid CSV row format\n");
-              continue;
-          }
-          const uint64_t k = std::stoull(row_data[0]);
-          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
-          char key[100];
-          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
-          batch.Put(key, gen.Generate(value_size_));
-          bytes += value_size_ + strlen(key);
-          thread->stats.FinishedSingleOp(db_);
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 1) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+        const uint64_t k = std::stoull(row_data[0]);
+        // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+        char key[100];
+        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+        batch.Put(key, gen.Generate(value_size_));
+        bytes = value_size_ + strlen(key);
+        if(thread->stats.done_ % FLAGS_stats_interval == 0 ){
+          // fprintf(stderr,"real_ops : %lu\n",thread->stats.real_ops);
+          thread->stats.AddBytes(bytes);
+          bytes = 0;
+        }
+        thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);
       if (!s.ok()) {

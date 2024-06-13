@@ -1,0 +1,4 @@
+struct  partition_guard
+{
+    
+};

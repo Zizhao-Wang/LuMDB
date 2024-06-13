@@ -386,6 +386,38 @@ class Version {
   }
 
     int num_files_read;
+
+  void PrintTotalMemoryUsage() const {
+    size_t total_memory = 0;
+
+    for (int level = 0; level < config::kNumLevels; ++level) {
+      // Calculate memory usage for files_
+      for (size_t i = 0; i < files_[level].size(); ++i) {
+        total_memory += sizeof(*files_[level][i]);
+      }
+
+      // Calculate memory usage for guards_
+      for (size_t i = 0; i < guards_[level].size(); ++i) {
+        total_memory += sizeof(*guards_[level][i]);
+      }
+
+      // Calculate memory usage for complete_guards_
+      for (size_t i = 0; i < complete_guards_[level].size(); ++i) {
+        total_memory += sizeof(*complete_guards_[level][i]);
+      }
+
+      // Calculate memory usage for sentinel_files_
+      for (size_t i = 0; i < sentinel_files_[level].size(); ++i) {
+        total_memory += sizeof(*sentinel_files_[level][i]);
+      }
+
+      // Calculate memory usage for sentinel_file_nos_
+      total_memory += sentinel_file_nos_[level].size() * sizeof(uint64_t);
+    }
+
+    double total_memory_mb = static_cast<double>(total_memory) / (1024 * 1024);
+    fprintf(stderr, "Total memory usage: %.2f MB\n", total_memory_mb);
+  }  
     
  private:
   friend class Compaction;

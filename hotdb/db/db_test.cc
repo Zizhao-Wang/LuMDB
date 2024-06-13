@@ -2117,6 +2117,11 @@ class ModelDB : public DB {
   Status Put(const WriteOptions& o, const Slice& k, const Slice& v) override {
     return DB::Put(o, k, v);
   }
+
+  Status Batch_Put(const WriteOptions& o, const Slice& k, const Slice& v) override {
+    return DB::Put(o, k, v);
+  }
+
   Status Delete(const WriteOptions& o, const Slice& key) override {
     return DB::Delete(o, key);
   }
@@ -2145,6 +2150,7 @@ class ModelDB : public DB {
   void ReleaseSnapshot(const Snapshot* snapshot) override {
     delete reinterpret_cast<const ModelSnapshot*>(snapshot);
   }
+
   Status Write(const WriteOptions& options, WriteBatch* batch) override {
     class Handler : public WriteBatch::Handler {
      public:
@@ -2157,6 +2163,20 @@ class ModelDB : public DB {
     Handler handler;
     handler.map_ = &map_;
     return batch->Iterate(&handler);
+  }
+
+  Status Write(const WriteOptions& options, const Slice& key, const Slice& value) override {
+    class Handler : public WriteBatch::Handler {
+     public:
+      KVMap* map_;
+      void Put(const Slice& key, const Slice& value) override {
+        (*map_)[key.ToString()] = value.ToString();
+      }
+      void Delete(const Slice& key) override { map_->erase(key.ToString()); }
+    };
+    Handler handler;
+    handler.map_ = &map_;
+    return Status::OK();
   }
 
   bool GetProperty(const Slice& property, std::string* value) override {

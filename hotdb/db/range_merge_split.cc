@@ -190,29 +190,40 @@ range_identifier::range_identifier(int init_length, int batch_length,double test
     is_first(true)
     {
         sorted_keys.reserve(batch_length);  
-    } // the default hot_definition is 10%!
+    } 
 
 range_identifier::~range_identifier(){
     std::fprintf(stdout,"There %zu ranges was released in hot ranges!\n",hot_ranges.size());
 }
 
 
-void range_identifier::print_hot_ranges() const{
-    fprintf(stdout, "========Total hot Ranges start (%lu)========\n",hot_ranges.size());
-    for (const auto& range : hot_ranges) {
-        unsigned long long start = std::stoull(range.start_str);
-        unsigned long long end = std::stoull(range.end_str);
-        fprintf(stdout, "hot: Range start: %llu, end: %llu, length: %lu kv_num:%lu\n", start, end, range.range_length, range.kv_number);
+void range_identifier::print_hot_ranges() const {
+
+
+    fprintf(stdout, "========Total hot Ranges start ========\n");
+
+    // 遍历所有的范围
+    int set_index = 0;
+    for (const auto& pair : all_hot_ranges) {
+        fprintf(stdout, "  ========Hot Range Set %d start========\n", set_index);
+        for (const auto& range : pair.second) {
+            unsigned long long start = std::stoull(range->start_str);
+            unsigned long long end = std::stoull(range->end_str);
+             fprintf(stdout, "    hot: Range start: %llu, end: %llu, length: %lu kv_num:%lu\n", 
+                    start, end, range->range_length, range->kv_number);
+        }
     }
+
     fprintf(stdout, "========Total hot Ranges end ========\n");
 }
+
 
 void range_identifier::print_currenthot_ranges() const{
     fprintf(stdout, "========Current hot Ranges start(%lu) ========\n",current_ranges.size());
     for (const auto& range : current_ranges) {
-        unsigned long long start = std::stoull(range.start_str);
-        unsigned long long end = std::stoull(range.end_str);
-        fprintf(stdout, "Range start: %llu, end: %llu, length: %lu kv_num:%lu\n", start, end, range.range_length, range.kv_number);
+        unsigned long long start = std::stoull(range->start_str);
+        unsigned long long end = std::stoull(range->end_str);
+        fprintf(stdout, "Range start: %llu, end: %llu, length: %lu kv_num:%lu\n", start, end, range->range_length, range->kv_number);
     }
     fprintf(stdout, "========Current hot Ranges end ========\n");
 }
@@ -269,32 +280,70 @@ hotdb_range range_identifier::merge_ranges(hotdb_range& first, const hotdb_range
     return first;
 }
 
-// fprintf(stdout, "First range - Start: %s, End: %s, Average Num Rate: %.2f\n",
-//     it->start.data(), it->end.data(), it->get_average_num_rate());
-// fprintf(stdout, "Second range - Start: %s, End: %s, Average Num Rate: %.2f\n",
-//     next_it->start.data(), next_it->end.data(), next_it->get_average_num_rate());
-// if(it->has_intersection_with(*next_it)){
-//     fprintf(stdout,"yes!\n");
-// }
+void range_identifier::print_range_set(const std::set<hotdb_range*, SortByStartString>& range_set) const {
+    fprintf(stdout, "======== Range Set Output Start(size: %lu) ========\n", range_set.size());
+    for (const auto& range : range_set) {
+        fprintf(stdout, "Range: start=%s, end=%s, length=%lu, kv_num=%lu\n",
+                range->start_str.c_str(), range->end_str.c_str(),
+                range->end_int - range->start_int + 1, range->kv_number);
+    }
+    fprintf(stdout, "======== Range Set Output End ========\n");
+}
+
+void range_identifier::print_total_ranges() const {
+    size_t total_ranges = 0;
+    for (const auto& pair : all_hot_ranges) {
+        total_ranges += pair.second.size();
+    }
+    fprintf(stdout, "Total ranges after merging: %lu\n", total_ranges);
+}
+
+
 
 void range_identifier::may_merge_internal_ranges_in_total_range(){
-    if (hot_ranges.empty()) return;
+    if (all_hot_ranges.empty()) return;
     /**
     * merging current total hot ranges
     **/
-    auto it = hot_ranges.begin();
-    while (it != hot_ranges.end()) {
-        if (std::next(it) != hot_ranges.end()) {
-            auto next_it = std::next(it);
-            if (it->should_merge(*next_it) ) {  //&& (it->get_average_num_rate() - next_it->get_average_num_rate()) < 1.0
-                merge_ranges(*it, *next_it);
-                hot_ranges.erase(next_it);
-                // fprintf(stdout, "=========split_range_to_total_range Merge: ========\n");
-                // print_hot_ranges();
-                continue;
-            }
+    for (auto& pair : all_hot_ranges) {
+        std::set<hotdb_range*, SortByStartString>& this_range_set = pair.second;
+        auto it = this_range_set.begin();
+        if(this_range_set.size() == 1){
+            continue;
         }
-        ++it;
+        // fprintf(stdout, "======== Before Merge ========\n");
+        // print_range_set(this_range_set);
+        while (it != this_range_set.end()) {
+            auto start_it = it;
+            auto end_it = std::next(it);
+
+            // 找到可以合并的范围
+            while (end_it != this_range_set.end() && (*std::prev(end_it))->end_int + 1 == (*end_it)->start_int) {
+                (*start_it)->kv_number += (*end_it)->kv_number;
+                end_it = std::next(end_it);
+            }
+
+            if (std::next(it) != end_it) {
+                // 更新第一个范围的 end_str 和 end_int
+                auto last_mergeable = std::prev(end_it);
+                (*start_it)->end_str = (*last_mergeable)->end_str;
+                (*start_it)->end_int = (*last_mergeable)->end_int;
+                // 删除中间范围
+                auto temp_it = std::next(it);
+                while (temp_it != end_it) {
+                    auto to_delete = temp_it;
+                    temp_it = std::next(temp_it);
+                    delete *to_delete;
+                    this_range_set.erase(to_delete);
+                }
+            }
+
+            it = end_it;
+        }
+        
+        // print_range_set(this_range_set);
+        // fprintf(stdout, "======== After Merge ========\n\n\n");
+
     }
 }
 
@@ -308,61 +357,32 @@ void range_identifier::may_merge_split_range_to_total_range(){
     auto current_it = hot_ranges.begin(); // 指向hot_ranges的当前位置
     auto next_it = std::next(current_it); // 指向hot_ranges的下一个位置
 
-    print_currenthot_ranges();
+    // print_currenthot_ranges();
 
     while (insert_it != current_ranges.end()) {
         // 找到适当的插入位置
-        while (next_it != hot_ranges.end() ) {
-            if(current_it->end.compare(insert_it->start)<0 && next_it->start.compare(insert_it->end)>0){
-                break;
-            }
-            ++current_it;
-            ++next_it;
-        }
-
+        int64_t set_number = std::stoll((*insert_it)->start_str);
+        std::set<hotdb_range*, SortByStartString>& this_range_set = all_hot_ranges[set_number/1000];
+        
         // 插入元素
-        if (next_it != hot_ranges.end()) {
-            current_it->print_range_info();
-            next_it->print_range_info();
-            hot_ranges.insert(next_it, *insert_it);
-            // insert_it = current_ranges.erase(insert_it); 
-        } else {
-            fprintf(stdout, "Inserted range from current_ranges into hot_ranges in else - Start: %s, End: %s, KV Num: %lu\n",
-            insert_it->start_str.c_str(), insert_it->end_str.c_str(), insert_it->kv_number);
-            hot_ranges.insert(hot_ranges.end(), insert_it, current_ranges.end());
-            break;
-        }
+        this_range_set.insert(*insert_it);
 
-        fprintf(stdout, "Inserted range from current_ranges into hot_ranges - Start: %s, End: %s, KV Num: %lu\n",
-            insert_it->start_str.c_str(), insert_it->end_str.c_str(), insert_it->kv_number);
+        // fprintf(stdout, "Inserted range from current_ranges into hot_ranges - Start: %s, End: %s, KV Num: %lu\n",
+        //     (*insert_it)->start_str.c_str(), (*insert_it)->end_str.c_str(), (*insert_it)->kv_number);
 
         // 移向current_ranges的下一个元素
         ++insert_it;
-
-        // 准备下一个插入的位置判断
-        if (next_it != hot_ranges.end()) {
-            current_it = next_it;
-            next_it = std::next(next_it);
-        }
     }
 
-    print_hot_ranges();
+    // print_hot_ranges();
 
     may_merge_internal_ranges_in_total_range();
 
-    print_hot_ranges();
-
-    exit(0);
-
+    // print_hot_ranges();
 }
 
-void range_identifier::merge_ranges_in_container(bool is_first) {
+void range_identifier::merge_ranges_in_container() {
 
-    std::vector<hotdb_range>& target_ranges = is_first ? hot_ranges : current_ranges;
-    const char* target_name = is_first ? "hot_ranges" : "current_ranges";
-
-
-    // print_temp_container();
 
     for (auto it = temp_container.begin(); it != temp_container.end();) {
         std::string start = *it;
@@ -385,9 +405,10 @@ void range_identifier::merge_ranges_in_container(bool is_first) {
             }
         }
 
-        fprintf(stdout, "Inserted hot range into %s - Start: %s, End: %s, KV Num: %lu range length:%lld\n",
-                target_name, start.c_str(), end.c_str(), kv_num, std::stoll(end) - std::stoll(start) + 1);
-        target_ranges.emplace_back(hotdb_range(start, end, kv_num));
+        // fprintf(stdout, "Created hot range in current_ranges - Start: %s, End: %s, KV Num: %lu range length:%lld\n",
+        //         start.c_str(), end.c_str(), kv_num, std::stoll(end) - std::stoll(start) + 1);
+        hotdb_range* new_created_range = new hotdb_range(start, end, kv_num);
+        current_ranges.push_back(new_created_range);
 
         // 确保迭代器前进到下一个待处理元素
         it = std::next(it);
@@ -395,39 +416,72 @@ void range_identifier::merge_ranges_in_container(bool is_first) {
 }
 
 
+
+void range_identifier::create_new_ranges_and_insert() {
+
+    for (auto it = temp_container.begin(); it != temp_container.end();) {
+        std::string start = *it;
+        std::string end = start;
+        uint64_t kv_num = keys.at(start);
+        long long curr_value = std::stoll(start);
+
+        auto next_it = std::next(it);
+        while (next_it != temp_container.end()) {
+            long long next_value = std::stoll(*next_it);
+            if (next_value == curr_value + 1) {
+                end = *next_it;  
+                kv_num += keys.at(end);  
+                curr_value = next_value;  
+                it = next_it;  
+                next_it = std::next(it); 
+            } else {
+                break;  
+            }
+        }
+
+        // fprintf(stdout, "Created hot range ==> Start: %s, End: %s, KV Num: %lu range length:%lld\n",
+        //     start.c_str(), end.c_str(), kv_num, std::stoll(end) - std::stoll(start) + 1);
+        hotdb_range* created_range = new hotdb_range(start, end, kv_num);
+        all_hot_ranges[(created_range->end_int)/1000].insert(created_range);
+
+        it = std::next(it);
+    }
+}
+
 void range_identifier::check_may_merge_split_range(){
     assert(temp_container.size() != 0);
 
-    if(hot_ranges.size()==0){
-        merge_ranges_in_container(true);
-        may_merge_internal_ranges_in_total_range();
-        // print_hot_ranges();
+    if(all_hot_ranges.size()==0){
+        create_new_ranges_and_insert();
     }else{
         // print_temp_container();
         for (auto it = temp_container.begin(); it != temp_container.end(); ) {
             bool found = false;
-            for (auto& range : hot_ranges) {
-                if (range.contains(*it)) {
-                    // if(*(it)=="0000000000000044"){
-                    //     fprintf(stdout, "range num:%ld key_num:%d\n", range.kv_number,keys[*it] );
-                    // }
-                    range.kv_number += keys[*it]; 
-                    // if(*(it)=="0000000000001248"){
-                    //     fprintf(stdout, "range num:%ld key_num:%d\n", range.kv_number,keys[*it] );
-                    // }
+            int64_t set_number = std::stoll(*it);
+            std::set<hotdb_range*, SortByStartString>& this_range_set = all_hot_ranges[set_number/1000];
+            std::string test_start = *it;
+            hotdb_range* new_find_range = new hotdb_range(test_start, test_start, 1);
+            // 打印当前要查找的范围
+            // fprintf(stdout, "Looking for position to insert: %s\n", test_start.c_str());
+            auto find_range = this_range_set.upper_bound(new_find_range);
+
+            if (find_range != this_range_set.begin()) {
+                --find_range;
+                if ((*find_range)->contains(*it)) {
+                    // fprintf(stdout, "Range contains %s: start=%s, end=%s\n",
+                    //         test_start.c_str(), (*find_range)->start_str.c_str(), (*find_range)->end_str.c_str());
+                    (*find_range)->kv_number += keys[*it];
                     it = temp_container.erase(it); // 移除当前元素，迭代器自动更新到下一个元素
-                    found = true;
-                    break; 
+                    delete new_find_range;
+                    continue;
                 }
             }
-            if (!found) {
-                it = std::next(it); 
-            }
+            
+            it = std::next(it); 
+            delete new_find_range;
         }
 
-        // print_hot_ranges();
-        // print_temp_container();
-        merge_ranges_in_container(false);
+        merge_ranges_in_container();
 
         // print_currenthot_ranges();
         if(current_ranges.size() != 0){
@@ -436,28 +490,17 @@ void range_identifier::check_may_merge_split_range(){
     }
 
     // print_hot_ranges();
-    // test_num++;
-    // if(test_num==4){
-    //     exit(0);
-    // }
     
 }
 
 void range_identifier::check_and_statistic_ranges(){
-    // int hot_definition_in_batch = hot_definition * bathc_hot_definition;
-    // int hot_frequency = batch_size * hot_definition_in_batch / 100;
 
-    int hot_keys_per_batch = batch_size * hot_definition / 100;
     int hot_frequency_per_key = bathc_hot_definition;
 
-    for (int i = 0; i < hot_keys_per_batch && i < sorted_keys.size(); ++i) {
+    for (int i = 0; i <sorted_keys.size(); ++i) {
         const auto& pair = sorted_keys[i];
         if (pair.second >= hot_frequency_per_key) {
             temp_container.emplace(pair.first);
-            // if(pair.first=="0000000000001248"){
-            //     fprintf(stdout, "key:%s number:%d in check_and_statistic_ranges()\n", pair.first.c_str(),pair.second);
-            // }
-            // fprintf(stdout, "%s number:%d \n", pair.first.c_str(),pair.second);
         }
     }
 
@@ -535,27 +578,44 @@ void range_identifier::add_data(const leveldb::Slice& data){
 
 
     if(total_number!=0 && total_number%batch_size == 0){
-        // vector_sort_merge_data();  // 1.
-        // keys_data.clear();
-        unordered_map_sort_merge_data(); // 2.
+        unordered_map_sort_merge_data(); 
         check_and_statistic_ranges(); 
         keys.clear();
         sorted_keys.clear();
         sorted_by_keys.clear();
         temp_container.clear();
         current_ranges.clear();
-        // set_sort_merge_data(); //3.
-        // keys_data_set.clear();
+        // fprintf(stderr,"total_number:%ld\n",total_number);
+        // print_total_ranges();
     }
 }
 
 
-bool range_identifier::is_hot(const Slice& key) const {
+bool range_identifier::is_hot(const Slice& key) {
+    int64_t key_int = std::stoll(key.ToString());
+    std::set<hotdb_range*, SortByStartString>& this_range_set = all_hot_ranges[key_int/1000];
+    std::string test_start = key.ToString();
+    hotdb_range temp_find_range(test_start, test_start, 1);
+    auto find_range = this_range_set.upper_bound(&temp_find_range);
 
-    if(std::stoull(key.ToString())<10000){
+    if (find_range != this_range_set.begin()) {
+        --find_range;
+        if ((*find_range)->contains(test_start)) {
+            return true;
+        }
+    }
+    return false; 
+}
+
+bool range_identifier::is_hot2(const Slice& key) {
+    if(std::stoll(key.ToString()) < 10000){
         return true;
     }
     return false; 
+}
+
+int range_identifier::get_current_num_kv() const{
+    return keys.size();
 }
 
 }  // namespace leveldb

@@ -1,6 +1,3 @@
-sudo rm -rf /mnt/nvm/level8B*
-sudo rm  /mnt/logs/*.log
-
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
 sudo bash -c 'ulimit -n 800000'
 
@@ -45,6 +42,7 @@ for i in {10..10}; do
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebblesdb_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_usage_${num_format}_key16_val${value_size}.log"
 
                 # 如果日志文件存在，则跳过当前迭代
                 if [ -f "$log_file" ]; then
@@ -58,45 +56,45 @@ for i in {10..10}; do
                 echo "stats_interval: $stats_interva"
                 echo "$num_format"
 
+                # 创建相应的目录
+                db_dir="/mnt/nvm/pebbles10B/${zipf_a}"
+                if [ ! -d "$db_dir" ]; then
+                    mkdir -p "$db_dir"
+                fi
+
+                # 检查目录是否为空，如果不为空则删除所有内容
+                if [ "$(ls -A $db_dir)" ]; then
+                    rm -rf "${db_dir:?}/"*
+                fi
+
                 iostat -d 100 -x $DEVICE_NAME > Pebblesdb_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
                 PID_IOSTAT=$!
                     
                 ../../../pebblesdb/release/db_bench \
-                --db=/mnt/nvm/pebbles10B \
+                --db=$db_dir \
                 --num=$num_entries \
                 --value_size=$value_size \
                 --batch_size=1000 \
-                --benchmarks=filletc,stats \
+                --benchmarks=fillzipf,stats \
                 --data_file=$data_file  \
                 --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \
                 --cache_size=8388608 \
                 --open_files=40000 \
+                --mem_log_file=$memory_log_file \
                 --compression=0 \
                 --stats_interval=$stats_interva \
                 --histogram=1 \
                 --write_buffer_size=1048576 \
                 --max_file_size=2097152   \
                 --print_wa=true \
-
-                --num=$num_entries \
-                --benchmarks=filletc,stats \
-        --bloom_bits=10 \
-        --cache_size=8388608  \
-        --open_files=40000  \
-        --histogram=1 \
-        --print_wa=true \
-        --stats_interval=$stats_interval \
-        --write_buffer_size=67108864  \
-        --max_file_size=67108864 \
-        --data_file=$data_file \
                 &> >( tee $log_file) &  
 
                 # 保存 db_bench 的 PID 供监控使用
                 sleep 1
 
-                DB_BENCH_PID=$(pgrep -af 'db_bench --db=/mnt/nvm/pebbles10B' | grep -v 'sudo' | awk '{print $1}')
+                DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
                 echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
                 perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &

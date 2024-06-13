@@ -155,10 +155,14 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       log_(nullptr),
       seed_(0),
       tmp_batch_(new WriteBatch),
+      in_memory_batch(new WriteBatch),
+      in_memory_hot_batch(new WriteBatch),
       background_compaction_scheduled_(false),
+      in_memory_batch_kv_number(0),
+      identifier_time(0),
       manual_compaction_(nullptr),
       versions_(new VersionSet(dbname_, &options_, table_cache_, &internal_comparator_)), 
-      hot_key_identifier(new range_identifier(options_.init_range,1000)) {}
+      hot_key_identifier(new range_identifier(options_.init_range,10000)) {}
 
 DBImpl::~DBImpl() {
   // Wait for background work to finish.
@@ -177,6 +181,7 @@ DBImpl::~DBImpl() {
   if (mem_ != nullptr) mem_->Unref();
   if (imm_ != nullptr) imm_->Unref();
   delete tmp_batch_;
+  delete in_memory_batch;
   delete log_;
   delete logfile_;
   delete table_cache_;
@@ -557,7 +562,12 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Status s;
   {
     mutex_.Unlock();
-    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    if(is_hot_mem){
+      s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    }else{
+      s = BuildTable2(dbname_, env_, options_, table_cache_, iter, &meta);
+    }
+    
     mutex_.Lock();
   }
 
@@ -801,16 +811,16 @@ void DBImpl::BackgroundCompaction() {
   mutex_.AssertHeld();
 
    if (imm_ != nullptr) {
-    Log(options_.info_log, "Starting CompactMemTable");
+    Log(options_.info_log, "Starting leveling CompactMemTable");
     CompactMemTable();
     background_work_finished_signal_.SignalAll();
-    Log(options_.info_log, "Finished CompactMemTable");
+    Log(options_.info_log, "Finished leveling CompactMemTable");
   }
   if (hot_imm_ != nullptr) {
-    Log(options_.info_log, "Starting CompactHotMemTable");
+    Log(options_.info_log, "Starting tiering CompactHotMemTable");
     CompactMemTable();
     background_work_finished_signal_.SignalAll();
-    Log(options_.info_log, "Finished CompactHotMemTable");
+    Log(options_.info_log, "Finished tiering CompactHotMemTable");
   }
 
   if(!versions_->NeedsCompaction()){
@@ -1924,6 +1934,10 @@ Status DBImpl::Put(const WriteOptions& o, const Slice& key, const Slice& val) {
   return DB::Put(o, key, val);
 }
 
+Status DBImpl::Batch_Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
+  return DB::Batch_Put(opt, key, value);
+}
+
 Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {
   return DB::Delete(options, key);
 }
@@ -2024,6 +2038,134 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
     writers_.front()->cv.Signal();
   }
 
+  return status;
+}
+
+
+Status DBImpl::Write(const WriteOptions& options, const Slice& key, const Slice& value){
+  MutexLock l(&mutex_);
+  
+
+  int64_t start_time = env_->NowMicros();
+  if(in_memory_batch_kv_number<10000){
+    // fprintf(stderr,"in_memory_batch count: %d, hot_key_identifier count: %d\n", WriteBatchInternal::Count(in_memory_batch), hot_key_identifier->get_current_num_kv());
+    in_memory_batch->Put(key, value);
+    in_memory_batch_kv_number++;
+    hot_key_identifier->add_data(key);
+    return Status::OK();
+  }
+  int64_t end_time = env_->NowMicros();
+  identifier_time += (end_time - start_time);
+
+  // if(total_number < 10000){
+  //   // fprintf(stderr,"in_memory_batch count: %d, hot_key_identifier count: %d\n", WriteBatchInternal::Count(in_memory_batch), hot_key_identifier->get_current_num_kv());
+  //   auto it = batch_data_.find(key.ToString());
+  //   if (it != batch_data_.end()) {
+  //       it->second += 1;
+  //   } else {
+  //       // if not found, insert new key with count 1
+  //       batch_data_[key.ToString()] = 1;
+  //   }
+
+  //   in_memory_batch->Put(key, value);
+  //   total_number++;
+  //   // hot_key_identifier->add_data(key);
+  //   return Status::OK();
+  // }
+
+
+  Writer w(&mutex_);
+  w.batch = in_memory_batch; 
+  w.sync = options.sync; 
+  w.done = false;          
+
+  // writers_是个std::deque<Writer*>，是DBImpl的成员变量，也就意味着多线程共享这个变量，所以是在加锁状态下操作的
+  writers_.push_back(&w);
+
+  // 这段代码保证了写入是按照调用的先后顺序执行的。
+  // 1.w.done不可能是true啊，刚刚赋值为false，为什么还要判断呢？除非有人改动，没错，后面有可能会被其他线程改动
+  // 2.刚刚放入队列尾部，此时如果前面有线程写，那么&w != writers_.front()会为true，所以要等前面的写完在唤醒
+  // 3.w.cv是一个可以理解为pthread_cond_t的变量，w.cv.Wait()其实是需要解锁的，他解的就是mutex_这个锁
+  while (!w.done && &w != writers_.front()) {
+    w.cv.Wait();
+  }
+
+  // 刚刚也提到了，虽然期望是自己线程把自己的数据写入，因为数据放入了writers_这个队列中，也就意味着别的线程也能看到
+  // 也就意味着别的线程也能把这个数据写入，那么什么情况要需要其他线程帮这个线程写入呢？
+  if (w.done) {
+    return w.status;
+  }
+
+  // May temporarily unlock and wait.
+  // 这个就是要判断当前的空间是否能够继续写入，包括MemTable以及SSTable，如果需要同步文件或者合并文件就要等待了
+  Status status = MakeRoomForWrite(in_memory_batch == nullptr);
+
+  // 获取当前最后一个顺序号，这个好理解哈
+  uint64_t last_sequence = versions_->LastSequence();
+
+  // 接下来就是比较重点的部分了，last_writer记录了一次真正写入的最后一个Writer的地址，就是会合并多个Writer的数据写入
+  // 当然，初始化是当前这个线程的Writer，因为很可能后面没有其他线程执行写入
+  Writer* last_writer = &w;
+  // 开始写入之前需要保证空间足够并且确实有数据要写
+  if (status.ok() && in_memory_batch != nullptr) {  // nullptr batch is for compactions
+    // 此处就是合并写入的过程，函数名字也能看出这个意思，
+    WriteBatch* write_batch = BuildBatchGroup(&last_writer);
+    // 这个就是设置写入的顺序号，这个顺序号是全局的，每次写入都会增加
+
+    WriteBatchInternal::SetSequence(write_batch, last_sequence + 1);
+    // 更新顺序号，先记在临时变量中，等操作全部成功后再更新数据库状态
+    last_sequence += WriteBatchInternal::Count(write_batch);
+
+    // Add to log and apply to memtable.  We can release the lock
+    // during this phase since &w is currently responsible for logging
+    // and protects against concurrent loggers and concurrent writes
+    // into mem_.
+    {
+      mutex_.Unlock();
+      status = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
+      bool sync_error = false;
+      if (status.ok() && options.sync) {
+        status = logfile_->Sync();
+        if (!status.ok()) {
+          sync_error = true;
+        }
+      }
+
+      // write data into the memtable and hot memtable if it is hot data
+      if (status.ok()) {
+        status = WriteBatchInternal::InsertInto(in_memory_batch, mem_, hot_mem_,hot_key_identifier, options_.info_log);
+      }
+
+      mutex_.Lock();
+      if (sync_error) {
+        // The state of the log file is indeterminate: the log record we
+        // just added may or may not show up when the DB is re-opened.
+        // So we force the DB into a mode where all future writes fail.
+        RecordBackgroundError(status);
+      }
+    }
+    if (write_batch == tmp_batch_) tmp_batch_->Clear();
+    versions_->SetLastSequence(last_sequence);
+  }
+
+  while (true) {
+    Writer* ready = writers_.front();
+    writers_.pop_front();
+    if (ready != &w) {
+      ready->status = status;
+      ready->done = true;
+      ready->cv.Signal();
+    }
+    if (ready == last_writer) break;
+  }
+
+  // Notify new head of write queue
+  if (!writers_.empty()) {
+    writers_.front()->cv.Signal();
+  }
+  in_memory_batch->Clear();
+  batch_data_.clear();
+  in_memory_batch_kv_number = 0;
   return status;
 }
 
@@ -2289,6 +2431,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     double user_io = 0;
     double total_io = 0;
     char buf[300];
+    fprintf(stderr, "all identification time:%f\n",identifier_time/1e6);
     std::snprintf(buf, sizeof(buf),
                   "                               Compactions\n"
                   "Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b\n"
@@ -2327,78 +2470,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
                       level_stats_[level].number_TrivialMove,
                       level_stats_[level].moved_directly_from_last_level_bytes / 1048576.0,
                       level_stats_[level].moved_from_this_level_bytes / 1048576.0);
-        value->append(buf);
-        int a=0;
-        if(level == 0){
-          continue;
-        }
-        unsigned level_un = level;
-        bool is_exe = false;
-        // for (auto percent : percents) {
-        //   auto& stats1 = level_hot_cold_stats[level][percent];
-        //   double total_bytes_read = level_stats_[level].bytes_read;
-        //   double total_bytes_written = level_stats_[level].bytes_written;
-
-        //   uint64_t total_count_read = stats1.bytes_read_hot+stats1.bytes_read_cold;
-        //   uint64_t total_count_written = stats1.bytes_written_hot+stats1.bytes_written_cold;
-
-        //   if(total_count_written == 0 && total_count_read == 0){
-        //     continue;
-        //   }
-          
-        //   double hotBytesRead =0.0;
-        //   double coldBytesRead =0.0;
-        //   double hotBytesWritten =0.0; 
-        //   double coldBytesWritten =0.0;  
-        //   double w_hot_data_percentage =0.0;
-        //   double w_cold_data_percentage = 0.0;
-        //   double hot_data_percentage = 0.0;
-        //   double cold_data_percentage =0.0;
-
-        //   if(total_count_read > 0){
-        //     hot_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_hot / total_count_read : 0;
-        //     cold_data_percentage = total_bytes_read > 0 ? (double)stats1.bytes_read_cold / total_count_read : 0;
-        //     hotBytesRead = (level_stats_[level].bytes_read*hot_data_percentage) / 1048576.0;
-        //     coldBytesRead = (level_stats_[level].bytes_read*cold_data_percentage) / 1048576.0;
-        //   }
-
-        //   if(total_count_written>0){
-        //     w_hot_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_hot / total_count_written : 0;
-        //     w_cold_data_percentage = total_bytes_written > 0 ? (double)stats1.bytes_written_cold / total_count_written : 0;
-        //     hotBytesWritten = (level_stats_[level].bytes_written*w_hot_data_percentage) / 1048576.0;
-        //     coldBytesWritten = (level_stats_[level].bytes_written*w_cold_data_percentage) / 1048576.0;
-        //   }
-
-        //   if(total_count_written>0 && total_count_read > 0){
-        //     assert(hot_data_percentage == w_hot_data_percentage);
-        //     assert(cold_data_percentage == w_cold_data_percentage);
-        //   }
-
-        //   std::snprintf(buf, sizeof(buf), 
-        //       "Percent:    %7d %s %8.0f %8.0f %9.0f %9.0f\n",
-        //       percent, "       ",
-        //       hotBytesRead, coldBytesRead,  hotBytesWritten,  coldBytesWritten );
-        //   value->append(buf);
-        //   is_exe = true;
-
-        //   // fprintf(stdout, "Level: %d percentage:%d\n", level, percent);
-        //   // fprintf(stdout, "Total bytes read: %f\n", total_bytes_read);
-        //   // fprintf(stdout, "Total bytes written: %f\n", total_bytes_written);
-        //   // fprintf(stdout, "Accumulated bytes_read_hot: %ld\n", level_hot_cold_stats[2][percent].bytes_read_hot);
-        //   // fprintf(stdout, "Accumulated bytes_read_cold: %f\n", (double)stats1.bytes_read_cold);
-        //   // fprintf(stdout, "Accumulated bytes_written_hot: %f\n", (double)stats1.bytes_written_hot);
-        //   // fprintf(stdout, "Accumulated bytes_written_cold: %f\n", (double)stats1.bytes_written_cold);
-
-        //   // fprintf(stdout, "Read hot data percentage: %f\n", hot_data_percentage);
-        //   // fprintf(stdout, "Read cold data percentage: %f\n", cold_data_percentage);
-        //   // fprintf(stdout, "Written hot data percentage: %f\n", w_hot_data_percentage);
-        //   // fprintf(stdout, "Written cold data percentage: %f\n", w_cold_data_percentage);
-        // }
-        // if(is_exe){
-        //   std::snprintf(buf, sizeof(buf), "\n" );
-        //   value->append(buf);
-        // }
-        
+        value->append(buf); 
       }
     }
     snprintf(buf, sizeof(buf), "user_io:%.3fMB total_ios: %.3fMB WriteAmplification: %2.4f", user_io, total_io, total_io/ user_io);
@@ -2540,6 +2612,11 @@ Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
   batch.Put(key, value);
   return Write(opt, &batch);
 }
+
+Status DB::Batch_Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
+  return Write(opt, key, value);
+}
+
 
 Status DB::Delete(const WriteOptions& opt, const Slice& key) {
   WriteBatch batch;

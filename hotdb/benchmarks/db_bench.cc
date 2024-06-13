@@ -696,7 +696,7 @@ class Stats {
       double now = g_env->NowMicros();
       double micros = now - last_op_finish_;
       hist_.Add(micros);
-      if (micros > 20000) {
+      if (micros > 2000000) {
         fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
         fflush(stderr);
       }
@@ -725,8 +725,8 @@ class Stats {
           fflush(stdout);
         }
       }
-      fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
-      fflush(stderr);
+      // fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
+      // fflush(stderr);
     }
   }
 
@@ -1385,7 +1385,7 @@ class Benchmark {
 
   void WriteRandom(ThreadState* thread) { DoWrite3(thread, false); }
 
-  void WriteZipf(ThreadState* thread) { DoWrite_zipf2(thread, false); }
+  void WriteZipf(ThreadState* thread) { DoWrite_zipf3(thread, false); }
 
   void WriteRandom_from_file(ThreadState* thread) {
     DoWrite2(thread, false);
@@ -1693,6 +1693,72 @@ class Benchmark {
       if (!s.ok()) {
         std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
         std::exit(1);
+      }
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
+  void DoWrite_zipf3(ThreadState* thread, bool seq) {
+    
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in zipf2\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch\n", entries_per_batch_);
+
+    for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+          line_stream.clear();
+          line_stream.str("");
+          row_data.clear();
+          // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+          if (!std::getline(csv_file, line)) { // 从文件中读取一行
+              fprintf(stderr, "Error reading key from file\n");
+              return;
+          }
+          line_stream << line;
+          while (getline(line_stream, cell, ',')) {
+              row_data.push_back(cell);
+          }
+          if (row_data.size() != 1) {
+              fprintf(stderr, "Invalid CSV row format\n");
+              continue;
+          }
+          const uint64_t k = std::stoull(row_data[0]);
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          s = db_->Batch_Put(write_options_, key, gen.Generate(value_size_));
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+          bytes += value_size_ + strlen(key);
+          if(thread->stats.done_ % FLAGS_stats_interval == 0){
+            thread->stats.AddBytes(bytes);
+            bytes = 0;
+          }
+          thread->stats.FinishedSingleOp(db_);
       }
     }
     thread->stats.AddBytes(bytes);

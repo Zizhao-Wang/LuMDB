@@ -19,7 +19,7 @@ static Slice GetLengthPrefixedSlice(const char* data) {
 }
 
 MemTable::MemTable(const InternalKeyComparator& comparator)
-    : comparator_(comparator), refs_(0), table_(comparator_, &arena_),is_hot(false) {}
+    : comparator_(comparator), refs_(0), table_(comparator_, &arena_),kv_number(0) {}
 
 MemTable::~MemTable() { assert(refs_ == 0); }
 
@@ -97,6 +97,7 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
   std::memcpy(p, value.data(), val_size);
   assert(p + val_size == buf + encoded_len);
   table_.Insert(buf);
+  kv_number++;
 }
 
 bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
@@ -135,4 +136,17 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
   return false;
 }
 
+
+bool MemTable::GetMaxElement(std::string* key) 
+{
+    Table::Iterator iter(&table_);
+    iter.SeekToLast();
+    if (iter.Valid()) {
+      Slice key_slice = GetLengthPrefixedSlice(iter.key());
+      // fprintf(stderr, "key_slice: %s\n", key_slice.);
+      key->assign(key_slice.data(), key_slice.size());
+      return true;
+    }
+    return false;
+  }
 }  // namespace leveldb

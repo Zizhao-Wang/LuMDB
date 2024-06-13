@@ -124,6 +124,7 @@ class MemTableInserter : public WriteBatch::Handler {
   MemTable* mem_;
   MemTable* hot_mem_;
   range_identifier* hot_identifier;
+  std::unordered_map<std::string, int>* batch_data_map;
 
   int mem_count;  // Counter for mem_
   int hot_mem_count;  // Counter for hot_mem_
@@ -138,17 +139,32 @@ class MemTableInserter : public WriteBatch::Handler {
       mem_->Add(sequence_, kTypeValue, key, value);
       mem_count++;
     }else{
-      if(hot_identifier->is_hot(key) == true){
-        hot_mem_->Add(sequence_, kTypeValue, key, value);
-        hot_mem_count++;
+      if(batch_data_map == nullptr){
+        if(hot_identifier->is_hot2(key) == true){
+          hot_mem_->Add(sequence_, kTypeValue, key, value);
+          hot_mem_count++;
+        }else{
+          mem_->Add(sequence_, kTypeValue, key, value);
+          mem_count++;
+          // std::string max_key;
+          // if((mem_->kv_number!=0 && mem_->kv_number%10000 == 0) || mem_->kv_number == 1){
+          //   if(mem_->GetMaxElement(&max_key)){
+          //     fprintf(stderr, "key:%s \n",max_key.c_str() );
+          //   }
+          // }
+        }
       }else{
-        mem_->Add(sequence_, kTypeValue, key, value);
-        mem_count++;
+        auto it = batch_data_map->find(key.ToString());
+        if(it->second >= 2){
+          hot_mem_->Add(sequence_, kTypeValue, key, value);
+          hot_mem_count++;
+        }else{
+          mem_->Add(sequence_, kTypeValue, key, value);
+          mem_count++;
+        }
       }
     }
-
-    // fprintf(stderr, "hot key count: %d cold key count: %d \n", hot_mem_count, mem_count);
-
+    // fprintf(stderr, "key:%s,  unordered_map:%d, hot key count: %d cold key count: %d \n", key.ToString().c_str(), (*batch_data_map)[key.ToString()],hot_mem_count, mem_count);
     sequence_++;
   }
 
@@ -167,16 +183,18 @@ class MemTableInserter : public WriteBatch::Handler {
 };
 }  // namespace
 
-Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger) {
+Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger, std::unordered_map<std::string, int>* batch_data) {
   MemTableInserter inserter;
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
   inserter.mem_ = memtable;
   inserter.hot_mem_ = hot_memtable;
   inserter.hot_identifier = hot_key_idetiifer;
+  inserter.batch_data_map = batch_data;
   Status s = b->Iterate(&inserter);
 
-  // if(info_loger!= nullptr)
-  //   Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
+  if(info_loger!= nullptr)
+    Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
+
 
   return s;
 }

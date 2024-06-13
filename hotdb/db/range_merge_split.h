@@ -110,6 +110,7 @@ struct hotdb_range{
   uint64_t kv_number;
   uint64_t range_length;
   std::string start_str, end_str;
+  int64_t start_int, end_int;
 
   hotdb_range(const Slice& s, const Slice& e, uint64_t kv_num)
   :kv_number(kv_num),
@@ -142,27 +143,13 @@ struct hotdb_range{
   :kv_number(kv_num),start_str(s),end_str(e){
     start= Slice(start_str);
     end = Slice(end_str);
-    // Outputting the initial state of the start and end slices
-    // Output the initial state of the start and end slices
-    // fprintf(stderr, "Start Slice: %s\n", start.ToString().c_str());
-    // fprintf(stderr, "End Slice: %s\n", end.ToString().c_str());
-
-    // Outputting addresses and sizes
-    // fprintf(stderr, "Address of s: %p, size: %zu\n", &s, s.size());
-    // fprintf(stderr, "Address of e: %p, size: %zu\n", &e, e.size());
-    // fprintf(stderr, "Address of start_str: %p, size: %zu\n", (void*)start_str.data(), start_str.size());
-    // fprintf(stderr, "Address of end_str: %p, size: %zu\n", (void*)end_str.data(), end_str.size());
-    // fprintf(stderr, "Start data address: %p, actual pointed-to address: %p, size: %zu\n", (void*)start.data(), start.data(), start.size());
-    // fprintf(stderr, "End data address: %p, actual pointed-to address: %p, size: %zu\n", (void*)end.data(), end.data(), end.size());
-
-    range_length = std::stoull(end.ToString()) - std::stoull(start.ToString()) + 1;
-    // fprintf(stderr,"start_str: %s\n", std::stoull(end.ToString()));
-    // fprintf(stderr, "start_str:%llu, end:%llu, Range Length: %lu\n",std::stoull(end.ToString()),std::stoull(start.ToString()), range_length);
-    // exit(0);
+    start_int = std::stoull(start.ToString());
+    end_int = std::stoull(end.ToString());
+    range_length = end_int-start_int+1;
   }
 
   bool contains(const std::string& value) const {
-    return start.compare(value) <= 0 && end.compare(value) >= 0;
+    return (start.compare(value)==0) || (end.compare(value)==0) ||  (start.compare(value) <= 0 && end.compare(value) >= 0);
   }
 
   double get_average_num_rate() const {
@@ -238,15 +225,7 @@ struct batch_data{
 };
 
 
-struct CompareStringLength {
-  bool operator()(const std::string& a, const std::string& b) const {
-    const size_t min_len = (a.size() < b.size()) ? a.size() : b.size();
-    int r = memcmp(a.data(), b.data(), min_len);
-    if (r < 0) return true;  // 如果a在字典序上小于b，则a < b
-    if (r > 0) return false; // 如果a在字典序上大于b，则a > b
-    return a.size() < b.size();
-  }
-};
+
 
 
 struct KeyCompare {
@@ -258,6 +237,27 @@ struct KeyCompare {
   }
 };
 
+struct CompareStringLength {
+  bool operator()(const std::string& a, const std::string& b) const {
+    const size_t min_len = (a.size() < b.size()) ? a.size() : b.size();
+    int r = memcmp(a.data(), b.data(), min_len);
+    if (r < 0) return true;  // 如果a在字典序上小于b，则a < b
+    if (r > 0) return false; // 如果a在字典序上大于b，则a > b
+    return a.size() < b.size();
+  }
+};
+
+
+struct SortByStartString {
+    bool operator()(hotdb_range* a, hotdb_range* b) const {
+        const size_t min_len = (a->start_str.size() < b->start_str.size()) ? a->start_str.size() : b->start_str.size();
+        int r = memcmp(a->start_str.data(), b->start_str.data(), min_len);
+        if (r < 0) return true;  // 如果a在字典序上小于b，则a < b
+        if (r > 0) return false; // 如果a在字典序上大于b，则a > b
+        return a->start_str.size() < b->start_str.size();
+    }
+};
+
 class range_identifier
 {
 
@@ -266,7 +266,9 @@ private:
   int test_num;
   bool is_first;
   std::vector<hotdb_range> hot_ranges;
-  std::vector<hotdb_range> current_ranges;
+  std::unordered_map<int64_t, std::set<hotdb_range*, SortByStartString>> all_hot_ranges;
+  std::unordered_map<int64_t, int> merge_tags;
+  std::vector<hotdb_range*> current_ranges;
 
   std::set<hotdb_range> total_cold_ranges;
   std::set<hotdb_range> current_cold_ranges;
@@ -302,7 +304,13 @@ public:
 
   void print_temp_container() const;
 
-  void merge_ranges_in_container(bool is_first);
+  void print_range_set(const std::set<hotdb_range*, SortByStartString>& range_set) const;
+
+  void print_total_ranges() const; 
+
+  void merge_ranges_in_container();
+
+  void create_new_ranges_and_insert();
 
   void check_may_merge_split_range();
 
@@ -342,7 +350,15 @@ public:
 
 
   // 
-  bool is_hot(const Slice& key) const;
+  bool is_hot(const Slice& key) ;
+
+  bool is_hot2(const Slice& key);
+
+  bool is_full() const{
+    return keys.size()>=batch_size;
+  }
+
+  int get_current_num_kv() const;
 
 };
 

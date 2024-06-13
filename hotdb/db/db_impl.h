@@ -43,8 +43,13 @@ class DBImpl : public DB {
   // Implementations of the DB interface
   Status Put(const WriteOptions&, const Slice& key,
              const Slice& value) override;
+
+  Status Batch_Put(const WriteOptions& opt, const Slice& key, 
+             const Slice& value)override;
+
   Status Delete(const WriteOptions&, const Slice& key) override;
   Status Write(const WriteOptions& options, WriteBatch* updates) override;
+  Status Write(const WriteOptions& options, const Slice& key, const Slice& value) override;
   Status Get(const ReadOptions& options, const Slice& key,
              std::string* value) override;
   Iterator* NewIterator(const ReadOptions&) override;
@@ -382,6 +387,8 @@ class DBImpl : public DB {
   // Queue of writers.
   std::deque<Writer*> writers_ GUARDED_BY(mutex_);
   WriteBatch* tmp_batch_ GUARDED_BY(mutex_);
+  WriteBatch* in_memory_batch GUARDED_BY(mutex_);
+  WriteBatch* in_memory_hot_batch GUARDED_BY(mutex_);
 
   SnapshotList snapshots_ GUARDED_BY(mutex_);
 
@@ -428,7 +435,9 @@ class DBImpl : public DB {
   std::map<int, std::unordered_set<uint64_t>> hot_keys_sets;
   bool is_first;
   range_identifier* hot_key_identifier;
-  
+  std::unordered_map<std::string, int> batch_data_;
+  int in_memory_batch_kv_number;
+  int64_t identifier_time;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 

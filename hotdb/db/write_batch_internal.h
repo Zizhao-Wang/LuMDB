@@ -36,7 +36,7 @@ class WriteBatchInternal {
 
   static void SetContents(WriteBatch* batch, const Slice& contents);
 
-  static Status InsertInto(const WriteBatch* batch, MemTable* memtable, MemTable* hot_memtable = nullptr, range_identifier* hot_key_idetiifer=nullptr, Logger* info_loger=nullptr);
+  static Status InsertInto(const WriteBatch* batch, MemTable* memtable, MemTable* hot_memtable = nullptr, range_identifier* hot_key_idetiifer=nullptr, Logger* info_loger=nullptr, std::unordered_map<std::string, int>* batch_data=nullptr);
 
   static void Append(WriteBatch* dst, const WriteBatch* src);
 };

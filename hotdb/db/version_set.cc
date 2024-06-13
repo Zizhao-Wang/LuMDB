@@ -875,7 +875,7 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
           // tier_inputs->push_back(f);
         }
       }
-      Log(vset_->options_->info_log, "Run %d has %d overlapping files for level %d", run, num_overlappping_files_in_this_run, level);
+      // Log(vset_->options_->info_log, "Run %d has %d overlapping files for level %d", run, num_overlappping_files_in_this_run, level);
       if(num_overlappping_files_in_this_run > num_overlapping_files){
         num_overlapping_files = num_overlappping_files_in_this_run;
         selected_run = run;
@@ -883,7 +883,7 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
       }
     }
 
-    Log(vset_->options_->info_log, "Selected run %d for level %d based on number of overlapping files", selected_run, level);
+    Log(vset_->options_->info_log, "Selected run %d in level %d based on number of overlapping files as inputs[1]", selected_run, level);
 
     for (size_t i = 0; i < tiering_runs_[level][selected_run].size();) {
       // iterate all files in the specific level
@@ -891,28 +891,13 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
       const Slice file_start = f->smallest.user_key();
       const Slice file_limit = f->largest.user_key();
 
-      Log(vset_->options_->info_log, "Processing file %llu in level %d, file_start = %s, file_limit = %s", 
-      static_cast<unsigned long long>(f->number), level, file_start.ToString().c_str(), file_limit.ToString().c_str());
-
-       if (begin != nullptr) {
-        int cmp_result = user_cmp->Compare(file_limit, user_begin);
-        Log(vset_->options_->info_log, "Comparing file_limit = %s with user_begin = %s, cmp_result = %d", 
-            file_limit.ToString().c_str(), user_begin.ToString().c_str(), cmp_result);
-      }
-
-      if (end != nullptr) {
-        int cmp_result = user_cmp->Compare(file_start, user_end);
-        Log(vset_->options_->info_log, "Comparing file_start = %s with user_end = %s, cmp_result = %d", 
-            file_start.ToString().c_str(), user_end.ToString().c_str(), cmp_result);
-      }
-
       if (begin != nullptr && user_cmp->Compare(file_limit, user_begin) < 0) {
-        Log(vset_->options_->info_log, "Skipping file %llu: file_limit < user_begin", static_cast<unsigned long long>(f->number));
+        // Log(vset_->options_->info_log, "Skipping file %llu: file_limit < user_begin", static_cast<unsigned long long>(f->number));
       } else if (end != nullptr && user_cmp->Compare(file_start, user_end) > 0) {
-        Log(vset_->options_->info_log, "Skipping file %llu: file_start > user_end", static_cast<unsigned long long>(f->number));
+        // Log(vset_->options_->info_log, "Skipping file %llu: file_start > user_end", static_cast<unsigned long long>(f->number));
       } else { 
         tier_inputs->push_back(f);
-        Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
+        // Log(vset_->options_->info_log, "Added file %llu to tier inputs for level %d", static_cast<unsigned long long>(f->number), level);
       }
     }
   }
@@ -1263,9 +1248,6 @@ class VersionSet::Builder {
             MaybeAddFile(v, level,run_entry.first, *base_iter);
             index++;
           }
-          if(vset_->tiering_compact_pointer_[level][run_entry.first] == -1 || added_file->number > vset_->tiering_compact_pointer_[level][run_entry.first]){
-            vset_->tiering_compact_pointer_[level][run_entry.first] = index;
-          }
           MaybeAddFile(v, level,run_entry.first, added_file);
           index++;
         }
@@ -1273,6 +1255,14 @@ class VersionSet::Builder {
         for (; base_iter != base_end; ++base_iter) {
           MaybeAddFile(v, level,run_entry.first, *base_iter);
         }
+
+        vset_->tiering_compact_pointer_[level][run_entry.first] = -1;
+        for(int i = 0; i<v->tiering_runs_[level][run_entry.first].size();i++){
+          if(vset_->tiering_compact_pointer_[level][run_entry.first] == -1 || 
+                v->tiering_runs_[level][run_entry.first][i]->number<vset_->tiering_compact_pointer_[level][run_entry.first] ){
+            vset_->tiering_compact_pointer_[level][run_entry.first] = i;
+          }
+        }  
       }
 
       // Handle leveling files
@@ -1280,6 +1270,8 @@ class VersionSet::Builder {
       for(int i=0;i<v->leveling_files_[level].size();i++){
         v->leveling_files_[level][i]->refs++;
       }
+
+      
 
 #ifndef NDEBUG
       // Make sure there is no overlap in levels > 0
@@ -2278,17 +2270,17 @@ Compaction* VersionSet::PickCompaction() {
 
       int oldest_compaction_pointer = -1;
       int selected_run_in_input_level1 = -1;
-      for (int level = 0; level < config::kNumLevels - 1; level++) {
-        for (const auto& entry : tiering_compact_pointer_[level]) {
-          int compact_pointer = entry.second;
-          if (compact_pointer > oldest_compaction_pointer) {
-            oldest_compaction_pointer = compact_pointer;
-            selected_run_in_input_level1 = entry.first;
-          }
+
+      for (const auto& entry : tiering_compact_pointer_[level]) {
+        if (entry.second > oldest_compaction_pointer) {
+          oldest_compaction_pointer = entry.second;
+          selected_run_in_input_level1 = entry.first;
         }
       }
       c->tiering_inputs_[0].push_back(current_->tiering_runs_[level][selected_run_in_input_level1][oldest_compaction_pointer]);
       c->selected_run_in_input_level = selected_run_in_input_level1;
+      Log(options_->info_log, "Selected run in input level: %d: Oldest compaction pointer: %d", 
+        selected_run_in_input_level1, oldest_compaction_pointer);
       c->set_tiering();
       FileMetaData* selected_file = current_->tiering_runs_[level][selected_run_in_input_level1][oldest_compaction_pointer];
       Log(options_->info_log, "Selected file for compaction: level=%d, run=%d, file_number=%llu, file_size=%llu", 

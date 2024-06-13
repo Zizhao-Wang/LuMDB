@@ -65,6 +65,12 @@ class LEVELDB_EXPORT DB {
   // Note: consider setting options.sync = true.
   virtual Status Put(const WriteOptions& options, const Slice& key,
                      const Slice& value) = 0;
+  
+  // Set the database entry for "key" to "value".  Returns OK on success,
+  // and a non-OK status on error.
+  // Note: consider setting options.sync = true.
+  virtual Status Batch_Put(const WriteOptions& options, const Slice& key,
+                     const Slice& value) = 0;
 
   // Remove the database entry (if any) for "key".  Returns OK on
   // success, and a non-OK status on error.  It is not an error if "key"
@@ -76,6 +82,9 @@ class LEVELDB_EXPORT DB {
   // Returns OK on success, non-OK on failure.
   // Note: consider setting options.sync = true.
   virtual Status Write(const WriteOptions& options, WriteBatch* updates) = 0;
+
+
+  virtual Status Write(const WriteOptions& options, const Slice& key, const Slice& value) = 0;
 
   // If the database contains an entry for "key" store the
   // corresponding value in *value and return OK.

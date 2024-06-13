@@ -43,7 +43,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
@@ -90,7 +90,13 @@ for i in {10..10}; do
                     # iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
                     # PID_IOSTAT=$!
                     
-                    gdb --args ../hotdb/release/db_bench \
+                    # 
+
+                    # perf record -F 99 -a -g --
+                    
+                    # gdb --args  
+                    
+                    taskset -c 0 perf record -F 99 -a -g ../hotdb/release/db_bench \
                     --db=/mnt/hotdb_test \
                     --num=$num_entries \
                     --value_size=$value_size \
@@ -107,7 +113,6 @@ for i in {10..10}; do
                     --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
-                    --write_buffer_size=1048576 \
                     --max_file_size=2097152   \
                     --print_wa=true 
             done
