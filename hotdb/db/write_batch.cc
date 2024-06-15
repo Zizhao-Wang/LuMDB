@@ -124,6 +124,7 @@ class MemTableInserter : public WriteBatch::Handler {
   MemTable* mem_;
   MemTable* hot_mem_;
   range_identifier* hot_identifier;
+  std::set<mem_partition_guard*>* mem_partitions_set;
   std::unordered_map<std::string, int>* batch_data_map;
 
   int mem_count;  // Counter for mem_
@@ -133,37 +134,24 @@ class MemTableInserter : public WriteBatch::Handler {
       : sequence_(0), mem_(nullptr), hot_mem_(nullptr), hot_identifier(nullptr), mem_count(0), hot_mem_count(0) {}
 
   void Put(const Slice& key, const Slice& value) override {
-    assert(hot_identifier != nullptr);
-    assert(hot_mem_ != nullptr);
-    if(hot_identifier == nullptr || hot_mem_ == nullptr ){
+      
+    if(hot_identifier->is_hot(key) == true){
+      hot_mem_->Add(sequence_, kTypeValue, key, value);
+      hot_mem_count++;
+    }else{
       mem_->Add(sequence_, kTypeValue, key, value);
       mem_count++;
-    }else{
-      if(batch_data_map == nullptr){
-        if(hot_identifier->is_hot2(key) == true){
-          hot_mem_->Add(sequence_, kTypeValue, key, value);
-          hot_mem_count++;
-        }else{
-          mem_->Add(sequence_, kTypeValue, key, value);
-          mem_count++;
-          // std::string max_key;
-          // if((mem_->kv_number!=0 && mem_->kv_number%10000 == 0) || mem_->kv_number == 1){
-          //   if(mem_->GetMaxElement(&max_key)){
-          //     fprintf(stderr, "key:%s \n",max_key.c_str() );
-          //   }
-          // }
-        }
-      }else{
-        auto it = batch_data_map->find(key.ToString());
-        if(it->second >= 2){
-          hot_mem_->Add(sequence_, kTypeValue, key, value);
-          hot_mem_count++;
-        }else{
-          mem_->Add(sequence_, kTypeValue, key, value);
-          mem_count++;
-        }
-      }
     }
+      // else{
+      //   auto it = batch_data_map->find(key.ToString());
+      //   if(it->second >= 2){
+      //     hot_mem_->Add(sequence_, kTypeValue, key, value);
+      //     hot_mem_count++;
+      //   }else{
+      //     mem_->Add(sequence_, kTypeValue, key, value);
+      //     mem_count++;
+      //   }
+      // }
     // fprintf(stderr, "key:%s,  unordered_map:%d, hot key count: %d cold key count: %d \n", key.ToString().c_str(), (*batch_data_map)[key.ToString()],hot_mem_count, mem_count);
     sequence_++;
   }
@@ -181,6 +169,69 @@ class MemTableInserter : public WriteBatch::Handler {
     sequence_++;
   }
 };
+
+class MultiMemTableInserter : public WriteBatch::Handler {
+ public:
+  SequenceNumber sequence_;
+  MemTable* mem_;
+  MemTable* hot_mem_;
+  range_identifier* hot_identifier;
+  std::set<mem_partition_guard*, PartitionGuardComparator>* mem_partitions_set;
+  std::unordered_map<std::string, int>* batch_data_map;
+  Comparator* user_comparator;
+
+  int mem_count;  // Counter for mem_
+  int hot_mem_count;  // Counter for hot_mem_
+
+  MultiMemTableInserter()
+      : sequence_(0), mem_(nullptr), hot_mem_(nullptr), hot_identifier(nullptr), mem_count(0), hot_mem_count(0) {}
+
+  void Put(const Slice& key, const Slice& value) override {
+    assert(hot_identifier != nullptr);
+    assert(hot_mem_ != nullptr);
+
+    if(hot_identifier->is_hot(key) == true){
+      hot_mem_->Add(sequence_, kTypeValue, key, value);
+      hot_mem_count++;
+    }else{
+
+      mem_partition_guard* target_partition = nullptr;
+      std::string test_start = key.ToString();
+      auto it = mem_partitions_set->upper_bound(new mem_partition_guard(test_start, test_start));
+      if (it != mem_partitions_set->begin()) {
+        --it;
+        if ( (*it)->contains(test_start)) {
+          target_partition = *it;
+        }
+      }
+
+      if (target_partition == nullptr) {
+        mem_->Add(sequence_, kTypeValue, key, value);
+        return;
+      }else{
+        target_partition->partition_mem->Add(sequence_, kTypeValue, key, value);
+      }
+      mem_count++;
+    }
+    sequence_++;  
+    // fprintf(stderr, "key:%s,  unordered_map:%d, hot key count: %d cold key count: %d \n", 
+        // key.ToString().c_str(), (*batch_data_map)[key.ToString()],hot_mem_count, mem_count);
+  }
+    
+  void Delete(const Slice& key) override {
+    if(hot_identifier == nullptr || hot_mem_ == nullptr ){
+      mem_->Add(sequence_, kTypeDeletion, key, Slice());
+    }else{
+      if(hot_identifier->is_hot(key) == true){
+        hot_mem_->Add(sequence_, kTypeDeletion, key, Slice());
+      }else{
+        mem_->Add(sequence_, kTypeDeletion, key, Slice());
+      }
+    }
+    sequence_++;
+  }
+};
+
 }  // namespace
 
 Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger, std::unordered_map<std::string, int>* batch_data) {
@@ -195,6 +246,22 @@ Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, M
   if(info_loger!= nullptr)
     Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
 
+
+  return s;
+}
+
+
+Status WriteBatchInternal::InsertInto(const WriteBatch* b, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger, std::unordered_map<std::string, int>* batch_data){
+  MultiMemTableInserter inserter;
+  inserter.sequence_ = WriteBatchInternal::Sequence(b);
+  inserter.mem_partitions_set = memtables;
+  inserter.hot_mem_ = hot_memtable;
+  inserter.hot_identifier = hot_key_idetiifer;
+  inserter.batch_data_map = batch_data;
+  Status s = b->Iterate(&inserter);
+
+  if(info_loger!= nullptr)
+    Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
 
   return s;
 }

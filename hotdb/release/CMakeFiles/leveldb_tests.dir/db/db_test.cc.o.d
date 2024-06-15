@@ -295,11 +295,16 @@ CMakeFiles/leveldb_tests.dir/db/db_test.cc.o: \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/range_merge_split.h \
  /usr/include/c++/11/unordered_map \
  /usr/include/c++/11/bits/unordered_map.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/partition.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_edit.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/memtable.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/skiplist.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/arena.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/random.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/filename.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_set.h \
  /usr/include/c++/11/list /usr/include/c++/11/bits/stl_list.h \
  /usr/include/c++/11/bits/list.tcc \
- /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_edit.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/write_batch_internal.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/write_batch.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/cache.h \
@@ -340,5 +345,4 @@ CMakeFiles/leveldb_tests.dir/db/db_test.cc.o: \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/internal/custom/gmock-generated-actions.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-more-matchers.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-nice-strict.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/./helpers/memenv/memenv.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/./util/random.h
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./helpers/memenv/memenv.h

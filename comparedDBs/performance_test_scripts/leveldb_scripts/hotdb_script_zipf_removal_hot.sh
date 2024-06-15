@@ -104,7 +104,7 @@ for i in {10..10}; do
                         iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
                         PID_IOSTAT=$!
                     
-                        cgexec -g memory,cpu:group8 ../../../leveldb/release/db_bench \
+                        cgexec -g memory:group8 ../../../leveldb/release/db_bench \
                         --db=$db_dir \
                         --num=$num_entries \
                         --value_size=$value_size \

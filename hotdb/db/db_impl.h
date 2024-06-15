@@ -20,6 +20,7 @@
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "db/range_merge_split.h"
+#include "db/partition.h"
 
 
 
@@ -276,11 +277,22 @@ class DBImpl : public DB {
   // Errors are recorded in bg_error_.
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+
+  Status CreatePartitions(MemTable* memtable, const Options& options) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  Status AddDataIntoPartitions(MemTable* memtable, const Options& options) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  void CompactLevelingMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   Status RecoverLogFile(uint64_t log_number, bool last_log, bool* save_manifest,
                         VersionEdit* edit, SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base, bool is_hot_mem=false)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+
+  Status  WritePartitionLevelingTable(MemTable* mem, VersionEdit* edit, Version* base, bool is_hot_mem=false)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status MakeRoomForWrite(bool force /* compact even if there is room? */)
@@ -292,7 +304,13 @@ class DBImpl : public DB {
 
   void MaybeScheduleCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   static void BGWork(void* db);
+
+  static void AddDataBGWork(void* arg);
+
   void BackgroundCall();
+
+  void BackgroundAddData(const Slice& key);
+
   void BackgroundCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void CleanupCompaction(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -377,6 +395,10 @@ class DBImpl : public DB {
   MemTable* hot_mem_;
   MemTable* hot_imm_ GUARDED_BY(mutex_);  // Hot Memtable being compacted
   std::atomic<bool> has_hot_imm_;         // So bg thread can detect non-null imm_
+
+  std::set<mem_partition_guard*, PartitionGuardComparator> mem_partitions_ GUARDED_BY(mutex_);
+
+
   // ==== End of modified code ====
 
   WritableFile* logfile_; // log file for write ahead logging

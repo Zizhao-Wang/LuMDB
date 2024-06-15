@@ -388,11 +388,11 @@ void range_identifier::merge_ranges_in_container() {
         std::string start = *it;
         std::string end = start;
         uint64_t kv_num = keys.at(start);
-        long long curr_value = std::stoll(start);
+        long long curr_value = std::stoull(start);
 
         auto next_it = std::next(it);
         while (next_it != temp_container.end()) {
-            long long next_value = std::stoll(*next_it);
+            long long next_value = std::stoull(*next_it);
             // 检查数字是否连续
             if (next_value == curr_value + 1) {
                 end = *next_it;  // 更新结束点
@@ -423,7 +423,10 @@ void range_identifier::create_new_ranges_and_insert() {
         std::string start = *it;
         std::string end = start;
         uint64_t kv_num = keys.at(start);
-        long long curr_value = std::stoll(start);
+
+        // fprintf(stderr, "Invalid argument: '%s' cannot be converted to unsigned long long.\n", start.c_str());
+        unsigned long long curr_value = std::stoull(start);
+        
 
         auto next_it = std::next(it);
         while (next_it != temp_container.end()) {
@@ -438,6 +441,7 @@ void range_identifier::create_new_ranges_and_insert() {
                 break;  
             }
         }
+        
 
         // fprintf(stdout, "Created hot range ==> Start: %s, End: %s, KV Num: %lu range length:%lld\n",
         //     start.c_str(), end.c_str(), kv_num, std::stoll(end) - std::stoll(start) + 1);
@@ -568,11 +572,10 @@ inline void range_identifier::unordered_map_increment(std::string& key){
     }
 }
 
-void range_identifier::add_data(const leveldb::Slice& data){
+void range_identifier::add_data(const Slice& data){
 
     std::string key = data.ToString();
-    // set_increment(key);
-    // vector_increment(key);
+    // fprintf(stderr, "Invalid argument: '%s' cannot be converted to unsigned long long.\n", key.c_str());
     unordered_map_increment(key);
     total_number++;
 

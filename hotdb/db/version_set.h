@@ -24,6 +24,7 @@
 #include "db/version_edit.h"
 #include "port/port.h"
 #include "port/thread_annotations.h"
+#include "db/partition.h"
 
 namespace leveldb {
 
@@ -188,6 +189,10 @@ class Version {
   // List of files per level
   // std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
   std::vector<FileMetaData*> leveling_files_[config::kNumLevels];
+
+  // std::set<partition_guard*, PartitionGuardComparator> leveling_part_;
+
+  
   // std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; 
   std::map<int, std::vector<FileMetaData*>> tiering_runs_[config::kNumLevels];
 

@@ -296,6 +296,12 @@ CMakeFiles/leveldb_tests.dir/helpers/memenv/memenv_test.cc.o: \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/range_merge_split.h \
  /usr/include/c++/11/unordered_map \
  /usr/include/c++/11/bits/unordered_map.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/partition.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_edit.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/memtable.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/skiplist.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/arena.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/random.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./util/testutil.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-actions.h \
@@ -329,5 +335,4 @@ CMakeFiles/leveldb_tests.dir/helpers/memenv/memenv_test.cc.o: \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-more-actions.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/internal/custom/gmock-generated-actions.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-more-matchers.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-nice-strict.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/./util/random.h
+ /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock-nice-strict.h

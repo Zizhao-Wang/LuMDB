@@ -8,6 +8,7 @@
 #include "db/dbformat.h"
 #include "leveldb/write_batch.h"
 #include "db/range_merge_split.h"
+#include "db/partition.h"
 
 namespace leveldb {
 
@@ -36,7 +37,9 @@ class WriteBatchInternal {
 
   static void SetContents(WriteBatch* batch, const Slice& contents);
 
-  static Status InsertInto(const WriteBatch* batch, MemTable* memtable, MemTable* hot_memtable = nullptr, range_identifier* hot_key_idetiifer=nullptr, Logger* info_loger=nullptr, std::unordered_map<std::string, int>* batch_data=nullptr);
+  static Status InsertInto(const WriteBatch* batch, MemTable* memtable, MemTable* hot_memtable=nullptr, range_identifier* hot_key_idetiifer=nullptr, Logger* info_loger=nullptr, std::unordered_map<std::string, int>* batch_data=nullptr);
+
+  static Status InsertInto(const WriteBatch* batch, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger=nullptr, std::unordered_map<std::string, int>* batch_data=nullptr);
 
   static void Append(WriteBatch* dst, const WriteBatch* src);
 };

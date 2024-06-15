@@ -39,7 +39,7 @@ for i in {10..10}; do
     fi
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 10000))
+            stats_interva=$((num_entries / 1000))
 
             num_format=$(convert_to_billion_format $num_entries)
 
@@ -93,10 +93,13 @@ for i in {10..10}; do
                     # 
 
                     # perf record -F 99 -a -g --
+
+                    # taskset -c 0 perf record -F 99 -a -g
                     
                     # gdb --args  
                     
-                    taskset -c 0 perf record -F 99 -a -g ../hotdb/release/db_bench \
+                     
+                    gdb --args ../hotdb/release/db_bench \
                     --db=/mnt/hotdb_test \
                     --num=$num_entries \
                     --value_size=$value_size \

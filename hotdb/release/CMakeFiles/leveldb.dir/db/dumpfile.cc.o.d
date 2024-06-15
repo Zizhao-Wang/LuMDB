@@ -193,4 +193,11 @@ CMakeFiles/leveldb.dir/db/dumpfile.cc.o: \
  /usr/include/c++/11/bits/hashtable_policy.h \
  /usr/include/c++/11/bits/enable_special_members.h \
  /usr/include/c++/11/bits/unordered_map.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/partition.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/memtable.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/skiplist.h \
+ /usr/include/c++/11/atomic /usr/include/c++/11/bits/atomic_base.h \
+ /usr/include/c++/11/bits/atomic_lockfree_defines.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/arena.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./util/random.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/table.h

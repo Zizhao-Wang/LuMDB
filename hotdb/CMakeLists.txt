@@ -134,6 +134,8 @@ target_sources(leveldb
     "db/filename.cc"
     "db/range_merge_split.cc"
     "db/range_merge_split.h"
+    "db/partition.cc"
+    "db/partition.cc"
     "db/global_stats.cc"
     "db/global_stats.h"
     "db/filename.h"

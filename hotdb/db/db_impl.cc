@@ -530,17 +530,108 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   return status;
 }
 
-Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
+Status DBImpl::CreatePartitions(MemTable* memtable, const Options& options) {
+
+  Status s;
+
+  Iterator* iter = memtable->NewIterator();
+  iter->SeekToFirst();
+  const char* key_tmp_pointer = iter->key().data();;
+  size_t tmp_key_size = iter->key().size()-8;;
+
+  FileMetaData file_meta;
+  file_meta.number = versions_->NewFileNumber();
+  std::string fname = TableFileName(dbname_, file_meta.number);
+  WritableFile* file;
+  s = env_->NewWritableFile(fname, &file);
+  if (!s.ok()) {
+    return s;
+  }
+  TableBuilder* builder = new TableBuilder(options, file);
+
+  // create the first mem partition
+  
+  
+  uint64_t first_key_num;
+  std::string key_strat_str = std::string(key_tmp_pointer, tmp_key_size);
+  Slice key_start(key_strat_str);
+  first_key_num = std::stoull(key_strat_str);
+  first_key_num += options.min_partition_size;
+
+  char key_end[17]; // 确保有足够的空间来存储结束字符串和终止符
+  snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+
+  mem_partition_guard* current_partition = new mem_partition_guard(key_strat_str, key_end);
+
+  const char* current_key_pointer;
+  size_t current_key_size;
+  int64_t start_micros = env_->NowMicros();
+  for (; iter->Valid(); iter->Next()) {
+
+    current_key_pointer = iter->key().data();
+    current_key_size = iter->key().size();
+
+    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) > 0){
+      
+      // if(builder->FileSize() < options.max_file_size){
+
+      // }
+      // s = builder->Finish();
+      // if (s.ok()) {
+      //   file_meta.file_size = builder->FileSize();
+      //   assert(file_meta.file_size > 0);
+      // }
+      // delete builder;
+
+      // // 创建新的 partition
+      // mem_partitions_.insert(current_partition);
+      // std::string new_start_key_str(current_key_pointer, current_key_size);
+      // first_key_num = std::strtoull(new_start_key_str.c_str(), nullptr, 10) + options.min_partition_size;
+      // snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+      // fprintf(stderr, "new key_end: %s\n", key_end); // 打印调试信息
+      // std::string new_partition_end_str(key_end);
+      // current_partition = new mem_partition_guard(Slice(new_start_key_str), Slice(new_partition_end_str));
+      // iter->Next();
+
+
+
+      // current_partition = new mem_partition_guard();
+      // current_partition->partition_start = std::string(current_key_pointer, current_key_size);
+
+      // file_meta.number = versions_->NewFileNumber();
+      // fname = TableFileName(dbname_, file_meta.number);
+      // s = env_->NewWritableFile(fname, &file);
+      // if (!s.ok()) {
+      //   return s;
+      // }
+      // builder = new TableBuilder(options, file);
+    }
+
+    // builder->Add(iter->key(), iter->value());
+    current_partition->written_kvs++;
+
+  }
+  int64_t end_micros = env_->NowMicros();
+  fprintf(stderr, "Time: %f s\n", (end_micros - start_micros)/1e6);
+  delete iter;
+
+}
+
+
+Status DBImpl::AddDataIntoPartitions(MemTable* memtable, const Options& options){
+
+  // return s;
+}
+
+
+
+Status DBImpl::WritePartitionLevelingTable(MemTable* mem, VersionEdit* edit,
                                 Version* base, bool is_hot_mem) {
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
 
   FileMetaData meta;
-  // Logica_File_MetaData logica_meta;
-
-  // if(is_hot_mem){
-  //   logica_meta.number = versions_->NewFileNumber();
-  // }
+  
   meta.number = versions_->NewFileNumber();
   // 设置 logger
   edit->set_logger(options_.info_log);
@@ -548,42 +639,24 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 
   pending_outputs_.insert(meta.number); 
   Iterator* iter = mem->NewIterator();
-  
-  if (is_hot_mem) {
-    Log(options_.info_log,
-        "Level-0 Tiering: Table #%llu minor compaction - Started",
-        (unsigned long long)meta.number);
-  } else {
-      Log(options_.info_log,
-          "Level-0 Leveling: Table #%llu minor compaction - Started",
-          (unsigned long long)meta.number);
-  }
+
+  Log(options_.info_log,
+    "Level-0 Leveling: Table #%llu minor compaction - Started",
+    (unsigned long long)meta.number);
 
   Status s;
   {
     mutex_.Unlock();
-    if(is_hot_mem){
-      s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
-    }else{
-      s = BuildTable2(dbname_, env_, options_, table_cache_, iter, &meta);
-    }
-    
+    s = BuildTable2(dbname_, env_, options_, table_cache_, iter, &meta);
     mutex_.Lock();
   }
 
-  if (is_hot_mem) {
-    Log(options_.info_log,
-        "Level-0 Tiering: Table #%llu, Size: %lld bytes, Status: %s",
-        (unsigned long long)meta.number,
-        (unsigned long long)meta.file_size,
-        s.ToString().c_str());
-  } else {
-      Log(options_.info_log,
-          "Level-0 Leveling: Table #%llu, Size: %lld bytes, Status: %s",
-          (unsigned long long)meta.number,
-          (unsigned long long)meta.file_size,
-          s.ToString().c_str());
-  }
+  Log(options_.info_log,
+    "Level-0 Leveling: Table #%llu, Size: %lld bytes, Status: %s",
+    (unsigned long long)meta.number,
+    (unsigned long long)meta.file_size,
+    s.ToString().c_str());
+  
 
   delete iter;
   pending_outputs_.erase(meta.number);
@@ -596,9 +669,6 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     const Slice max_user_key = meta.largest.user_key();
 
     if(base!= nullptr && is_hot_mem){
-      // level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
-      edit->AddTieringFile(level, 0, meta.number, meta.file_size, meta.smallest, meta.largest);
-    }else if(base!= nullptr && !is_hot_mem){
       level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
       edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest);
     }
@@ -624,16 +694,131 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   return s;
 }
 
+
+
+Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
+                                Version* base, bool is_hot_mem) {
+  mutex_.AssertHeld();
+  const uint64_t start_micros = env_->NowMicros();
+
+  FileMetaData meta;
+  meta.number = versions_->NewFileNumber();
+  // 设置 logger
+  edit->set_logger(options_.info_log);
+
+
+  pending_outputs_.insert(meta.number); 
+  Iterator* iter = mem->NewIterator();
+  
+ 
+  Log(options_.info_log,
+    "Level-0 Tiering: Table #%llu minor compaction - Started",
+    (unsigned long long)meta.number);
+  
+
+  Status s;
+  {
+    mutex_.Unlock();
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    
+    mutex_.Lock();
+  }
+
+ 
+  Log(options_.info_log,
+    "Level-0 Tiering: Table #%llu, Size: %lld bytes, Status: %s",
+    (unsigned long long)meta.number,
+    (unsigned long long)meta.file_size,
+    s.ToString().c_str());
+  
+
+  delete iter;
+  pending_outputs_.erase(meta.number);
+
+  // Note that if file_size is zero, the file has been deleted and
+  // should not be added to the manifest.
+  int level = 0;
+  if (s.ok() && meta.file_size > 0) {
+    const Slice min_user_key = meta.smallest.user_key();
+    const Slice max_user_key = meta.largest.user_key();
+
+    if(base!= nullptr && is_hot_mem){
+      // level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+      edit->AddTieringFile(level, 0, meta.number, meta.file_size, meta.smallest, meta.largest);
+    }
+  }
+
+  CompactionStats stats;
+  stats.micros = env_->NowMicros() - start_micros;
+  stats.bytes_written = meta.file_size;
+  stats_[level].Add(stats);
+
+
+  // newly added source codes
+  level_stats_[0].micros = env_->NowMicros() - start_micros;
+  level_stats_[0].user_bytes_written = meta.file_size;
+  if(is_hot_mem){
+    level_stats_[0].num_tiering_files++;
+    level_stats_[0].tiering_bytes_written += meta.file_size;
+  }else{
+    level_stats_[0].num_leveling_files++;
+    level_stats_[0].leveling_bytes_written += meta.file_size;
+  }
+  
+  return s;
+}
+
 void DBImpl::CompactMemTable() {
   mutex_.AssertHeld();
-  assert(imm_ != nullptr || hot_imm_ != nullptr);
+
+  // Compact the hot immutable memtable
+  VersionEdit hot_edit;
+  Version* hot_base = versions_->current();
+  hot_base->Ref();
+  Status hot_s = WriteLevel0Table(hot_imm_, &hot_edit, hot_base, true);
+  hot_base->Unref();
+
+  if (hot_s.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    hot_s = Status::IOError("Deleting DB during hot memtable compaction");
+  }
+
+  if (hot_s.ok()) {
+    hot_edit.SetPrevLogNumber(0);
+    hot_edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+    hot_edit.set_is_tiering();
+    hot_s = versions_->LogAndApply(&hot_edit, &mutex_);
+  }
+
+  if (hot_s.ok()) {
+    // Commit to the new state
+    hot_imm_->Unref();
+    hot_imm_ = nullptr;
+    has_hot_imm_.store(false, std::memory_order_release);
+  } else {
+    RecordBackgroundError(hot_s);
+  }
+  RemoveObsoleteFiles();
+}
+
+
+void DBImpl::CompactLevelingMemTable() {
+  mutex_.AssertHeld();
+  assert(imm_ != nullptr );
+  Status s;
 
   // Compact the regular immutable memtable
   if (imm_ != nullptr) {
     VersionEdit edit;
     Version* base = versions_->current();
     base->Ref();
-    Status s = WriteLevel0Table(imm_, &edit, base, false);
+
+    if(mem_partitions_.empty()){
+      s = CreatePartitions(imm_, options_);
+    }else{
+      s = AddDataIntoPartitions(imm_, options_);
+    }
+
+    // Status s = WriteLevel0Table(imm_, &edit, base, false);
     base->Unref();
 
     if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
@@ -656,34 +841,6 @@ void DBImpl::CompactMemTable() {
     }
   }
 
-  // Compact the hot immutable memtable
-  if (hot_imm_ != nullptr) {
-    VersionEdit hot_edit;
-    Version* hot_base = versions_->current();
-    hot_base->Ref();
-    Status hot_s = WriteLevel0Table(hot_imm_, &hot_edit, hot_base, true);
-    hot_base->Unref();
-
-    if (hot_s.ok() && shutting_down_.load(std::memory_order_acquire)) {
-      hot_s = Status::IOError("Deleting DB during hot memtable compaction");
-    }
-
-    if (hot_s.ok()) {
-      hot_edit.SetPrevLogNumber(0);
-      hot_edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-      hot_edit.set_is_tiering();
-      hot_s = versions_->LogAndApply(&hot_edit, &mutex_);
-    }
-
-    if (hot_s.ok()) {
-      // Commit to the new state
-      hot_imm_->Unref();
-      hot_imm_ = nullptr;
-      has_hot_imm_.store(false, std::memory_order_release);
-    } else {
-      RecordBackgroundError(hot_s);
-    }
-  }
   RemoveObsoleteFiles();
 }
 
@@ -788,6 +945,16 @@ void DBImpl::BGWork(void* db) {
   reinterpret_cast<DBImpl*>(db)->BackgroundCall();
 }
 
+void DBImpl::BackgroundAddData(const Slice& key) {
+  hot_key_identifier->add_data(key);
+}
+
+void DBImpl::AddDataBGWork(void* arg) {
+  auto* data = reinterpret_cast<std::pair<DBImpl*, leveldb::Slice>*>(arg);
+  data->first->BackgroundAddData(data->second);
+  delete data; // 释放内存
+}
+
 void DBImpl::BackgroundCall() {
   MutexLock l(&mutex_);
   assert(background_compaction_scheduled_);
@@ -812,10 +979,11 @@ void DBImpl::BackgroundCompaction() {
 
    if (imm_ != nullptr) {
     Log(options_.info_log, "Starting leveling CompactMemTable");
-    CompactMemTable();
+    CompactLevelingMemTable();
     background_work_finished_signal_.SignalAll();
     Log(options_.info_log, "Finished leveling CompactMemTable");
   }
+
   if (hot_imm_ != nullptr) {
     Log(options_.info_log, "Starting tiering CompactHotMemTable");
     CompactMemTable();
@@ -2052,10 +2220,14 @@ Status DBImpl::Write(const WriteOptions& options, const Slice& key, const Slice&
     in_memory_batch->Put(key, value);
     in_memory_batch_kv_number++;
     hot_key_identifier->add_data(key);
+    // std::string test_key = key.ToString();
+    // auto* data = new std::pair<DBImpl*, std::string>(this, test_key);
+    // env_->Schedule(&DBImpl::AddDataBGWork, data);
     return Status::OK();
   }
   int64_t end_time = env_->NowMicros();
   identifier_time += (end_time - start_time);
+  
 
   // if(total_number < 10000){
   //   // fprintf(stderr,"in_memory_batch count: %d, hot_key_identifier count: %d\n", WriteBatchInternal::Count(in_memory_batch), hot_key_identifier->get_current_num_kv());
@@ -2122,7 +2294,7 @@ Status DBImpl::Write(const WriteOptions& options, const Slice& key, const Slice&
     // into mem_.
     {
       mutex_.Unlock();
-      status = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
+      status = log_->AddRecord(WriteBatchInternal::Contents(in_memory_batch));
       bool sync_error = false;
       if (status.ok() && options.sync) {
         status = logfile_->Sync();
@@ -2234,7 +2406,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       s = bg_error_;
       break;
     } else if (allow_delay && versions_->NumLevelFiles(0) >=
-                                  config::kL0_SlowdownWritesTrigger*config::kTiering_and_leveling_Multiplier) {
+                                  config::kL0_SlowdownWritesTrigger*config::kTiering_and_leveling_Multiplier) {  //4
       // We are getting close to hitting a hard limit on the number of
       // L0 files.  Rather than delaying a single write by several
       // seconds when we hit the hard limit, start delaying each
@@ -2256,11 +2428,11 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
     } else if (versions_->NumLevel_leveling_Files(0) >= config::kL0_StopWritesTrigger ) {
-      // There are too many level-0 files.
+      // There are too many level-0 leveling files.
       Log(options_.info_log, "Too many L0 leveling files; waiting...\n");
       background_work_finished_signal_.Wait();
     }else if (versions_->NumLevel_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
-      // There are too many level-0 files.
+      // There are too many level-0 tiering files.
       Log(options_.info_log, "Too many L0 tiering files; waiting... NumLevel_tiering_Files = %d, kTiering_and_leveling_Multiplier = %d\n",
       versions_->NumLevel_tiering_Files(0), config::kTiering_and_leveling_Multiplier);
       background_work_finished_signal_.Wait();

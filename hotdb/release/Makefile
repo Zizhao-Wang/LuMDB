@@ -844,6 +844,30 @@ db/memtable.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/memtable.cc.s
 .PHONY : db/memtable.cc.s
 
+db/partition.o: db/partition.cc.o
+.PHONY : db/partition.o
+
+# target to build an object file
+db/partition.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/partition.cc.o
+.PHONY : db/partition.cc.o
+
+db/partition.i: db/partition.cc.i
+.PHONY : db/partition.i
+
+# target to preprocess a source file
+db/partition.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/partition.cc.i
+.PHONY : db/partition.cc.i
+
+db/partition.s: db/partition.cc.s
+.PHONY : db/partition.s
+
+# target to generate assembly for a file
+db/partition.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/leveldb.dir/build.make CMakeFiles/leveldb.dir/db/partition.cc.s
+.PHONY : db/partition.cc.s
+
 db/range_merge_split.o: db/range_merge_split.cc.o
 .PHONY : db/range_merge_split.o
 
@@ -2148,6 +2172,9 @@ help:
 	@echo "... db/memtable.o"
 	@echo "... db/memtable.i"
 	@echo "... db/memtable.s"
+	@echo "... db/partition.o"
+	@echo "... db/partition.i"
+	@echo "... db/partition.s"
 	@echo "... db/range_merge_split.o"
 	@echo "... db/range_merge_split.i"
 	@echo "... db/range_merge_split.s"
