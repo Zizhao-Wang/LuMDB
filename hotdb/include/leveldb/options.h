@@ -120,6 +120,8 @@ struct LEVELDB_EXPORT Options {
   // initially populating a large database.
   size_t max_file_size = 2 * 1024 * 1024;
 
+  size_t min_file_size = 1 * 1024 * 1024;
+
   // Compress blocks using the specified compression algorithm.  This
   // parameter can be changed dynamically.
   //

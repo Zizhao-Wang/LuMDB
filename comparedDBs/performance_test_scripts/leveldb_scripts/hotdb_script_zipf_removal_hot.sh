@@ -123,8 +123,8 @@ for i in {10..10}; do
                         --compression=0 \
                         --stats_interval=$stats_interva \
                         --histogram=1 \
-                        --write_buffer_size=1048576 \
-                        --max_file_size=2097152   \
+                        --write_buffer_size=16777216 \
+                        --max_file_size=16777216   \
                         --print_wa=true \
                         &> >( tee $log_file) &  
 

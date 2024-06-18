@@ -571,49 +571,49 @@ Status DBImpl::CreatePartitions(MemTable* memtable, const Options& options) {
     current_key_pointer = iter->key().data();
     current_key_size = iter->key().size();
 
-    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) > 0){
-      
-      // if(builder->FileSize() < options.max_file_size){
+    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) < 0){
+      if(builder->FileSize()<options.min_file_size){
+        fprintf(stderr, "file size: %ld we should expand partition size\n", builder->FileSize());
+        
+        exit(0);
+      }
+      s = builder->Finish();
+      if (s.ok()) {
+        file_meta.file_size = builder->FileSize();
+        assert(file_meta.file_size > 0);
+      }
+      delete builder;
 
-      // }
-      // s = builder->Finish();
-      // if (s.ok()) {
-      //   file_meta.file_size = builder->FileSize();
-      //   assert(file_meta.file_size > 0);
-      // }
-      // delete builder;
+      mem_partitions_.insert(current_partition);
+      std::string new_start_key_str(current_key_pointer, current_key_size-8);
+      first_key_num = std::stoull(new_start_key_str.c_str()) + options.min_partition_size;
+      snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+      std::string new_partition_end_str(key_end);
+      current_partition = new mem_partition_guard(Slice(new_start_key_str), Slice(new_partition_end_str));
 
-      // // 创建新的 partition
-      // mem_partitions_.insert(current_partition);
-      // std::string new_start_key_str(current_key_pointer, current_key_size);
-      // first_key_num = std::strtoull(new_start_key_str.c_str(), nullptr, 10) + options.min_partition_size;
-      // snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-      // fprintf(stderr, "new key_end: %s\n", key_end); // 打印调试信息
-      // std::string new_partition_end_str(key_end);
-      // current_partition = new mem_partition_guard(Slice(new_start_key_str), Slice(new_partition_end_str));
-      // iter->Next();
+      // 打印新建的 mem_partition_guard 信息
+      fprintf(stderr, "New partition_start_str: %s\n", new_start_key_str.c_str());
+      fprintf(stderr, "New partition_end_str: %s\n", new_partition_end_str.c_str());
 
-
-
-      // current_partition = new mem_partition_guard();
-      // current_partition->partition_start = std::string(current_key_pointer, current_key_size);
-
-      // file_meta.number = versions_->NewFileNumber();
-      // fname = TableFileName(dbname_, file_meta.number);
-      // s = env_->NewWritableFile(fname, &file);
-      // if (!s.ok()) {
-      //   return s;
-      // }
-      // builder = new TableBuilder(options, file);
+      file_meta.number = versions_->NewFileNumber();
+      fname = TableFileName(dbname_, file_meta.number);
+      s = env_->NewWritableFile(fname, &file);
+      if (!s.ok()) {
+        return s;
+      }
+      builder = new TableBuilder(options, file);
+      builder->Add(iter->key(), iter->value());
+      iter->Next();
+      continue;
     }
 
-    // builder->Add(iter->key(), iter->value());
+    builder->Add(iter->key(), iter->value());
     current_partition->written_kvs++;
 
   }
   int64_t end_micros = env_->NowMicros();
   fprintf(stderr, "Time: %f s\n", (end_micros - start_micros)/1e6);
-  delete iter;
+  exit(0);
 
 }
 
