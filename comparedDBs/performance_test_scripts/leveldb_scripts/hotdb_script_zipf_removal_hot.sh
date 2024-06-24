@@ -39,14 +39,14 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.1 1.2 1.3 1.4 1.5; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.1 1.2 1.3 1.4 1.5; do  #  1.2 
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(0 ) #10 20 30 40 50 60 70 80 90 100
 
                     for no_hot in "${No_hot_percentages[@]}"; do
 
                         # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
-                        log_file="leveldb_comparison_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.log"
+                        log_file="leveldb_${num_format}_val_${value_size}_zipf${zipf_a}_8MB.log"
                         data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                         memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_${num_format}_key16_val${value_size}.log"
                         # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
@@ -123,8 +123,8 @@ for i in {10..10}; do
                         --compression=0 \
                         --stats_interval=$stats_interva \
                         --histogram=1 \
-                        --write_buffer_size=16777216 \
-                        --max_file_size=16777216   \
+                        --write_buffer_size=1048576 \
+                        --max_file_size=1048576   \
                         --print_wa=true \
                         &> >( tee $log_file) &  
 
