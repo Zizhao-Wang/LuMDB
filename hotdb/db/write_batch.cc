@@ -209,7 +209,7 @@ class MultiMemTableInserter : public WriteBatch::Handler {
         mem_->Add(sequence_, kTypeValue, key, value);
         return;
       }else{
-        target_partition->partition_mem->Add(sequence_, kTypeValue, key, value);
+        // target_partition->partition_mem->Add(sequence_, kTypeValue, key, value);
       }
       mem_count++;
     }

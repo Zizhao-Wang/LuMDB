@@ -275,12 +275,12 @@ class DBImpl : public DB {
   // Compact the in-memory write buffer to disk.  Switches to a new
   // log-file/memtable and writes a new descriptor iff successful.
   // Errors are recorded in bg_error_.
-  void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void CompactTieringMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
 
-  Status CreatePartitions(MemTable* memtable, const Options& options) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  Status CreatePartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status AddDataIntoPartitions(MemTable* memtable, const Options& options) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  Status AddDataIntoPartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void CompactLevelingMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
@@ -288,11 +288,10 @@ class DBImpl : public DB {
                         VersionEdit* edit, SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base, bool is_hot_mem=false)
+  Status WriteLevel0Table(MemTable* mem, VersionEdit* edit, Version* base)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-
-  Status  WritePartitionLevelingTable(MemTable* mem, VersionEdit* edit, Version* base, bool is_hot_mem=false)
+  Status  WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit, Version* base)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status MakeRoomForWrite(bool force /* compact even if there is room? */)

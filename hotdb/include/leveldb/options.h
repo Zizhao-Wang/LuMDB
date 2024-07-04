@@ -87,6 +87,8 @@ struct LEVELDB_EXPORT Options {
 
   size_t min_partition_size = 1 * 1024 * 1024;
 
+  size_t max_partition_size = 10 * 1024 * 1024;
+
   // Number of open files that can be used by the DB.  You may need to
   // increase this if your database has a large working set (budget
   // one open file per 2MB of working set).

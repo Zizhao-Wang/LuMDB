@@ -981,6 +981,12 @@ class VersionSet::Builder {
     FileSet* added_files;
   };
 
+  typedef std::set<FileMetaData*, BySmallestKey> PartitionFileSet;
+  struct PartitionLevelState {
+    std::map<uint64_t,std::set<uint64_t>> partition_deleted_files;
+    std::map<uint64_t,PartitionFileSet*> partition_added_files;
+  };
+
   typedef std::set<FileMetaData*, BySmallestKey> Tiering_files_in_run;
   struct TieringLevelState {
     std::map<int, Tiering_files_in_run*> added_files_every_runs;
@@ -989,7 +995,7 @@ class VersionSet::Builder {
 
   VersionSet* vset_;
   Version* base_;
-  LevelState levels_[config::kNumLevels];
+  PartitionLevelState partition_levels_[config::kNumLevels];
   TieringLevelState tiering_levels_[config::kNumLevels];
 
  public:
@@ -999,9 +1005,9 @@ class VersionSet::Builder {
     BySmallestKey cmp;
     cmp.internal_comparator = &vset_->icmp_;
 
-    for (int level = 0; level < config::kNumLevels; level++) {
-      levels_[level].added_files = new FileSet(cmp);
-    }
+    // for (int level = 0; level < config::kNumLevels; level++) {
+    //   levels_[level].added_files = new FileSet(cmp);
+    // }
 
     for (int level = 0; level < config::kNumLevels; level++) {
       if(level == 0){
@@ -1016,19 +1022,26 @@ class VersionSet::Builder {
 
   ~Builder() {
     for (int level = 0; level < config::kNumLevels; level++) {
-      const FileSet* added = levels_[level].added_files;
-      std::vector<FileMetaData*> to_unref;
-      to_unref.reserve(added->size());
-      for (FileSet::const_iterator it = added->begin(); it != added->end();
-           ++it) {
-        to_unref.push_back(*it);
-      }
-      delete added;
-      for (uint32_t i = 0; i < to_unref.size(); i++) {
-        FileMetaData* f = to_unref[i];
-        f->refs--;
-        if (f->refs <= 0) {
-          delete f;
+      auto& partition_files_map = partition_levels_[level].partition_added_files;
+
+      for (auto& partition_pair : partition_files_map) {
+
+        const PartitionFileSet* partition_file_set = partition_pair.second;
+        std::vector<FileMetaData*> to_unref;
+        to_unref.reserve(partition_file_set->size());
+        for (PartitionFileSet::const_iterator it = partition_file_set->begin(); it != partition_file_set->end();
+            ++it) {
+          to_unref.push_back(*it);
+        }
+
+        delete partition_file_set;
+
+        for (uint32_t i = 0; i < to_unref.size(); i++) {
+          FileMetaData* f = to_unref[i];
+          f->refs--;
+          if (f->refs <= 0) {
+            delete f;
+          }
         }
       }
       
@@ -1052,8 +1065,19 @@ class VersionSet::Builder {
     base_->Unref();
   }
 
+  void EnsurePartitionFileSetExists(int level, uint64_t partition) {
+    if (partition_levels_[level].partition_added_files.find(partition) == partition_levels_[level].partition_added_files.end()) {
+      // 动态创建 PartitionFileSet 并添加到 partition_added_files 中
+      BySmallestKey cmp;
+      cmp.internal_comparator = &vset_->icmp_;
+      partition_levels_[level].partition_added_files[partition] = new PartitionFileSet(cmp);
+    }
+  }
+
+
   // Apply all of the edits in *edit to the current state.
   void Apply(const VersionEdit* edit) {
+
     // Update compaction pointers
     for (size_t i = 0; i < edit->compact_pointers_.size(); i++) {
       const int level = edit->compact_pointers_[i].first;
@@ -1061,17 +1085,21 @@ class VersionSet::Builder {
     }
 
     // Delete files
-    for (const auto& deleted_file_set_kvp : edit->deleted_files_) {
-      const int level = deleted_file_set_kvp.first;
-      const uint64_t number = deleted_file_set_kvp.second;
-      levels_[level].deleted_files.insert(number);
-      Log(vset_->options_->info_log, "Apply: Deleting file at level=%d, number=%lu", level, number);
+    for (const auto& deleted_file_set_kvp : edit->deleted_partitioning_files_) {
+      const int level = std::get<0>(deleted_file_set_kvp);
+      const uint64_t partition = std::get<1>(deleted_file_set_kvp);
+      const uint64_t number = std::get<2>(deleted_file_set_kvp);
+      partition_levels_[level].partition_deleted_files[partition].insert(number);
+
+      Log(vset_->options_->info_log, "Apply: Deleting file at level=%d,partition%lu, number=%lu", level,partition, number);
     }
 
     // Add new files
-    for (size_t i = 0; i < edit->new_files_.size(); i++) {
-      const int level = edit->new_files_[i].first;
-      FileMetaData* f = new FileMetaData(edit->new_files_[i].second);
+    for (size_t i = 0; i < edit->new_partitioning_files_.size(); i++) {
+
+      const int level = std::get<0>(edit->new_partitioning_files_[i]);
+      const uint64_t partition = std::get<1>(edit->new_partitioning_files_[i]);
+      FileMetaData* f = new FileMetaData(std::get<2>(edit->new_partitioning_files_[i]));
       f->refs = 1;
 
       // We arrange to automatically compact this file after
@@ -1090,9 +1118,12 @@ class VersionSet::Builder {
       f->allowed_seeks = static_cast<int>((f->file_size / 16384U));
       if (f->allowed_seeks < 100) f->allowed_seeks = 100;
 
-      levels_[level].deleted_files.erase(f->number);
-      levels_[level].added_files->insert(f);
-      Log(vset_->options_->info_log, "Apply: Adding new file at level=%d, number=%lu, size=%lu", level, f->number, f->file_size);
+      partition_levels_[level].partition_deleted_files[partition].erase(f->number);
+
+      // 确保 partition_added_files 已存在
+      EnsurePartitionFileSetExists(level, partition);
+      partition_levels_[level].partition_added_files[partition]->insert(f);
+      Log(vset_->options_->info_log, "Apply: Adding new file at level=%d,partition=%lu, number=%lu, size=%lu", level, partition,f->number, f->file_size);
     }
   }
 
@@ -1106,25 +1137,55 @@ class VersionSet::Builder {
       // Merge the set of added files with the set of pre-existing files.
       // Drop any deleted files.  Store the result in *v.
 
-      const std::vector<FileMetaData*>& base_files = base_->leveling_files_[level];
-      std::vector<FileMetaData*>::const_iterator base_iter = base_files.begin();
-      std::vector<FileMetaData*>::const_iterator base_end = base_files.end();
+      for (const auto& partition_pair : partition_levels_[level].partition_added_files) {
+        uint64_t partition_id = partition_pair.first;
+        const PartitionFileSet* added_files = partition_pair.second;
 
-      const FileSet* added_files = levels_[level].added_files;
-      v->leveling_files_[level].reserve(base_files.size() + added_files->size());
+        Log(vset_->options_->info_log, "Processing partition %lu at level %d", partition_id, level);
 
-      for (const auto& added_file : *added_files) {
-        // Add all smaller files listed in base_
-        for (std::vector<FileMetaData*>::const_iterator bpos = std::upper_bound(base_iter, base_end, added_file, cmp); base_iter != bpos; ++base_iter) {
-          MaybeAddFile(v, level, *base_iter);
+        if (base_->partitioning_leveling_files_[level].find(partition_id) != base_->partitioning_leveling_files_[level].end()) {
+          const std::vector<FileMetaData*>& base_files = base_->partitioning_leveling_files_[level][partition_id];
+          std::vector<FileMetaData*>::const_iterator base_iter = base_files.begin();
+          std::vector<FileMetaData*>::const_iterator base_end = base_files.end();
+
+          v->partitioning_leveling_files_[level][partition_id].reserve(base_files.size() + added_files->size());
+          Log(vset_->options_->info_log, "Merging files for partition %lu at level %d", partition_id, level);
+
+          for (const auto& added_file : *added_files) {
+            // Add all smaller files listed in base_
+            for (std::vector<FileMetaData*>::const_iterator bpos = std::upper_bound(base_iter, base_end, added_file, cmp); base_iter != bpos; ++base_iter) {
+              MaybeAddFile(v, level, partition_id, *base_iter);
+            }
+            MaybeAddFile(v, level, partition_id, added_file);
+          }
+          // Add remaining base files
+          for (; base_iter != base_end; ++base_iter) {
+            MaybeAddFile(v, level, partition_id, *base_iter);
+          }
+        }else{
+          Log(vset_->options_->info_log, "Adding new files for partition %lu at level %d", partition_id, level);
+          for (FileMetaData* file : *added_files) {
+            v->partitioning_leveling_files_[level][partition_id].push_back(file);
+            // Log(vset_->options_->info_log, "FileMetaData* file: %p", file);
+          }
+          for(int i = 0; i<v->partitioning_leveling_files_[level][partition_id].size();i++){
+            v->partitioning_leveling_files_[level][partition_id][i]->refs++;
+            // Log(vset_->options_->info_log, "FileMetaData* v->partitioning_leveling_files_[level][partition_id][%lu]: %p", i, v->partitioning_leveling_files_[level][partition_id][i]);
+          }
         }
-
-        MaybeAddFile(v, level, added_file);
       }
 
-      // Add remaining base files
-      for (; base_iter != base_end; ++base_iter) {
-        MaybeAddFile(v, level, *base_iter);
+
+      for (const auto& base_partition : base_->partitioning_leveling_files_[level]) {
+        uint64_t partition_id = base_partition.first;
+        // 如果 partition_added_files 中没有该分区，直接复制基础版本中的文件
+        if (partition_levels_[level].partition_added_files.find(partition_id) == partition_levels_[level].partition_added_files.end()) {
+          Log(vset_->options_->info_log, "Copying base files for partition %lu at level %d", partition_id, level);
+          v->partitioning_leveling_files_[level][partition_id] = base_partition.second;
+          for(int i = 0; i<v->partitioning_leveling_files_[level][partition_id].size();i++){
+            v->partitioning_leveling_files_[level][partition_id][i]->refs++;
+          }
+        }
       }
 
       if(level == 0){
@@ -1160,17 +1221,19 @@ class VersionSet::Builder {
     }
   }
 
-  void MaybeAddFile(Version* v, int level, FileMetaData* f) {
-    if (levels_[level].deleted_files.count(f->number) > 0) {
+  void MaybeAddFile(Version* v, int level, uint64_t partition, FileMetaData* f) {
+    if (partition_levels_[level].partition_deleted_files[partition].count(f->number) > 0) {
       // File is deleted: do nothing
+      Log(vset_->options_->info_log, "File %lu in partition %lu at level %d is deleted, skipping", f->number, partition, level);
     } else {
-      std::vector<FileMetaData*>* files = &v->leveling_files_[level];
+      std::vector<FileMetaData*>* files = &v->partitioning_leveling_files_[level][partition];
       if (level > 0 && !files->empty()) {
         // Must not overlap
         assert(vset_->icmp_.Compare((*files)[files->size() - 1]->largest, f->smallest) < 0);
       }
       f->refs++;
       files->push_back(f);
+      Log(vset_->options_->info_log, "Added file %lu to partition %lu at level %d, refs: %d", f->number, partition, level, f->refs);
     }
   }
 
@@ -1266,12 +1329,13 @@ class VersionSet::Builder {
       }
 
       // Handle leveling files
-      v->leveling_files_[level] = base_->leveling_files_[level];
-      for(int i=0;i<v->leveling_files_[level].size();i++){
-        v->leveling_files_[level][i]->refs++;
+      v->partitioning_leveling_files_[level] = base_->partitioning_leveling_files_[level];
+      for (auto& partition_pair : v->partitioning_leveling_files_[level]) {
+        std::vector<FileMetaData*>& files = partition_pair.second;
+        for (size_t i = 0; i < files.size(); i++) {
+          files[i]->refs++;
+        }
       }
-
-      
 
 #ifndef NDEBUG
       // Make sure there is no overlap in levels > 0
@@ -1326,6 +1390,7 @@ VersionSet::VersionSet(const std::string& dbname, const Options* options,
       table_cache_(table_cache),
       icmp_(*cmp),
       next_file_number_(2), // 1 is the manifest file
+      next_parition_number_(1), // used to identify partitions
       manifest_file_number_(0),  // Filled by Recover()
       last_sequence_(0),
       log_number_(0),
@@ -1923,13 +1988,16 @@ void VersionSet::AddLiveFiles(std::set<uint64_t>* live) {
   for (Version* v = dummy_versions_.next_; v != &dummy_versions_; v = v->next_) {
     for (int level = 0; level < config::kNumLevels; level++) {
       Log(options_->info_log, "Version %p", static_cast<void*>(v));
-      const std::vector<FileMetaData*>& leveling_files = v->leveling_files_[level];
-      Log(options_->info_log, "  Level %d (leveling): %zu files", level, leveling_files.size());
-      for (size_t i = 0; i < leveling_files.size(); i++) {
-        live->insert(leveling_files[i]->number);
-        Log(options_->info_log, "    Leveling File #%llu, size: %llu",
-        (unsigned long long)leveling_files[i]->number,
-        (unsigned long long)leveling_files[i]->file_size);
+      for (const auto& partition_pair : v->partitioning_leveling_files_[level]) {
+        uint64_t partition_id = partition_pair.first;
+        const std::vector<FileMetaData*>& leveling_files = partition_pair.second;
+        Log(options_->info_log, "  Level %d, Partition %llu: %zu files", level, (unsigned long long)partition_id, leveling_files.size());    
+        for (size_t i = 0; i < leveling_files.size(); i++) {
+          live->insert(leveling_files[i]->number);
+          Log(options_->info_log, "    Leveling File #%llu, size: %llu",
+          (unsigned long long)leveling_files[i]->number,
+          (unsigned long long)leveling_files[i]->file_size);
+        }
       }
 
       // Process tiering files in each run

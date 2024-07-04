@@ -190,6 +190,7 @@ class Version {
   // std::vector<FileMetaData*> files_[config::kNumLevels]; //当前时刻的DB的每一个level的所有的文件集合
   std::vector<FileMetaData*> leveling_files_[config::kNumLevels];
 
+  std::map<uint64_t,std::vector<FileMetaData*>> partitioning_leveling_files_[config::kNumLevels];
   // std::set<partition_guard*, PartitionGuardComparator> leveling_part_;
 
   
@@ -239,6 +240,8 @@ class VersionSet {
 
   // Allocate and return a new file number
   uint64_t NewFileNumber() { return next_file_number_++; }
+
+  uint64_t NewPartitionNumber() { return next_parition_number_++; }
 
   // Arrange to reuse "file_number" unless a newer file number has
   // already been allocated.
@@ -403,6 +406,8 @@ class VersionSet {
   uint64_t last_sequence_;
   uint64_t log_number_;
   uint64_t prev_log_number_;  // 0 or backing store for memtable being compacted
+
+  uint64_t next_parition_number_; // number is used to identify the partition
 
   // Opened lazily
   WritableFile* descriptor_file_;

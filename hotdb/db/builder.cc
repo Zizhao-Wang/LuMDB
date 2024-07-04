@@ -103,11 +103,11 @@ Status BuildTable2(const std::string& dbname, Env* env, const Options& options,
       builder->Add(key, iter->value());
       index++;
 
-      if(index ==1 || index % 10000 ==0){
-        InternalKey test_key;
-        test_key.DecodeFrom(key);
-        fprintf(stderr,"current key is %s\n",test_key.DebugString().c_str());
-      }
+      // if(index ==1 || index % 10000 ==0){
+      //   InternalKey test_key;
+      //   test_key.DecodeFrom(key);
+      //   fprintf(stderr,"current key is %s\n",test_key.DebugString().c_str());
+      // }
     }
 
     fprintf(stderr, "index is %d\n\n\n",index);

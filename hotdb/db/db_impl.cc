@@ -530,174 +530,8 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   return status;
 }
 
-Status DBImpl::CreatePartitions(MemTable* memtable, const Options& options) {
-
-  Status s;
-
-  Iterator* iter = memtable->NewIterator();
-  iter->SeekToFirst();
-  const char* key_tmp_pointer = iter->key().data();;
-  size_t tmp_key_size = iter->key().size()-8;;
-
-  FileMetaData file_meta;
-  file_meta.number = versions_->NewFileNumber();
-  std::string fname = TableFileName(dbname_, file_meta.number);
-  WritableFile* file;
-  s = env_->NewWritableFile(fname, &file);
-  if (!s.ok()) {
-    return s;
-  }
-  TableBuilder* builder = new TableBuilder(options, file);
-
-  // create the first mem partition
-  
-  
-  uint64_t first_key_num;
-  std::string key_strat_str = std::string(key_tmp_pointer, tmp_key_size);
-  Slice key_start(key_strat_str);
-  first_key_num = std::stoull(key_strat_str);
-  first_key_num += options.min_partition_size;
-
-  char key_end[17]; // 确保有足够的空间来存储结束字符串和终止符
-  snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-
-  mem_partition_guard* current_partition = new mem_partition_guard(key_strat_str, key_end);
-
-  const char* current_key_pointer;
-  size_t current_key_size;
-  int64_t start_micros = env_->NowMicros();
-  for (; iter->Valid(); iter->Next()) {
-
-    current_key_pointer = iter->key().data();
-    current_key_size = iter->key().size();
-
-    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) < 0){
-      if(builder->FileSize()<options.min_file_size){
-        fprintf(stderr, "file size: %ld we should expand partition size\n", builder->FileSize());
-        
-        exit(0);
-      }
-      s = builder->Finish();
-      if (s.ok()) {
-        file_meta.file_size = builder->FileSize();
-        assert(file_meta.file_size > 0);
-      }
-      delete builder;
-
-      mem_partitions_.insert(current_partition);
-      std::string new_start_key_str(current_key_pointer, current_key_size-8);
-      first_key_num = std::stoull(new_start_key_str.c_str()) + options.min_partition_size;
-      snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-      std::string new_partition_end_str(key_end);
-      current_partition = new mem_partition_guard(Slice(new_start_key_str), Slice(new_partition_end_str));
-
-      // 打印新建的 mem_partition_guard 信息
-      fprintf(stderr, "New partition_start_str: %s\n", new_start_key_str.c_str());
-      fprintf(stderr, "New partition_end_str: %s\n", new_partition_end_str.c_str());
-
-      file_meta.number = versions_->NewFileNumber();
-      fname = TableFileName(dbname_, file_meta.number);
-      s = env_->NewWritableFile(fname, &file);
-      if (!s.ok()) {
-        return s;
-      }
-      builder = new TableBuilder(options, file);
-      builder->Add(iter->key(), iter->value());
-      iter->Next();
-      continue;
-    }
-
-    builder->Add(iter->key(), iter->value());
-    current_partition->written_kvs++;
-
-  }
-  int64_t end_micros = env_->NowMicros();
-  fprintf(stderr, "Time: %f s\n", (end_micros - start_micros)/1e6);
-  exit(0);
-
-}
-
-
-Status DBImpl::AddDataIntoPartitions(MemTable* memtable, const Options& options){
-
-  // return s;
-}
-
-
-
-Status DBImpl::WritePartitionLevelingTable(MemTable* mem, VersionEdit* edit,
-                                Version* base, bool is_hot_mem) {
-  mutex_.AssertHeld();
-  const uint64_t start_micros = env_->NowMicros();
-
-  FileMetaData meta;
-  
-  meta.number = versions_->NewFileNumber();
-  // 设置 logger
-  edit->set_logger(options_.info_log);
-
-
-  pending_outputs_.insert(meta.number); 
-  Iterator* iter = mem->NewIterator();
-
-  Log(options_.info_log,
-    "Level-0 Leveling: Table #%llu minor compaction - Started",
-    (unsigned long long)meta.number);
-
-  Status s;
-  {
-    mutex_.Unlock();
-    s = BuildTable2(dbname_, env_, options_, table_cache_, iter, &meta);
-    mutex_.Lock();
-  }
-
-  Log(options_.info_log,
-    "Level-0 Leveling: Table #%llu, Size: %lld bytes, Status: %s",
-    (unsigned long long)meta.number,
-    (unsigned long long)meta.file_size,
-    s.ToString().c_str());
-  
-
-  delete iter;
-  pending_outputs_.erase(meta.number);
-
-  // Note that if file_size is zero, the file has been deleted and
-  // should not be added to the manifest.
-  int level = 0;
-  if (s.ok() && meta.file_size > 0) {
-    const Slice min_user_key = meta.smallest.user_key();
-    const Slice max_user_key = meta.largest.user_key();
-
-    if(base!= nullptr && is_hot_mem){
-      level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
-      edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest);
-    }
-  }
-
-  CompactionStats stats;
-  stats.micros = env_->NowMicros() - start_micros;
-  stats.bytes_written = meta.file_size;
-  stats_[level].Add(stats);
-
-
-  // newly added source codes
-  level_stats_[0].micros = env_->NowMicros() - start_micros;
-  level_stats_[0].user_bytes_written = meta.file_size;
-  if(is_hot_mem){
-    level_stats_[0].num_tiering_files++;
-    level_stats_[0].tiering_bytes_written += meta.file_size;
-  }else{
-    level_stats_[0].num_leveling_files++;
-    level_stats_[0].leveling_bytes_written += meta.file_size;
-  }
-  
-  return s;
-}
-
-
-
 Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
-                                Version* base, bool is_hot_mem) {
+                                Version* base) {
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
 
@@ -705,7 +539,6 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   meta.number = versions_->NewFileNumber();
   // 设置 logger
   edit->set_logger(options_.info_log);
-
 
   pending_outputs_.insert(meta.number); 
   Iterator* iter = mem->NewIterator();
@@ -720,7 +553,6 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   {
     mutex_.Unlock();
     s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
-    
     mutex_.Lock();
   }
 
@@ -742,7 +574,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     const Slice min_user_key = meta.smallest.user_key();
     const Slice max_user_key = meta.largest.user_key();
 
-    if(base!= nullptr && is_hot_mem){
+    if(base!= nullptr ){
       // level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
       edit->AddTieringFile(level, 0, meta.number, meta.file_size, meta.smallest, meta.largest);
     }
@@ -757,25 +589,22 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   // newly added source codes
   level_stats_[0].micros = env_->NowMicros() - start_micros;
   level_stats_[0].user_bytes_written = meta.file_size;
-  if(is_hot_mem){
-    level_stats_[0].num_tiering_files++;
-    level_stats_[0].tiering_bytes_written += meta.file_size;
-  }else{
-    level_stats_[0].num_leveling_files++;
-    level_stats_[0].leveling_bytes_written += meta.file_size;
-  }
+
+  level_stats_[0].num_leveling_files++;
+  level_stats_[0].leveling_bytes_written += meta.file_size;
+  
   
   return s;
 }
 
-void DBImpl::CompactMemTable() {
+void DBImpl::CompactTieringMemTable() {
   mutex_.AssertHeld();
 
   // Compact the hot immutable memtable
   VersionEdit hot_edit;
   Version* hot_base = versions_->current();
   hot_base->Ref();
-  Status hot_s = WriteLevel0Table(hot_imm_, &hot_edit, hot_base, true);
+  Status hot_s = WriteLevel0Table(hot_imm_, &hot_edit, hot_base);
   hot_base->Unref();
 
   if (hot_s.ok() && shutting_down_.load(std::memory_order_acquire)) {
@@ -800,11 +629,441 @@ void DBImpl::CompactMemTable() {
   RemoveObsoleteFiles();
 }
 
+void PrintPartitionFiles(const std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) {
+  for (const auto& partition_file : partition_files) {
+    uint64_t partition_start = partition_file.first;
+    FileMetaData* file_meta = partition_file.second;
+    fprintf(stderr, "Partition number: %lu | File start: %s | File number: %lu | File size: %lu bytes | Smallest key: %s | Largest key: %s\n", 
+      partition_start, file_meta->smallest.DebugString().c_str(), file_meta->number, file_meta->file_size, 
+      file_meta->smallest.DebugString().c_str(), file_meta->largest.DebugString().c_str());
+    }
+}
+
+void PrintPartitionAndFileInfo(const mem_partition_guard* current_partition, const FileMetaData* file_meta) {
+  fprintf(stderr, "============================================\n");
+  fprintf(stderr, "Partition Information:\n");
+  fprintf(stderr, "  Partition number: %llu\n", (unsigned long long)current_partition->partition_num);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "File Metadata Information:\n");
+  fprintf(stderr, "  File number: %llu\n", (unsigned long long)file_meta->number);
+  fprintf(stderr, "  File size: %llu bytes\n", (unsigned long long)file_meta->file_size);
+  fprintf(stderr, "  Smallest key: %s\n", file_meta->smallest.DebugString().c_str());
+  fprintf(stderr, "  Largest key: %s\n", file_meta->largest.DebugString().c_str());
+  fprintf(stderr, "============================================\n");
+}
+
+void PrintPartitions(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions) {
+    for (const auto& partition : mem_partitions) {
+      fprintf(stderr, "Partition:%lu | Start:%s(%llu) | End:%s | Total files:%lu | Written KVs:%lu | Total file size:%lu bytes | Min file size:%lu bytes\n",
+        partition->partition_num, partition->partition_start_str.c_str(), std::stoull(partition->partition_start_str),
+        partition->partition_end_str.c_str(), partition->total_files, partition->written_kvs,
+        partition->total_file_size, partition->min_file_size);
+    }
+}
+
+Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files){
+  int i = 0;
+  Status s;
+  iter->SeekToFirst();
+  Slice add_key;
+
+  FileMetaData* file_meta = new FileMetaData();
+  file_meta->number = versions_->NewFileNumber();
+
+  pending_outputs_.insert(file_meta->number); 
+  fprintf(stderr, "New file(%lu) was created!\n", file_meta->number);
+  std::string fname = TableFileName(dbname_, file_meta->number);
+  WritableFile* file;
+  s = env_->NewWritableFile(fname, &file);
+  if (!s.ok()) {
+    return s;
+  }
+  TableBuilder* builder = new TableBuilder(options, file);
+
+  uint64_t first_key_num;
+  char key_end[17];
+  uint64_t now_partition_number;
+
+  const char* current_key_pointer = iter->key().data();
+  size_t current_key_size = iter->key().size()-8;
+  int64_t start_micros = env_->NowMicros();
+  file_meta->smallest.DecodeFrom(iter->key()); 
+
+  mem_partition_guard* current_partition = nullptr;
+  std::string current_key_str(current_key_pointer, current_key_size);
+  mem_partition_guard temp_partition(current_key_str, current_key_str);
+  bool is_last_expand = false;
+    
+  // 使用 upper_bound 查找第一个大于 temp_partition 的 partition
+  auto it = mem_partitions_.upper_bound(&temp_partition);
+
+  if(it == mem_partitions_.begin()){
+    current_partition = *it;
+    assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size) > 0);
+    uint64_t length_gap = current_partition->GetPartitionStart() - std::stoull(current_key_str);
+    if(length_gap + current_partition->GetPartitionLength() < options.max_partition_size){
+      first_key_num = std::stoull(current_key_str);
+      snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+      std::string new_end_str(key_end);
+      current_partition->UpdatePartitionStart(new_end_str);
+    } 
+  }else{
+    --it;
+    current_partition = *it;
+  }
+  // fprintf(stderr, "Partition start: %s, end: %s\n", (*it)->partition_start.ToString().c_str(), (*it)->partition_end.ToString().c_str());
+
+  for (; iter->Valid(); iter->Next()) {
+
+    current_key_pointer = iter->key().data();
+    current_key_size = iter->key().size();
+
+    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) < 0){
+
+      if(builder->FileSize() < options.min_file_size && IsLastPartition(mem_partitions_,current_partition)){
+        // size_t current_file_size = builder->FileSize();
+        // if (current_file_size == 0) {
+        //   current_file_size = options.min_file_size/10;
+        // }
+        // size_t new_partition_count = (options.min_file_size / current_file_size)+1;
+        // size_t new_partition_size = new_partition_count * options.min_partition_size;
+        // uint64_t current_partition_end  = current_partition->GetPartitionLength();
+
+        // first_key_num = new_partition_size;
+        // snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+        // std::string new_end_str(key_end);
+        // current_partition->UpdatePartitionEnd(new_end_str);
+        add_key = iter->key();
+        builder->Add(add_key, iter->value());
+        is_last_expand = true;
+        continue;
+      }
+
+      s = builder->Finish();
+      if (s.ok()) {
+        file_meta->file_size = builder->FileSize();
+        // fprintf(stderr, "file size: %ld (bytes)\n", file_meta->file_size);
+        assert(file_meta->file_size > 0);
+      }
+      current_partition->Add_File(file_meta->file_size, builder->NumEntries());
+      delete builder;
+      file_meta->largest.DecodeFrom(add_key);
+      if(is_last_expand){
+        std::string new_end_str(add_key.data(), current_key_size-8);
+        current_partition->UpdatePartitionEnd(new_end_str);
+        is_last_expand = false;
+      }
+
+      partition_files.emplace_back(current_partition->partition_num, file_meta);
+      PrintPartitionAndFileInfo(current_partition, file_meta);
+
+      current_partition = nullptr;
+      file_meta = nullptr;
+
+      std::string temp_key_str(current_key_pointer, current_key_size-8);
+      mem_partition_guard temp_partition(temp_key_str, temp_key_str);
+      it = mem_partitions_.upper_bound(&temp_partition);
+      
+      if(it == mem_partitions_.end()){
+        std::string new_start_key_str(current_key_pointer, current_key_size-8);
+        first_key_num = std::stoull(new_start_key_str) + options.min_partition_size;
+        snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+        std::string new_partition_end_str(key_end);
+        current_partition = new mem_partition_guard(new_start_key_str, new_partition_end_str);
+        now_partition_number = versions_->NewPartitionNumber();
+        current_partition->partition_num = now_partition_number;
+        mem_partitions_.insert(current_partition);
+      }else{
+        assert(it != mem_partitions_.begin());
+        it--;
+        current_partition = *it;
+        if(current_partition->CompareWithEnd(current_key_pointer, current_key_size-8) < 0){
+          it++;
+          current_partition = *it;
+          if(current_partition->GetAverageFileSize() < options.min_file_size){
+            std::string new_start_str(current_key_pointer, current_key_size-8);
+            current_partition->UpdatePartitionStart(new_start_str);
+          }else{
+            first_key_num = std::stoull(temp_key_str);
+            snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+            std::string new_start_str(key_end);
+            first_key_num = current_partition->GetPartitionStart()-1;
+            snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+            std::string new_end_str(key_end);
+            current_partition = new mem_partition_guard(new_start_str, new_end_str);
+            now_partition_number = versions_->NewPartitionNumber();
+            current_partition->partition_num = now_partition_number;
+            mem_partitions_.insert(current_partition);
+          }
+        }else{
+          assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size-8) <= 0);
+        }
+      }
+
+      file_meta = new FileMetaData();
+      file_meta->number = versions_->NewFileNumber();
+
+      pending_outputs_.insert(file_meta->number);
+      // fprintf(stderr, "New file(%lu) was created!\n", file_meta->number);
+      fname = TableFileName(dbname_, file_meta->number);
+      s = env_->NewWritableFile(fname, &file);
+      if (!s.ok()) {
+        return s;
+      }
+      builder = new TableBuilder(options, file);
+      add_key = iter->key();
+      builder->Add(add_key, iter->value());
+      file_meta->smallest.DecodeFrom(add_key);
+      continue;
+      // fprintf(stderr, "Current key: %s\n", current_key_pointer);
+      // fprintf(stderr, "Partition start: %s, end: %s\n", (*it)->partition_start.ToString().c_str(), (*it)->partition_end.ToString().c_str());
+      // fprintf(stderr, "Partition start: %s, end: %s\n", current_partition->partition_start.ToString().c_str(), current_partition->partition_end.ToString().c_str());
+    }
+    
+    add_key = iter->key();
+    builder->Add(add_key, iter->value());
+  }
+
+  if(current_partition != nullptr && file_meta != nullptr){
+    s = builder->Finish();
+    if(!add_key.empty()){
+      file_meta->largest.DecodeFrom(add_key);
+    }
+    if (s.ok()) {
+      file_meta->file_size = builder->FileSize();
+      assert(file_meta->file_size > 0);
+    }
+    current_partition->Add_File(file_meta->file_size, builder->NumEntries());
+    delete builder;
+    partition_files.emplace_back(now_partition_number, file_meta);
+    PrintPartitionAndFileInfo(current_partition, file_meta);
+  }
+
+  PrintPartitions(mem_partitions_);
+
+  return s;
+}
+
+
+Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) {
+
+  Status s;
+  iter->SeekToFirst();
+  Slice add_key;
+
+  FileMetaData* file_meta = new FileMetaData();
+  file_meta->number = versions_->NewFileNumber();
+
+  pending_outputs_.insert(file_meta->number); 
+  // fprintf(stderr, "New file(%lu) was created!\n", file_meta->number);
+  std::string fname = TableFileName(dbname_, file_meta->number);
+  WritableFile* file;
+  s = env_->NewWritableFile(fname, &file);
+  if (!s.ok()) {
+    return s;
+  }
+  TableBuilder* builder = new TableBuilder(options, file);
+
+  // create the first mem partition
+  uint64_t first_key_num;
+  const char* key_tmp_pointer = iter->key().data();;
+  size_t tmp_key_size = iter->key().size()-8;
+  std::string key_strat_str = std::string(key_tmp_pointer, tmp_key_size);
+  Slice key_start(key_strat_str);
+  first_key_num = std::stoull(key_strat_str);
+  first_key_num += options.min_partition_size;
+  char key_end[17]; 
+  snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+  mem_partition_guard* current_partition = new mem_partition_guard(key_strat_str, key_end);
+
+  uint64_t now_partition_number = versions_->NewPartitionNumber();
+  current_partition->partition_num = now_partition_number;
+  Log(options_.info_log,
+    "Level-0 Leveling: partition:%lu, Table #%llu minor compaction - Started",
+    current_partition->partition_num, (unsigned long long)file_meta->number);
+
+  const char* current_key_pointer;
+  bool is_last_expand = false;
+  size_t current_key_size;
+  int64_t start_micros = env_->NowMicros();
+  file_meta->smallest.DecodeFrom(iter->key()); 
+
+  for (; iter->Valid(); iter->Next()) {
+    current_key_pointer = iter->key().data();
+    current_key_size = iter->key().size();
+
+    // std::string truncated_key(current_key_pointer, current_key_size - 8);
+    // fprintf(stderr, "current key: %s key size: %ld\n", truncated_key.c_str(), current_key_size);
+
+    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) < 0){
+      if(builder->FileSize()<options.min_file_size){
+        // fprintf(stderr, "file size: %ld (bytes). we should expand partition size kvs: %ld\n", builder->NumEntries(),current_partition->written_kvs);
+        // size_t current_file_size = builder->FileSize();
+        // if (current_file_size == 0) {
+        //   current_file_size = options.min_file_size/10;
+        // }
+        // size_t new_partition_count = (options.min_file_size / current_file_size)+1;
+        // size_t new_partition_size = new_partition_count * options.min_partition_size;
+
+        // first_key_num = current_partition->GetPartitionEnd();
+        // first_key_num += new_partition_size;
+
+        // fprintf(stderr, "current partition end: %llu, new partition end: %lu\n", current_partition->GetPartitionEnd(), first_key_num);
+        // snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+        std::string new_end_str(current_key_pointer, current_key_size - 8);
+        current_partition->UpdatePartitionEnd(new_end_str);
+
+        add_key = iter->key();
+        builder->Add(add_key, iter->value());
+        // is_last_expand = true;
+        continue;
+      }
+
+
+      s = builder->Finish();
+      if (s.ok()) {
+        file_meta->file_size = builder->FileSize();
+        assert(file_meta->file_size > 0);
+      }
+      current_partition->Add_File(file_meta->file_size, builder->NumEntries());
+      delete builder;
+      file_meta->largest.DecodeFrom(add_key);
+      partition_files.emplace_back(now_partition_number, file_meta);
+      mem_partitions_.insert(current_partition);
+      // if(is_last_expand){
+      //   std::string new_end_str(add_key.data(), current_key_size-8);
+      //   current_partition->UpdatePartitionEnd(new_end_str);
+      //   is_last_expand = false;
+      // }
+
+      current_partition = nullptr;
+      file_meta = nullptr;
+
+      std::string new_start_key_str(current_key_pointer, current_key_size-8);
+      first_key_num = std::stoull(new_start_key_str.c_str()) + options.min_partition_size;
+      snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
+      std::string new_partition_end_str(key_end);
+      current_partition = new mem_partition_guard(new_start_key_str, new_partition_end_str);
+      now_partition_number = versions_->NewPartitionNumber();
+      current_partition->partition_num = now_partition_number;
+
+      // 打印新建的 mem_partition_guard 信息
+      file_meta = new FileMetaData();
+      file_meta->number = versions_->NewFileNumber();
+
+      pending_outputs_.insert(file_meta->number);
+      // fprintf(stderr, "New file(%lu) was created!\n", file_meta->number);
+      fname = TableFileName(dbname_, file_meta->number);
+      s = env_->NewWritableFile(fname, &file);
+      if (!s.ok()) {
+        return s;
+      }
+      builder = new TableBuilder(options, file);
+      add_key = iter->key();
+      builder->Add(add_key, iter->value());
+      file_meta->smallest.DecodeFrom(add_key);
+      continue;
+    }
+    
+    add_key = iter->key();
+    builder->Add(add_key, iter->value());
+  }
+
+  if(current_partition != nullptr && file_meta != nullptr){
+    if (!add_key.empty()){ 
+      fprintf(stderr,"the added key is %s\n", add_key.ToString().c_str());
+      file_meta->largest.DecodeFrom(add_key);
+    }
+    s = builder->Finish();
+    if (s.ok()) {
+      file_meta->file_size = builder->FileSize();
+      assert(file_meta->file_size > 0);
+    }
+    current_partition->Add_File(file_meta->file_size, builder->NumEntries());
+    delete builder;
+    mem_partitions_.insert(current_partition);
+    partition_files.emplace_back(now_partition_number, file_meta);
+  }
+  int64_t end_micros = env_->NowMicros();
+  PrintPartitions(mem_partitions_);
+  exit(0);
+  return s;
+}
+
+Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
+                                Version* base) {
+  mutex_.AssertHeld();
+  const uint64_t start_micros = env_->NowMicros();
+
+  std::vector<std::pair<uint64_t, FileMetaData*>> partition_files;
+  edit->set_logger(options_.info_log); // 设置 logger
+
+  Iterator* iter = mem->NewIterator();
+
+  Status s;
+  {
+    mutex_.Unlock();
+    if(mem_partitions_.size() == 0){
+      s = CreatePartitions(iter, options_, partition_files);
+    }else{
+      s = AddDataIntoPartitions(iter, options_, partition_files);
+    }
+    mutex_.Lock();
+  }
+
+
+  int64_t total_file_size = 0;
+  for (const auto& partition_file : partition_files) {
+    uint64_t partition_start = partition_file.first;
+    FileMetaData* file_meta = partition_file.second;
+    Log(options_.info_log,
+      "Level-0 Leveling:Partition:%lu Table #%llu, Size: %lld bytes, Status: %s",partition_start,
+      (unsigned long long)file_meta->number,
+      (unsigned long long)file_meta->file_size,
+      s.ToString().c_str());
+    pending_outputs_.erase(file_meta->number);
+    total_file_size += file_meta->file_size;
+  }
+  delete iter;
+  
+
+  // Note that if file_size is zero, the file has been deleted and
+  // should not be added to the manifest.
+  int level = 0;
+  if (s.ok() && base!= nullptr) {
+    for (const auto& partition_file : partition_files) {
+      edit->AddPartitionLevelingFile(partition_file.first, level, partition_file.second->number, 
+          partition_file.second->file_size, partition_file.second->smallest, partition_file.second->largest);
+    }
+  }
+
+  for (auto& partition_file : partition_files) {
+    delete partition_file.second;
+  }
+  partition_files.clear();
+
+  CompactionStats stats;
+  stats.micros = env_->NowMicros() - start_micros;
+  stats.bytes_written = total_file_size;
+  stats_[level].Add(stats);
+
+
+  // newly added source codes
+  level_stats_[0].micros = env_->NowMicros() - start_micros;
+  level_stats_[0].user_bytes_written = total_file_size;
+  level_stats_[0].num_leveling_files++;
+  level_stats_[0].leveling_bytes_written += total_file_size;
+  
+  
+  return s;
+}
+
 
 void DBImpl::CompactLevelingMemTable() {
   mutex_.AssertHeld();
   assert(imm_ != nullptr );
   Status s;
+  
 
   // Compact the regular immutable memtable
   if (imm_ != nullptr) {
@@ -812,13 +1071,11 @@ void DBImpl::CompactLevelingMemTable() {
     Version* base = versions_->current();
     base->Ref();
 
-    if(mem_partitions_.empty()){
-      s = CreatePartitions(imm_, options_);
-    }else{
-      s = AddDataIntoPartitions(imm_, options_);
-    }
+    s = WritePartitionLevelingL0Table(imm_, &edit, base);
 
+    // PrintPartitionFiles(partition_files);
     // Status s = WriteLevel0Table(imm_, &edit, base, false);
+
     base->Unref();
 
     if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
@@ -842,6 +1099,7 @@ void DBImpl::CompactLevelingMemTable() {
   }
 
   RemoveObsoleteFiles();
+
 }
 
 void DBImpl::CompactRange(const Slice* begin, const Slice* end) {
@@ -986,7 +1244,7 @@ void DBImpl::BackgroundCompaction() {
 
   if (hot_imm_ != nullptr) {
     Log(options_.info_log, "Starting tiering CompactHotMemTable");
-    CompactMemTable();
+    CompactTieringMemTable();
     background_work_finished_signal_.SignalAll();
     Log(options_.info_log, "Finished tiering CompactHotMemTable");
   }
@@ -1505,7 +1763,7 @@ Status DBImpl::DoTieringCompactionWork(CompactionState* compact) {
       const uint64_t imm_start = env_->NowMicros();
       mutex_.Lock();
       if (hot_imm_ != nullptr) {
-        CompactMemTable();
+        CompactTieringMemTable();
         // Wake up MakeRoomForWrite() if necessary.
         background_work_finished_signal_.SignalAll();
       }
@@ -1709,7 +1967,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       const uint64_t imm_start = env_->NowMicros();
       mutex_.Lock();
       if (imm_ != nullptr) {
-        CompactMemTable();
+        CompactLevelingMemTable();
         // Wake up MakeRoomForWrite() if necessary.
         background_work_finished_signal_.SignalAll();
       }
@@ -2213,7 +2471,10 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
 Status DBImpl::Write(const WriteOptions& options, const Slice& key, const Slice& value){
   MutexLock l(&mutex_);
   
-
+  // if(key.size() > 16){
+  //   fprintf(stderr,"key size:%ld, value size:%ld\n", key.size(), value.size());
+  // }
+  
   int64_t start_time = env_->NowMicros();
   if(in_memory_batch_kv_number<10000){
     // fprintf(stderr,"in_memory_batch count: %d, hot_key_identifier count: %d\n", WriteBatchInternal::Count(in_memory_batch), hot_key_identifier->get_current_num_kv());

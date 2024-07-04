@@ -46,7 +46,7 @@ for i in {10..10}; do
                     for no_hot in "${No_hot_percentages[@]}"; do
 
                         # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
-                        log_file="leveldb_${num_format}_val_${value_size}_zipf${zipf_a}_8MB.log"
+                        log_file="leveldb_${num_format}_val_${value_size}_zipf${zipf_a}_1MB.log"
                         data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                         memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_${num_format}_key16_val${value_size}.log"
                         # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
