@@ -293,11 +293,14 @@ CMakeFiles/leveldb_tests.dir/db/autocompact_test.cc.o: \
  /usr/include/c++/11/unordered_map \
  /usr/include/c++/11/bits/unordered_map.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/partition.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_edit.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/memtable.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/skiplist.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./util/arena.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./util/random.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_set.h \
+ /usr/include/c++/11/list /usr/include/c++/11/bits/stl_list.h \
+ /usr/include/c++/11/bits/list.tcc \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_edit.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/cache.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./util/testutil.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include/gmock/gmock.h \

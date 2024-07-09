@@ -1747,6 +1747,9 @@ class Benchmark {
           const uint64_t k = std::stoull(row_data[0]);
           // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
           char key[100];
+          if(k == 999853043712678784){
+            fprintf(stderr,"found!!!!\n");
+          }
           snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
           s = db_->Batch_Put(write_options_, key, gen.Generate(value_size_));
           if (!s.ok()) {

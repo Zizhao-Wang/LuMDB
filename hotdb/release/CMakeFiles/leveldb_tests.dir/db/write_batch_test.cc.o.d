@@ -289,7 +289,10 @@ CMakeFiles/leveldb_tests.dir/db/write_batch_test.cc.o: \
  /usr/include/c++/11/bits/enable_special_members.h \
  /usr/include/c++/11/bits/unordered_map.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/partition.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/memtable.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_set.h \
+ /usr/include/c++/11/list /usr/include/c++/11/bits/stl_list.h \
+ /usr/include/c++/11/bits/list.tcc \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_edit.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/env.h \
- /usr/include/c++/11/cstdarg \
- /home/jeff-wang/WorkloadAnalysis/hotdb/./db/memtable.h
+ /usr/include/c++/11/cstdarg

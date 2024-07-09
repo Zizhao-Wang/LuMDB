@@ -589,9 +589,8 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   // newly added source codes
   level_stats_[0].micros = env_->NowMicros() - start_micros;
   level_stats_[0].user_bytes_written = meta.file_size;
-
-  level_stats_[0].num_leveling_files++;
-  level_stats_[0].leveling_bytes_written += meta.file_size;
+  level_stats_[0].num_tiering_files++;
+  level_stats_[0].tiering_bytes_written += meta.file_size;
   
   
   return s;
@@ -653,19 +652,26 @@ void PrintPartitionAndFileInfo(const mem_partition_guard* current_partition, con
 }
 
 void PrintPartitions(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions) {
-    for (const auto& partition : mem_partitions) {
-      fprintf(stderr, "Partition:%lu | Start:%s(%llu) | End:%s | Total files:%lu | Written KVs:%lu | Total file size:%lu bytes | Min file size:%lu bytes\n",
-        partition->partition_num, partition->partition_start_str.c_str(), std::stoull(partition->partition_start_str),
-        partition->partition_end_str.c_str(), partition->total_files, partition->written_kvs,
-        partition->total_file_size, partition->min_file_size);
+  for (const auto& partition : mem_partitions) {
+    fprintf(stderr, "Partition: %4lu | Start: %-20s | End: %-20s | Total files: %5lu | Written KVs: %10lu | Total file size: %10lu bytes | Avg file size: %10lu bytes\n",
+      partition->partition_num, 
+      partition->partition_start_str.c_str(), 
+      partition->partition_end_str.c_str(), 
+      partition->total_files, 
+      partition->written_kvs,
+      partition->total_file_size, 
+      partition->GetAverageFileSize());
     }
 }
 
+
 Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files){
-  int i = 0;
+ 
+
   Status s;
   iter->SeekToFirst();
   Slice add_key;
+  int end_partition = 0;
 
   FileMetaData* file_meta = new FileMetaData();
   file_meta->number = versions_->NewFileNumber();
@@ -680,8 +686,6 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
   }
   TableBuilder* builder = new TableBuilder(options, file);
 
-  uint64_t first_key_num;
-  char key_end[17];
   uint64_t now_partition_number;
 
   const char* current_key_pointer = iter->key().data();
@@ -690,6 +694,7 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
   file_meta->smallest.DecodeFrom(iter->key()); 
 
   mem_partition_guard* current_partition = nullptr;
+  mem_partition_guard* next_partition = nullptr;
   std::string current_key_str(current_key_pointer, current_key_size);
   mem_partition_guard temp_partition(current_key_str, current_key_str);
   bool is_last_expand = false;
@@ -699,15 +704,20 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
 
   if(it == mem_partitions_.begin()){
     current_partition = *it;
+    it++;
+    next_partition = *it;
     assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size) > 0);
-    uint64_t length_gap = current_partition->GetPartitionStart() - std::stoull(current_key_str);
-    if(length_gap + current_partition->GetPartitionLength() < options.max_partition_size){
-      first_key_num = std::stoull(current_key_str);
-      snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-      std::string new_end_str(key_end);
-      current_partition->UpdatePartitionStart(new_end_str);
-    } 
+
+    if(current_partition->GetAverageFileSize() < options.min_file_size){
+      std::string new_start_str(current_key_pointer,current_key_size);
+      current_partition->UpdatePartitionStart(new_start_str);
+    }else{
+      std::string new_start_str(current_key_pointer,current_key_size);
+      current_partition = CreateAndInsertPartition(new_start_str, new_start_str, versions_->NewPartitionNumber(), mem_partitions_);
+    }
+
   }else{
+    next_partition = *it;
     --it;
     current_partition = *it;
   }
@@ -717,86 +727,79 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
 
     current_key_pointer = iter->key().data();
     current_key_size = iter->key().size();
+    current_key_size -= 8;
 
-    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) < 0){
+    if(current_partition->CompareWithEnd(current_key_pointer, current_key_size ) < 0){
 
-      if(builder->FileSize() < options.min_file_size && IsLastPartition(mem_partitions_,current_partition)){
-        // size_t current_file_size = builder->FileSize();
-        // if (current_file_size == 0) {
-        //   current_file_size = options.min_file_size/10;
-        // }
-        // size_t new_partition_count = (options.min_file_size / current_file_size)+1;
-        // size_t new_partition_size = new_partition_count * options.min_partition_size;
-        // uint64_t current_partition_end  = current_partition->GetPartitionLength();
-
-        // first_key_num = new_partition_size;
-        // snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-        // std::string new_end_str(key_end);
-        // current_partition->UpdatePartitionEnd(new_end_str);
+      // that means 'current' mem_partition is a newly created partition!
+      // for a newly created partition, we must need to expand the partition size because of original partition length is 1
+      if(builder->FileSize() < options.min_file_size && CanIncreasePartition(mem_partitions_, current_partition, next_partition, current_key_pointer, current_key_size)){
         add_key = iter->key();
         builder->Add(add_key, iter->value());
+        std::string new_end_str(current_key_pointer, current_key_size );
+        current_partition->UpdatePartitionEnd(new_end_str);
         is_last_expand = true;
+        continue;
+      }
+
+      if(builder->NumEntries() <=100 ){
+        add_key = iter->key();
+        builder->Add(add_key, iter->value());
+        std::string new_start_str(current_key_pointer, current_key_size);
+        current_partition->UpdatePartitionStart(new_start_str);
         continue;
       }
 
       s = builder->Finish();
       if (s.ok()) {
         file_meta->file_size = builder->FileSize();
-        // fprintf(stderr, "file size: %ld (bytes)\n", file_meta->file_size);
         assert(file_meta->file_size > 0);
       }
       current_partition->Add_File(file_meta->file_size, builder->NumEntries());
       delete builder;
       file_meta->largest.DecodeFrom(add_key);
       if(is_last_expand){
-        std::string new_end_str(add_key.data(), current_key_size-8);
+        std::string new_end_str(add_key.data(), current_key_size);
         current_partition->UpdatePartitionEnd(new_end_str);
         is_last_expand = false;
       }
 
       partition_files.emplace_back(current_partition->partition_num, file_meta);
-      PrintPartitionAndFileInfo(current_partition, file_meta);
+      // PrintPartitionAndFileInfo(current_partition, file_meta);
 
       current_partition = nullptr;
-      file_meta = nullptr;
+      file_meta = nullptr;      
 
-      std::string temp_key_str(current_key_pointer, current_key_size-8);
+      std::string temp_key_str(current_key_pointer, current_key_size);
       mem_partition_guard temp_partition(temp_key_str, temp_key_str);
       it = mem_partitions_.upper_bound(&temp_partition);
       
       if(it == mem_partitions_.end()){
-        std::string new_start_key_str(current_key_pointer, current_key_size-8);
-        first_key_num = std::stoull(new_start_key_str) + options.min_partition_size;
-        snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-        std::string new_partition_end_str(key_end);
-        current_partition = new mem_partition_guard(new_start_key_str, new_partition_end_str);
-        now_partition_number = versions_->NewPartitionNumber();
-        current_partition->partition_num = now_partition_number;
-        mem_partitions_.insert(current_partition);
+        it--;
+        if((*it)->CompareWithEnd(current_key_pointer,current_key_size)<0){
+          std::string new_start_key_str(current_key_pointer, current_key_size);
+          current_partition = CreateAndInsertPartition(new_start_key_str, new_start_key_str, versions_->NewPartitionNumber(), mem_partitions_);
+          end_partition++;
+        }else{
+          current_partition = *it;
+        }
+        
       }else{
         assert(it != mem_partitions_.begin());
         it--;
         current_partition = *it;
-        if(current_partition->CompareWithEnd(current_key_pointer, current_key_size-8) < 0){
+        if(current_partition->CompareWithEnd(current_key_pointer, current_key_size) < 0){
           it++;
           current_partition = *it;
           if(current_partition->GetAverageFileSize() < options.min_file_size){
-            std::string new_start_str(current_key_pointer, current_key_size-8);
-            current_partition->UpdatePartitionStart(new_start_str);
+            current_partition->UpdatePartitionStart(temp_key_str);
+
           }else{
-            first_key_num = std::stoull(temp_key_str);
-            snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-            std::string new_start_str(key_end);
-            first_key_num = current_partition->GetPartitionStart()-1;
-            snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-            std::string new_end_str(key_end);
-            current_partition = new mem_partition_guard(new_start_str, new_end_str);
-            now_partition_number = versions_->NewPartitionNumber();
-            current_partition->partition_num = now_partition_number;
-            mem_partitions_.insert(current_partition);
+            current_partition = CreateAndInsertPartition(temp_key_str, temp_key_str, versions_->NewPartitionNumber(), mem_partitions_);
+
           }
         }else{
-          assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size-8) <= 0);
+          assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size) <= 0);
         }
       }
 
@@ -815,9 +818,6 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
       builder->Add(add_key, iter->value());
       file_meta->smallest.DecodeFrom(add_key);
       continue;
-      // fprintf(stderr, "Current key: %s\n", current_key_pointer);
-      // fprintf(stderr, "Partition start: %s, end: %s\n", (*it)->partition_start.ToString().c_str(), (*it)->partition_end.ToString().c_str());
-      // fprintf(stderr, "Partition start: %s, end: %s\n", current_partition->partition_start.ToString().c_str(), current_partition->partition_end.ToString().c_str());
     }
     
     add_key = iter->key();
@@ -828,6 +828,10 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
     s = builder->Finish();
     if(!add_key.empty()){
       file_meta->largest.DecodeFrom(add_key);
+      if(is_last_expand){
+        std::string new_end_str(add_key.data(), add_key.size()-8);
+        current_partition->UpdatePartitionEnd(new_end_str);
+      }
     }
     if (s.ok()) {
       file_meta->file_size = builder->FileSize();
@@ -836,11 +840,10 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
     current_partition->Add_File(file_meta->file_size, builder->NumEntries());
     delete builder;
     partition_files.emplace_back(now_partition_number, file_meta);
-    PrintPartitionAndFileInfo(current_partition, file_meta);
+    // PrintPartitionAndFileInfo(current_partition, file_meta);
   }
-
+  fprintf(stderr,"we created %d partitions because of ending the set!\n",end_partition);
   PrintPartitions(mem_partitions_);
-
   return s;
 }
 
@@ -850,6 +853,7 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, std::vec
   Status s;
   iter->SeekToFirst();
   Slice add_key;
+  size_t add_key_size = 0;
 
   FileMetaData* file_meta = new FileMetaData();
   file_meta->number = versions_->NewFileNumber();
@@ -865,19 +869,14 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, std::vec
   TableBuilder* builder = new TableBuilder(options, file);
 
   // create the first mem partition
-  uint64_t first_key_num;
-  const char* key_tmp_pointer = iter->key().data();;
+  const char* key_tmp_pointer = iter->key().data();
   size_t tmp_key_size = iter->key().size()-8;
   std::string key_strat_str = std::string(key_tmp_pointer, tmp_key_size);
-  Slice key_start(key_strat_str);
-  first_key_num = std::stoull(key_strat_str);
-  first_key_num += options.min_partition_size;
-  char key_end[17]; 
-  snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-  mem_partition_guard* current_partition = new mem_partition_guard(key_strat_str, key_end);
+  mem_partition_guard* current_partition = new mem_partition_guard(key_strat_str, key_strat_str);
 
   uint64_t now_partition_number = versions_->NewPartitionNumber();
   current_partition->partition_num = now_partition_number;
+
   Log(options_.info_log,
     "Level-0 Leveling: partition:%lu, Table #%llu minor compaction - Started",
     current_partition->partition_num, (unsigned long long)file_meta->number);
@@ -897,28 +896,12 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, std::vec
 
     if(current_partition->CompareWithEnd(current_key_pointer, current_key_size - 8) < 0){
       if(builder->FileSize()<options.min_file_size){
-        // fprintf(stderr, "file size: %ld (bytes). we should expand partition size kvs: %ld\n", builder->NumEntries(),current_partition->written_kvs);
-        // size_t current_file_size = builder->FileSize();
-        // if (current_file_size == 0) {
-        //   current_file_size = options.min_file_size/10;
-        // }
-        // size_t new_partition_count = (options.min_file_size / current_file_size)+1;
-        // size_t new_partition_size = new_partition_count * options.min_partition_size;
-
-        // first_key_num = current_partition->GetPartitionEnd();
-        // first_key_num += new_partition_size;
-
-        // fprintf(stderr, "current partition end: %llu, new partition end: %lu\n", current_partition->GetPartitionEnd(), first_key_num);
-        // snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
         std::string new_end_str(current_key_pointer, current_key_size - 8);
         current_partition->UpdatePartitionEnd(new_end_str);
-
         add_key = iter->key();
         builder->Add(add_key, iter->value());
-        // is_last_expand = true;
         continue;
       }
-
 
       s = builder->Finish();
       if (s.ok()) {
@@ -928,26 +911,20 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, std::vec
       current_partition->Add_File(file_meta->file_size, builder->NumEntries());
       delete builder;
       file_meta->largest.DecodeFrom(add_key);
+      std::string new_end_str(add_key.data(), add_key.size()-8);
+      current_partition->UpdatePartitionEnd(new_end_str);
       partition_files.emplace_back(now_partition_number, file_meta);
       mem_partitions_.insert(current_partition);
-      // if(is_last_expand){
-      //   std::string new_end_str(add_key.data(), current_key_size-8);
-      //   current_partition->UpdatePartitionEnd(new_end_str);
-      //   is_last_expand = false;
-      // }
-
+      
       current_partition = nullptr;
       file_meta = nullptr;
 
-      std::string new_start_key_str(current_key_pointer, current_key_size-8);
-      first_key_num = std::stoull(new_start_key_str.c_str()) + options.min_partition_size;
-      snprintf(key_end, sizeof(key_end), "%016llu", (unsigned long long)first_key_num);
-      std::string new_partition_end_str(key_end);
-      current_partition = new mem_partition_guard(new_start_key_str, new_partition_end_str);
+      std::string new_key_str(current_key_pointer, current_key_size-8);
+      current_partition = new mem_partition_guard(new_key_str, new_key_str);
       now_partition_number = versions_->NewPartitionNumber();
       current_partition->partition_num = now_partition_number;
 
-      // 打印新建的 mem_partition_guard 信息
+      // print info of newly created mem_partition_guard 
       file_meta = new FileMetaData();
       file_meta->number = versions_->NewFileNumber();
 
@@ -973,6 +950,8 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, std::vec
     if (!add_key.empty()){ 
       fprintf(stderr,"the added key is %s\n", add_key.ToString().c_str());
       file_meta->largest.DecodeFrom(add_key);
+      std::string new_end_str(add_key.data(), add_key.size()-8);
+      current_partition->UpdatePartitionEnd(new_end_str);
     }
     s = builder->Finish();
     if (s.ok()) {
@@ -986,7 +965,6 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, std::vec
   }
   int64_t end_micros = env_->NowMicros();
   PrintPartitions(mem_partitions_);
-  exit(0);
   return s;
 }
 
@@ -1032,8 +1010,10 @@ Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
   int level = 0;
   if (s.ok() && base!= nullptr) {
     for (const auto& partition_file : partition_files) {
-      edit->AddPartitionLevelingFile(partition_file.first, level, partition_file.second->number, 
-          partition_file.second->file_size, partition_file.second->smallest, partition_file.second->largest);
+      if(partition_file.second->file_size > 0){
+        edit->AddPartitionLevelingFile(partition_file.first, level, partition_file.second->number, 
+            partition_file.second->file_size, partition_file.second->smallest, partition_file.second->largest);
+      }
     }
   }
 
@@ -1049,10 +1029,10 @@ Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
 
 
   // newly added source codes
-  level_stats_[0].micros = env_->NowMicros() - start_micros;
-  level_stats_[0].user_bytes_written = total_file_size;
-  level_stats_[0].num_leveling_files++;
-  level_stats_[0].leveling_bytes_written += total_file_size;
+  level_stats_[level].micros = env_->NowMicros() - start_micros;
+  level_stats_[level].user_bytes_written = total_file_size;
+  level_stats_[level].num_leveling_files++;
+  level_stats_[level].leveling_bytes_written += total_file_size;
   
   
   return s;

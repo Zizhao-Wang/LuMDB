@@ -9,10 +9,12 @@
 
 #include <set>
 
-#include "leveldb/slice.h"
-#include "db/version_edit.h"
-#include "db/dbformat.h"
 #include "memtable.h"
+#include "db/dbformat.h"
+#include "leveldb/slice.h"
+#include "db/version_set.h"
+#include "db/version_edit.h"
+
 
 namespace leveldb {
 
@@ -28,7 +30,8 @@ namespace leveldb {
       total_file_size(0),
       partition_num(0),
       total_files(0),
-      min_file_size(0) {}
+      min_file_size(0),
+      is_true_end(true) {}
 
     mem_partition_guard(const Slice& start1, const Slice& end1)
       : partition_start_str(start1.ToString()),
@@ -37,7 +40,8 @@ namespace leveldb {
         total_file_size(0),
         partition_num(0),
         total_files(0),
-        min_file_size(0){
+        min_file_size(0),
+        is_true_end(true) {
           partition_start= Slice(partition_start_str);
           partition_end = Slice(partition_end_str);   
       }
@@ -48,7 +52,8 @@ namespace leveldb {
         total_file_size(0),
         written_kvs(0),
         total_files(0),
-        min_file_size(0) {
+        min_file_size(0),
+        is_true_end(true) {
           partition_start= Slice(partition_start_str);
           partition_end = Slice(partition_end_str);   
         }
@@ -67,8 +72,6 @@ namespace leveldb {
       partition_start_str = new_start_str;
       partition_start = Slice(partition_start_str);
     }
-
-
 
     inline bool contains(const std::string& value) const {
       return partition_start.compare(value) < 0 && partition_end.compare(value) > 0;
@@ -101,6 +104,9 @@ namespace leveldb {
           r = -1;
         else if (partition_end.size() > key_size)
           r = +1;
+      }
+      if(!is_true_end && r==0){
+        r = -1;
       }
         return r;
     }
@@ -150,6 +156,10 @@ namespace leveldb {
       return total_file_size / total_files;
     }
 
+    uint64_t GetTotalFiles() const{
+      return total_files;
+    }
+
 
     Slice partition_start;
     Slice partition_end;
@@ -158,6 +168,7 @@ namespace leveldb {
     uint64_t written_kvs, total_file_size;
     uint64_t partition_num, total_files;
     uint64_t min_file_size;
+    bool is_true_end;
  
   };
 
@@ -177,6 +188,45 @@ namespace leveldb {
     }
     return false;
   }
+
+  inline bool CanIncreasePartition(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions_,  mem_partition_guard* current_partition, 
+      mem_partition_guard* next_partition, const char* key, size_t key_size) {
+
+    if(next_partition == nullptr) {
+      return true;
+    }
+
+    if(next_partition->CompareWithBegin(key, key_size)>0 && current_partition->GetTotalFiles() == 0) {
+      return true;
+    }
+
+    return false;
+  }
+
+
+    inline bool CanIncreasePartitionStart(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions_,  mem_partition_guard* current_partition, 
+      mem_partition_guard* next_partition, const char* key, size_t key_size) {
+
+    if(next_partition == nullptr) {
+      return false;
+    }
+
+    if(next_partition->CompareWithBegin(key, key_size)>0 && current_partition->GetTotalFiles() == 0) {
+      return true;
+    }
+
+    return false;
+  }
+
+  inline mem_partition_guard* CreateAndInsertPartition(const std::string& start_key, const std::string& end_key, uint64_t new_allocated_partition,  std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions) {
+    
+    mem_partition_guard* new_partition = new mem_partition_guard(start_key, end_key);
+    new_partition->partition_num = new_allocated_partition;
+    mem_partitions.insert(new_partition);
+    return new_partition;
+
+  }
+
 
 } // namespace leveldb
 

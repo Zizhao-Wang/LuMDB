@@ -200,4 +200,8 @@ CMakeFiles/leveldb.dir/db/dumpfile.cc.o: \
  /usr/include/c++/11/bits/atomic_lockfree_defines.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./util/arena.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./util/random.h \
+ /home/jeff-wang/WorkloadAnalysis/hotdb/./db/version_set.h \
+ /usr/include/c++/11/map /usr/include/c++/11/bits/stl_map.h \
+ /usr/include/c++/11/bits/stl_multimap.h /usr/include/c++/11/list \
+ /usr/include/c++/11/bits/stl_list.h /usr/include/c++/11/bits/list.tcc \
  /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/table.h
