@@ -742,11 +742,21 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
         continue;
       }
 
-      if(builder->NumEntries() <=100 ){
+      if(builder->NumEntries() <=100 && CanIncreasePartition(mem_partitions_, current_partition, next_partition, current_key_pointer, current_key_size)){
         add_key = iter->key();
         builder->Add(add_key, iter->value());
-        std::string new_start_str(current_key_pointer, current_key_size);
-        current_partition->UpdatePartitionStart(new_start_str);
+        std::string new_start_str = current_partition->partition_start_str;
+        next_partition->UpdatePartitionStart(new_start_str);
+
+         fprintf(stderr, "Updated next partition start to: %s\n", new_start_str.c_str());
+
+        // change the position of pointer!
+        mem_partitions_.erase(current_partition);
+        current_partition = next_partition;
+        GetNextPartition(mem_partitions_, next_partition);
+        fprintf(stderr, "Moved to next partition. New current partition start: %s\n", current_partition ? current_partition->partition_start_str.c_str() : "null");
+        fprintf(stderr, "Moved to next partition. New current partition start: %s\n", next_partition ? next_partition->partition_start_str.c_str() : "null");
+
         continue;
       }
 

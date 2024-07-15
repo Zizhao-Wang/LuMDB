@@ -92,7 +92,7 @@ for i in {10..10}; do
                             echo "$num_format"
 
                             # 创建相应的目录
-                            db_dir="/mnt/hdd_kv/level10B/${zipf_a}"
+                            db_dir="/mnt/level10B/${zipf_a}"
                             if [ ! -d "$db_dir" ]; then
                                 mkdir -p "$db_dir"
                             fi

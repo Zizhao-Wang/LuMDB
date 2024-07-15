@@ -218,6 +218,19 @@ namespace leveldb {
     return false;
   }
 
+
+  inline void GetNextPartition(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions, mem_partition_guard* current_partition) {
+    auto it = mem_partitions.find(current_partition);
+    if (it != mem_partitions.end()) {
+        auto next_it = std::next(it);
+        if (next_it != mem_partitions.end()) {
+          current_partition = *next_it;
+        } else {
+          current_partition = nullptr;
+        }
+    }
+  }
+
   inline mem_partition_guard* CreateAndInsertPartition(const std::string& start_key, const std::string& end_key, uint64_t new_allocated_partition,  std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions) {
     
     mem_partition_guard* new_partition = new mem_partition_guard(start_key, end_key);
