@@ -153,6 +153,9 @@ namespace leveldb {
     }
 
     uint64_t GetAverageFileSize() const {
+      if(total_files == 0){
+        return 0;
+      }
       return total_file_size / total_files;
     }
 
@@ -190,22 +193,7 @@ namespace leveldb {
   }
 
   inline bool CanIncreasePartition(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions_,  mem_partition_guard* current_partition, 
-      mem_partition_guard* next_partition, const char* key, size_t key_size) {
-
-    if(next_partition == nullptr) {
-      return true;
-    }
-
-    if(next_partition->CompareWithBegin(key, key_size)>0 && current_partition->GetTotalFiles() == 0) {
-      return true;
-    }
-
-    return false;
-  }
-
-
-    inline bool CanIncreasePartitionStart(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions_,  mem_partition_guard* current_partition, 
-      mem_partition_guard* next_partition, const char* key, size_t key_size) {
+    mem_partition_guard* next_partition, const char* key, size_t key_size) {
 
     if(next_partition == nullptr) {
       return false;
@@ -219,17 +207,63 @@ namespace leveldb {
   }
 
 
-  inline void GetNextPartition(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions, mem_partition_guard* current_partition) {
-    auto it = mem_partitions.find(current_partition);
-    if (it != mem_partitions.end()) {
-        auto next_it = std::next(it);
-        if (next_it != mem_partitions.end()) {
-          current_partition = *next_it;
+  inline bool CanIncreasePartitionStart(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions_,  mem_partition_guard* current_partition, 
+    mem_partition_guard* next_partition, const char* key, size_t key_size) {
+
+    if(next_partition == nullptr) {
+      return false;
+    }
+
+    if(next_partition->CompareWithEnd(key, key_size)>0 && current_partition->GetTotalFiles() == 0) {
+      return true;
+    }
+
+    return false;
+  }
+
+
+  inline void GetNextPartition(const std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions, mem_partition_guard* current_partition, mem_partition_guard*& next_partition, bool debug = false) {
+    auto it = mem_partitions.upper_bound(current_partition);
+
+    if (it != mem_partitions.begin()) {
+      auto prev_it = std::prev(it);
+      if ((*prev_it)->partition_start == current_partition->partition_start &&
+        (*prev_it)->partition_end == current_partition->partition_end) {
+        if (it != mem_partitions.end()) {
+          next_partition = *it;
         } else {
-          current_partition = nullptr;
+          next_partition = nullptr;
+        }
+          return;
+      } else {
+        if (debug) {
+          fprintf(stderr, "Fatal: Previous partition does not match current partition.\n");
+          exit(0);
+        }
+      }
+    } else {
+      if (debug) {
+        fprintf(stderr, "Fatal: Iterator is at the beginning of the set.\n");
+        exit(0);
+      }
+    }
+    next_partition = nullptr;
+  }
+
+
+  inline void RemovePartition(std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions, mem_partition_guard* current_partition) {
+    auto it = mem_partitions.upper_bound(current_partition);
+
+    if (it != mem_partitions.begin()) {
+        auto prev_it = std::prev(it);
+        if ((*prev_it)->partition_start_str == current_partition->partition_start_str &&
+            (*prev_it)->partition_end_str == current_partition->partition_end_str) {
+            delete *prev_it;
+            mem_partitions.erase(prev_it);
         }
     }
   }
+
 
   inline mem_partition_guard* CreateAndInsertPartition(const std::string& start_key, const std::string& end_key, uint64_t new_allocated_partition,  std::set<mem_partition_guard*, PartitionGuardComparator>& mem_partitions) {
     

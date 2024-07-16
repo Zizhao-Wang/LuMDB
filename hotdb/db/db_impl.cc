@@ -628,6 +628,100 @@ void DBImpl::CompactTieringMemTable() {
   RemoveObsoleteFiles();
 }
 
+
+Status DBImpl::WriteLevel0Table_NoPartition(MemTable* mem, VersionEdit* edit, Version* base) {
+  mutex_.AssertHeld();
+  const uint64_t start_micros = env_->NowMicros();
+
+  FileMetaData meta;
+  meta.number = versions_->NewFileNumber();
+  // 设置 logger
+  edit->set_logger(options_.info_log);
+
+
+  pending_outputs_.insert(meta.number); 
+  Iterator* iter = mem->NewIterator();
+  
+  Log(options_.info_log,
+    "Level-0 Leveling: Table #%llu minor compaction - Started",
+    (unsigned long long)meta.number);
+  
+
+  Status s;
+  {
+    mutex_.Unlock();
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    mutex_.Lock();
+  }
+
+
+  Log(options_.info_log,
+    "Level-0 Leveling: Table #%llu, Size: %lld bytes, Status: %s",
+    (unsigned long long)meta.number,
+    (unsigned long long)meta.file_size,
+    s.ToString().c_str());
+  
+
+  delete iter;
+  pending_outputs_.erase(meta.number);
+
+  // Note that if file_size is zero, the file has been deleted and
+  // should not be added to the manifest.
+  int level = 0;
+  if (s.ok() && meta.file_size > 0) {
+    const Slice min_user_key = meta.smallest.user_key();
+    const Slice max_user_key = meta.largest.user_key();
+     if(base!= nullptr){
+      level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+      edit->AddFile(level, meta.number, meta.file_size, meta.smallest, meta.largest);
+    }
+  }
+
+  CompactionStats stats;
+  stats.micros = env_->NowMicros() - start_micros;
+  stats.bytes_written = meta.file_size;
+  stats_[level].Add(stats);
+
+  // newly added source codes
+  level_stats_[0].micros = env_->NowMicros() - start_micros;
+  level_stats_[0].user_bytes_written = meta.file_size;
+  level_stats_[0].num_leveling_files++;
+  level_stats_[0].leveling_bytes_written += meta.file_size;
+  
+  return s;
+}
+
+void DBImpl::CompactMemTable() {
+  mutex_.AssertHeld();
+  assert(imm_ != nullptr || hot_imm_ != nullptr);
+
+  // Compact the regular immutable memtable
+  VersionEdit edit;
+  Version* base = versions_->current();
+  base->Ref();
+  Status s = WriteLevel0Table_NoPartition(imm_, &edit, base);
+  base->Unref();
+
+  if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    s = Status::IOError("Deleting DB during memtable compaction");
+  }
+
+  if (s.ok()) {
+    edit.SetPrevLogNumber(0);
+    edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+    s = versions_->LogAndApply(&edit, &mutex_);
+  }
+
+  if (s.ok()) {
+    // Commit to the new state
+    imm_->Unref();
+    imm_ = nullptr;
+    has_imm_.store(false, std::memory_order_release);
+  } else {
+    RecordBackgroundError(s);
+  }
+}
+
 void PrintPartitionFiles(const std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) {
   for (const auto& partition_file : partition_files) {
     uint64_t partition_start = partition_file.first;
@@ -664,6 +758,22 @@ void PrintPartitions(const std::set<mem_partition_guard*, PartitionGuardComparat
     }
 }
 
+void PrintPartition(mem_partition_guard* partition) {
+
+  if (partition == nullptr) {
+    fprintf(stderr, "Partition: nullptr\n");
+    return;
+  }
+
+  fprintf(stderr, "Partition: %4lu | Start: %-20s | End: %-20s | Total files: %5lu | Written KVs: %10lu | Total file size: %10lu bytes | Avg file size: %10lu bytes\n",
+    partition->partition_num, 
+    partition->partition_start_str.c_str(), 
+    partition->partition_end_str.c_str(), 
+    partition->total_files, 
+    partition->written_kvs,
+    partition->total_file_size, 
+    partition->GetAverageFileSize());
+}
 
 Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files){
  
@@ -701,7 +811,6 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
     
   // 使用 upper_bound 查找第一个大于 temp_partition 的 partition
   auto it = mem_partitions_.upper_bound(&temp_partition);
-
   if(it == mem_partitions_.begin()){
     current_partition = *it;
     it++;
@@ -737,27 +846,36 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
         add_key = iter->key();
         builder->Add(add_key, iter->value());
         std::string new_end_str(current_key_pointer, current_key_size );
+        if(new_end_str == "999880670552180224"){
+          fprintf(stderr,"current key: %s\n",new_end_str.c_str());
+          PrintPartition(current_partition);
+          PrintPartition(next_partition);
+        }
         current_partition->UpdatePartitionEnd(new_end_str);
         is_last_expand = true;
         continue;
       }
 
-      if(builder->NumEntries() <=100 && CanIncreasePartition(mem_partitions_, current_partition, next_partition, current_key_pointer, current_key_size)){
-        add_key = iter->key();
-        builder->Add(add_key, iter->value());
-        std::string new_start_str = current_partition->partition_start_str;
-        next_partition->UpdatePartitionStart(new_start_str);
+      if(builder->NumEntries() <=100){
+        // fprintf(stderr, "The builder has %ld entries!\n",builder->NumEntries());
+        // fprintf(stderr, "Current partition start: %s, end: %s\n", current_partition->partition_start_str.c_str(), current_partition->partition_end_str.c_str());
+        // fprintf(stderr, "Next partition start: %s, end: %s\n", next_partition->partition_start_str.c_str(), next_partition->partition_end_str.c_str());
+        // fprintf(stderr, "Current key: %s key size:%ld\n", iter->key().ToString().c_str(), current_key_size);
+        if(CanIncreasePartitionStart(mem_partitions_, current_partition, next_partition, current_key_pointer, current_key_size)){
+          add_key = iter->key();
+          builder->Add(add_key, iter->value());
+          
 
-         fprintf(stderr, "Updated next partition start to: %s\n", new_start_str.c_str());
-
-        // change the position of pointer!
-        mem_partitions_.erase(current_partition);
-        current_partition = next_partition;
-        GetNextPartition(mem_partitions_, next_partition);
-        fprintf(stderr, "Moved to next partition. New current partition start: %s\n", current_partition ? current_partition->partition_start_str.c_str() : "null");
-        fprintf(stderr, "Moved to next partition. New current partition start: %s\n", next_partition ? next_partition->partition_start_str.c_str() : "null");
-
-        continue;
+          std::string new_start_str = current_partition->partition_start_str;
+          // change the position of pointer!
+          RemovePartition(mem_partitions_, current_partition);
+          fprintf(stderr,"before update: start str:%s\n",next_partition->partition_start_str.c_str());
+          next_partition->UpdatePartitionStart(new_start_str);
+          current_partition = next_partition;
+          fprintf(stderr,"After update: start str:%s\n",current_partition->partition_start_str.c_str());
+          GetNextPartition(mem_partitions_, current_partition, next_partition);
+          continue;
+        } 
       }
 
       s = builder->Finish();
@@ -770,7 +888,12 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
       file_meta->largest.DecodeFrom(add_key);
       if(is_last_expand){
         std::string new_end_str(add_key.data(), current_key_size);
-        current_partition->UpdatePartitionEnd(new_end_str);
+        Slice new_end_slice(new_end_str);
+        if(current_partition->partition_end.compare(new_end_slice)<0){
+          fprintf(stderr,"before update: end str:%s\n",current_partition->partition_end_str.c_str());
+          current_partition->UpdatePartitionEnd(new_end_str);
+          fprintf(stderr,"after update:  end str:%s\n",current_partition->partition_end_str.c_str());
+        }
         is_last_expand = false;
       }
 
@@ -783,7 +906,6 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
       std::string temp_key_str(current_key_pointer, current_key_size);
       mem_partition_guard temp_partition(temp_key_str, temp_key_str);
       it = mem_partitions_.upper_bound(&temp_partition);
-      
       if(it == mem_partitions_.end()){
         it--;
         if((*it)->CompareWithEnd(current_key_pointer,current_key_size)<0){
@@ -793,7 +915,6 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
         }else{
           current_partition = *it;
         }
-        
       }else{
         assert(it != mem_partitions_.begin());
         it--;
@@ -806,12 +927,13 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
 
           }else{
             current_partition = CreateAndInsertPartition(temp_key_str, temp_key_str, versions_->NewPartitionNumber(), mem_partitions_);
-
           }
         }else{
           assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size) <= 0);
         }
       }
+
+      GetNextPartition(mem_partitions_, current_partition, next_partition);
 
       file_meta = new FileMetaData();
       file_meta->number = versions_->NewFileNumber();
@@ -840,7 +962,12 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options, std
       file_meta->largest.DecodeFrom(add_key);
       if(is_last_expand){
         std::string new_end_str(add_key.data(), add_key.size()-8);
-        current_partition->UpdatePartitionEnd(new_end_str);
+        Slice new_end_slice(new_end_str);
+        if(current_partition->partition_end.compare(new_end_slice)<0){
+          fprintf(stderr,"before update: end str:%s\n",current_partition->partition_end_str.c_str());
+          current_partition->UpdatePartitionEnd(new_end_str);
+          fprintf(stderr,"after update:  end str:%s\n",current_partition->partition_end_str.c_str());
+        }
       }
     }
     if (s.ok()) {
@@ -1227,7 +1354,8 @@ void DBImpl::BackgroundCompaction() {
 
    if (imm_ != nullptr) {
     Log(options_.info_log, "Starting leveling CompactMemTable");
-    CompactLevelingMemTable();
+    // CompactLevelingMemTable();
+    CompactMemTable();
     background_work_finished_signal_.SignalAll();
     Log(options_.info_log, "Finished leveling CompactMemTable");
   }

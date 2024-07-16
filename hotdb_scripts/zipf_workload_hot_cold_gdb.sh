@@ -39,7 +39,7 @@ for i in {10..10}; do
     fi
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 10000))
 
             num_format=$(convert_to_billion_format $num_entries)
 
