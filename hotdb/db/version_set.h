@@ -191,7 +191,6 @@ class Version {
   std::vector<FileMetaData*> leveling_files_[config::kNumLevels];
 
   std::map<uint64_t,std::vector<FileMetaData*>> partitioning_leveling_files_[config::kNumLevels];
-  // std::set<partition_guard*, PartitionGuardComparator> leveling_part_;
 
   
   // std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; 
