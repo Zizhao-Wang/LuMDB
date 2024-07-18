@@ -1354,8 +1354,7 @@ void DBImpl::BackgroundCompaction() {
 
    if (imm_ != nullptr) {
     Log(options_.info_log, "Starting leveling CompactMemTable");
-    // CompactLevelingMemTable();
-    CompactMemTable();
+    CompactLevelingMemTable();
     background_work_finished_signal_.SignalAll();
     Log(options_.info_log, "Finished leveling CompactMemTable");
   }
@@ -2785,7 +2784,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       s = bg_error_;
       break;
     } else if (allow_delay && versions_->NumLevelFiles(0) >=
-                                  config::kL0_SlowdownWritesTrigger*config::kTiering_and_leveling_Multiplier) {  //4
+                                  config::kL0_SlowdownWritesTrigger*config::kTiering_and_leveling_Multiplier) {  
       // We are getting close to hitting a hard limit on the number of
       // L0 files.  Rather than delaying a single write by several
       // seconds when we hit the hard limit, start delaying each

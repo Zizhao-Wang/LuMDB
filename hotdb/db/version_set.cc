@@ -26,6 +26,10 @@ static size_t TargetFileSize(const Options* options) {
   return options->max_file_size;
 }
 
+static size_t TargetTieringFileSize(const Options* options) {
+  return options->max_tiering_file_size;
+}
+
 // Maximum bytes of overlaps in grandparent (i.e., level+2) before we
 // stop building a single file in a level->level+1 compaction.
 static int64_t MaxGrandParentOverlapBytes(const Options* options) {
@@ -55,6 +59,11 @@ static double MaxBytesForLevel(const Options* options, int level) {
 static uint64_t MaxFileSizeForLevel(const Options* options, int level) {
   // We could vary per level to reduce number of files?
   return TargetFileSize(options);
+}
+
+static uint64_t MaxTieringFileSizeForLevel(const Options* options, int level) {
+  // We could vary per level to reduce number of files?
+  return TargetTieringFileSize(options);
 }
 
 
@@ -2685,6 +2694,7 @@ Compaction* VersionSet::CompactRange(int level, const InternalKey* begin,
 Compaction::Compaction(const Options* options, int level)
     : level_(level),
       max_output_file_size_(MaxFileSizeForLevel(options, level)),
+      max_tiering_file_size_(MaxTieringFileSizeForLevel(options, level)),
       input_version_(nullptr),
       grandparent_index_(0),
       seen_key_(false),

@@ -37,6 +37,10 @@ extern int kL0_StopWritesTrigger;
 // Tiering strategy limit multiplier
 extern int kTiering_and_leveling_Multiplier;
 
+extern int kLevelingL0PartitionSize;
+
+extern int kLevelingL1PartitionSize;
+
 static const int kNum_SortedRuns = 4;
 
 // Maximum level to which a new compacted memtable is pushed if it

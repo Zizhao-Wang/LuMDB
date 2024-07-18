@@ -446,6 +446,9 @@ class Compaction {
   // Maximum size of files to build during this compaction.
   uint64_t MaxOutputFileSize() const { return max_output_file_size_; }
 
+    // Maximum size of files to build during this compaction.
+  uint64_t MaxTieringOutputFileSize() const { return max_tiering_file_size_; }
+
   // Is this a trivial compaction that can be implemented by just
   // moving a single input file to the next level (no merging or splitting)
   bool IsTrivialMove() const;
@@ -496,6 +499,7 @@ class Compaction {
 
   int level_;
   uint64_t max_output_file_size_;
+  uint64_t max_tiering_file_size_;
   Version* input_version_;
   VersionEdit edit_;
 
