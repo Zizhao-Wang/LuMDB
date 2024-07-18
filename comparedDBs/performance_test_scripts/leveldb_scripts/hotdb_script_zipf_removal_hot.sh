@@ -39,13 +39,13 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.1 1.2 1.3 1.4 1.5; do  #  1.2 
+            for zipf_a in 1.5 1.4 1.3 1.2  1.1; do  #  1.2 
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(0 ) #10 20 30 40 50 60 70 80 90 100
 
                     for no_hot in "${No_hot_percentages[@]}"; do
 
-                        for buffer_size in 67108864 33554432 16777216 8388608; do
+                        for buffer_size in 16777216 8388608; do
 
                             buffer_size_mb=$((buffer_size / 1048576))
                             # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
@@ -126,8 +126,8 @@ for i in {10..10}; do
                             --compression=0 \
                             --stats_interval=$stats_interva \
                             --histogram=1 \
-                            --write_buffer_size=1048576 \
-                            --max_file_size=1048576   \
+                            --write_buffer_size=$buffer_size \
+                            --max_file_size=$buffer_size   \
                             --print_wa=true \
                             &> >( tee $log_file) &  
 
@@ -156,7 +156,7 @@ for i in {10..10}; do
                             else
                                 echo "iostat process $PID_IOSTAT is no longer running."
                             fi
-                    done
+                        done
                 done
             done
         done

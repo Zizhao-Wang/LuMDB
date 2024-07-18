@@ -691,36 +691,7 @@ Status DBImpl::WriteLevel0Table_NoPartition(MemTable* mem, VersionEdit* edit, Ve
   return s;
 }
 
-void DBImpl::CompactMemTable() {
-  mutex_.AssertHeld();
-  assert(imm_ != nullptr || hot_imm_ != nullptr);
 
-  // Compact the regular immutable memtable
-  VersionEdit edit;
-  Version* base = versions_->current();
-  base->Ref();
-  Status s = WriteLevel0Table_NoPartition(imm_, &edit, base);
-  base->Unref();
-
-  if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
-    s = Status::IOError("Deleting DB during memtable compaction");
-  }
-
-  if (s.ok()) {
-    edit.SetPrevLogNumber(0);
-    edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-    s = versions_->LogAndApply(&edit, &mutex_);
-  }
-
-  if (s.ok()) {
-    // Commit to the new state
-    imm_->Unref();
-    imm_ = nullptr;
-    has_imm_.store(false, std::memory_order_release);
-  } else {
-    RecordBackgroundError(s);
-  }
-}
 
 void PrintPartitionFiles(const std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) {
   for (const auto& partition_file : partition_files) {
@@ -1217,6 +1188,38 @@ void DBImpl::CompactLevelingMemTable() {
 
   RemoveObsoleteFiles();
 
+}
+
+
+void DBImpl::CompactMemTable() {
+  mutex_.AssertHeld();
+  assert(imm_ != nullptr || hot_imm_ != nullptr);
+
+  // Compact the regular immutable memtable
+  VersionEdit edit;
+  Version* base = versions_->current();
+  base->Ref();
+  Status s = WriteLevel0Table_NoPartition(imm_, &edit, base);
+  base->Unref();
+
+  if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    s = Status::IOError("Deleting DB during memtable compaction");
+  }
+
+  if (s.ok()) {
+    edit.SetPrevLogNumber(0);
+    edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+    s = versions_->LogAndApply(&edit, &mutex_);
+  }
+
+  if (s.ok()) {
+    // Commit to the new state
+    imm_->Unref();
+    imm_ = nullptr;
+    has_imm_.store(false, std::memory_order_release);
+  } else {
+    RecordBackgroundError(s);
+  }
 }
 
 void DBImpl::CompactRange(const Slice* begin, const Slice* end) {
@@ -2085,7 +2088,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       const uint64_t imm_start = env_->NowMicros();
       mutex_.Lock();
       if (imm_ != nullptr) {
-        CompactLevelingMemTable();
+        // CompactLevelingMemTable();
+        CompactMemTable();
         // Wake up MakeRoomForWrite() if necessary.
         background_work_finished_signal_.SignalAll();
       }
