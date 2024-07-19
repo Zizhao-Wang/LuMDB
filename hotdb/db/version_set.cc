@@ -1654,7 +1654,7 @@ void VersionSet::Finalize(Version* v) {
       tier_score = v->NumTieringFiles(0) /
               static_cast<double>(config::kTiering_and_leveling_Multiplier);
       if (v->NumLevelingFiles(0) >= config::kL0_CompactionTrigger ) {
-        score = 100.0;  
+        score = 1000.0;  
       }
       if (v->NumTieringFiles(0) >= config::kTiering_and_leveling_Multiplier) {
         tier_score = 100.0;  
@@ -1677,6 +1677,9 @@ void VersionSet::Finalize(Version* v) {
   v->compaction_level_ = best_level;
   v->compaction_score_ = best_score - best_tier_score;
   v->tieirng_compaction_score_ = best_tier_score;
+  if(v->compaction_score_ == 1000.0 && v->tieirng_compaction_score_ == 100.0){
+    v->tieirng_compaction_score_ = 0.0;
+  }
   Log(options_->info_log, "Finalize: Best level = %d, best_score = %f, best_tier_score = %f", best_level, best_score, best_tier_score);
 }
 
