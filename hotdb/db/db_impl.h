@@ -311,13 +311,21 @@ class DBImpl : public DB {
   void MaybeScheduleCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   static void BGWork(void* db);
 
+  static void BGWorkHot(void* db);
+
   static void AddDataBGWork(void* arg);
 
   void BackgroundCall();
 
+  void BackgroundCallHot();
+
   void BackgroundAddData(const Slice& key);
 
   void BackgroundCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  void BackgroundCompactionHot() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+
   void CleanupCompaction(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   Status DoCompactionWork(CompactionState* compact)
@@ -390,6 +398,8 @@ class DBImpl : public DB {
   // State below is protected by mutex_
   port::Mutex mutex_;
 
+  port::Mutex hot_mutex_;
+
   std::atomic<bool> shutting_down_;
   port::CondVar background_work_finished_signal_ GUARDED_BY(mutex_);
 
@@ -426,6 +436,8 @@ class DBImpl : public DB {
 
   // Has a background compaction been scheduled or is running?
   bool background_compaction_scheduled_ GUARDED_BY(mutex_);
+
+  bool background_compaction_scheduled_hot GUARDED_BY(mutex_);
 
   ManualCompaction* manual_compaction_ GUARDED_BY(mutex_);
 

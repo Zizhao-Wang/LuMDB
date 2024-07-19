@@ -233,6 +233,16 @@ Status DBImpl::NewDB() {
   return s;
 }
 
+void DBImpl::BackgroundAddData(const Slice& key) {
+  hot_key_identifier->add_data(key);
+}
+
+void DBImpl::AddDataBGWork(void* arg) {
+  auto* data = reinterpret_cast<std::pair<DBImpl*, leveldb::Slice>*>(arg);
+  data->first->BackgroundAddData(data->second);
+  delete data; // 释放内存
+}
+
 void DBImpl::MaybeIgnoreError(Status* s) const {
   if (s->ok() || options_.paranoid_checks) {
     // No change needed
@@ -1301,36 +1311,43 @@ void DBImpl::RecordBackgroundError(const Status& s) {
 
 void DBImpl::MaybeScheduleCompaction() {
   mutex_.AssertHeld();
-  if (background_compaction_scheduled_) {
+  if (background_compaction_scheduled_ ) {
     // Already scheduled
   } else if (shutting_down_.load(std::memory_order_acquire)) {
     // DB is being deleted; no more background compactions
   } else if (!bg_error_.ok()) {
     // Already got an error; no more changes
-  } else if (imm_ == nullptr && hot_imm_ == nullptr && manual_compaction_ == nullptr &&
+  } else if (imm_ == nullptr && manual_compaction_ == nullptr &&
              !versions_->NeedsCompaction()) {
     // No work to be done
-  } else {
+  }else{
     background_compaction_scheduled_ = true;
     env_->Schedule(&DBImpl::BGWork, this);
   }
+
+
+  // 判断hot_imm_相关的压缩任务
+  if (background_compaction_scheduled_hot) {
+    // 已经调度了hot_imm_相关的压缩任务
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // 数据库正在删除; 不再进行后台压缩
+  } else if (!bg_error_.ok()) {
+    // 已经有错误; 不再进行更改
+  } else if (hot_imm_ == nullptr && manual_compaction_ == nullptr &&
+             !versions_->NeedsCompaction()) {
+    // No work to be done
+  }else{
+    background_compaction_scheduled_ = true;
+    env_->Schedule(&DBImpl::BGWorkHot, this);
+  }
 }
-
-
-
 
 void DBImpl::BGWork(void* db) {
   reinterpret_cast<DBImpl*>(db)->BackgroundCall();
 }
 
-void DBImpl::BackgroundAddData(const Slice& key) {
-  hot_key_identifier->add_data(key);
-}
-
-void DBImpl::AddDataBGWork(void* arg) {
-  auto* data = reinterpret_cast<std::pair<DBImpl*, leveldb::Slice>*>(arg);
-  data->first->BackgroundAddData(data->second);
-  delete data; // 释放内存
+void DBImpl::BGWorkHot(void* db) {
+  reinterpret_cast<DBImpl*>(db)->BackgroundCallHot();
 }
 
 void DBImpl::BackgroundCall() {
@@ -1352,15 +1369,29 @@ void DBImpl::BackgroundCall() {
   background_work_finished_signal_.SignalAll();
 }
 
-void DBImpl::BackgroundCompaction() {
-  mutex_.AssertHeld();
+void DBImpl::BackgroundCallHot() {
 
-   if (imm_ != nullptr) {
-    Log(options_.info_log, "Starting leveling CompactMemTable");
-    CompactLevelingMemTable();
-    background_work_finished_signal_.SignalAll();
-    Log(options_.info_log, "Finished leveling CompactMemTable");
+  MutexLock l(&mutex_);
+
+  assert(background_compaction_scheduled_hot);
+
+  if (shutting_down_.load(std::memory_order_acquire)) {
+    // No more background work when shutting down.
+  } else if (!bg_error_.ok()) {
+    // No more background work after a background error.
+  } else {
+    BackgroundCompactionHot();
   }
+
+  background_compaction_scheduled_hot = false;
+
+  // Previous compaction may have produced too many files in a level,
+  // so reschedule another compaction if needed.
+  MaybeScheduleCompaction();
+  background_work_finished_signal_.SignalAll();
+}
+
+void DBImpl::BackgroundCompactionHot() {
 
   if (hot_imm_ != nullptr) {
     Log(options_.info_log, "Starting tiering CompactHotMemTable");
@@ -1371,6 +1402,103 @@ void DBImpl::BackgroundCompaction() {
 
   if(!versions_->NeedsCompaction()){
     return ;
+  }
+
+  Log(options_.info_log, "start Compaction test!");
+  Compaction* c;
+  bool is_manual = (manual_compaction_ != nullptr);
+  InternalKey manual_end;
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    c = versions_->CompactRange(m->level, m->begin, m->end);
+    m->done = (c == nullptr);
+    if (c != nullptr) {
+      manual_end = c->input(0, c->num_input_files(0) - 1)->largest;
+    }
+    Log(options_.info_log,
+        "Manual compaction at level-%d from %s .. %s; will stop at %s\n",
+        m->level, (m->begin ? m->begin->DebugString().c_str() : "(begin)"),
+        (m->end ? m->end->DebugString().c_str() : "(end)"),
+        (m->done ? "(end)" : manual_end.DebugString().c_str()));
+    
+    // newly added source codes
+    level_stats_[m->level].number_manual_compaction++;
+
+  } else {
+    c = versions_->PickCompaction();
+  }
+
+  Status status;
+  if (c == nullptr) {
+    // Nothing to do
+  } else if (!is_manual && c->IsTrivialMove()) { 
+    // Move file to next level
+    assert(c->num_input_files(0) == 1);
+    FileMetaData* f = c->input(0, 0);
+    c->edit()->RemoveFile(c->level(), f->number);
+    c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
+                       f->largest);
+    status = versions_->LogAndApply(c->edit(), &mutex_);
+    if (!status.ok()) {
+      RecordBackgroundError(status);
+    }
+    VersionSet::LevelSummaryStorage tmp;
+    Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+        static_cast<unsigned long long>(f->number), c->level() + 1,
+        static_cast<unsigned long long>(f->file_size),
+        status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+    // newly added source codes
+    level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+    level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
+    level_stats_[c->level()].number_TrivialMove++;
+    
+  } else {
+    CompactionState* compact = new CompactionState(c);
+    assert(c->get_is_tieirng());
+    status = DoTieringCompactionWork(compact);
+    
+    if (!status.ok()) {
+      RecordBackgroundError(status);
+    }
+    CleanupCompaction(compact);
+    c->ReleaseInputs();
+    RemoveObsoleteFiles();
+
+  }
+  delete c;
+
+  if (status.ok()) {
+    // Done
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // Ignore compaction errors found during shutting down
+  } else {
+    Log(options_.info_log, "Compaction error: %s", status.ToString().c_str());
+  }
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    if (!status.ok()) {
+      m->done = true;
+    }
+    if (!m->done) {
+      // We only compacted part of the requested range.  Update *m
+      // to the range that is left to be compacted.
+      m->tmp_storage = manual_end;
+      m->begin = &m->tmp_storage;
+    }
+    manual_compaction_ = nullptr;
+  }
+}
+
+void DBImpl::BackgroundCompaction() {
+  mutex_.AssertHeld();
+
+  if (imm_ != nullptr) {
+    Log(options_.info_log, "Starting leveling CompactMemTable");
+    CompactLevelingMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished leveling CompactMemTable");
   }
 
   Log(options_.info_log, "start Compaction test!");

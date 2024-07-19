@@ -585,7 +585,7 @@ int Version::NumPartitioningFiles(int level) const {
     total_files += partition.second.size();
   }
   return total_files;
-  
+
 }
 
 int Version::NumTieringFiles(int level) const {
@@ -1761,17 +1761,17 @@ void VersionSet::Finalize(Version* v) {
       tier_score = static_cast<double>(tiering_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
     }
 
-    if ( (score+tier_score) > best_score) {
-      best_level = level;
-      best_score = score+tier_score;
+    if ( (level_score+tier_score) > best_score) {
+      // best_llevel = level;
+      best_score = level_score+tier_score;
       best_tier_score = tier_score;
     }
   }
 
-  v->compaction_level_ = best_level;
+  // v->compaction_level_ = best_level;
   v->compaction_score_ = best_score - best_tier_score;
   v->tieirng_compaction_score_ = best_tier_score;
-  Log(options_->info_log, "Finalize: Best level = %d, best_score = %f, best_tier_score = %f", best_level, best_score, best_tier_score);
+  Log(options_->info_log, "Finalize: Best level = %d, best_score = %f, best_tier_score = %f", best_levling_level, best_score, best_tier_score);
 }
 
 Status VersionSet::WriteSnapshot(log::Writer* log) {
