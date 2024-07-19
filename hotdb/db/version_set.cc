@@ -94,6 +94,16 @@ static int64_t TotalFileSize(const std::map<int, std::vector<FileMetaData*>>& fi
   return sum;
 }
 
+static int64_t TotalFileSize(const std::map<uint64_t, std::vector<FileMetaData*>>& files) {
+  int64_t sum = 0;
+  for (const auto& run : files) {
+    for (size_t i = 0; i < run.second.size(); i++) {
+      sum += run.second[i]->file_size;
+    }
+  }
+  return sum;
+}
+
 /**
  * @brief Calculate the total file size for tiering files.
  *
@@ -565,6 +575,17 @@ int Version::NumFiles(int level) const {
 
 int Version::NumLevelingFiles(int level) const {
   return leveling_files_[level].size();
+}
+
+int Version::NumPartitioningFiles(int level) const {
+
+  size_t total_files = 0;
+  const auto& partition_files = partitioning_leveling_files_[level];
+  for (const auto& partition : partition_files) {
+    total_files += partition.second.size();
+  }
+  return total_files;
+  
 }
 
 int Version::NumTieringFiles(int level) const {
@@ -1698,13 +1719,13 @@ void VersionSet::MarkFileNumberUsed(uint64_t number) {
 }
 
 void VersionSet::Finalize(Version* v) {
+
   // Precomputed best level for next compaction
-  int best_level = -1;
-  double best_score = -1;
-  double best_tier_score = -1;
+  int best_tiering_level = -1, best_levling_level = -1;
+  double best_tier_score = -1, best_score = -1;
 
   for (int level = 0; level < config::kNumLevels - 1; level++) {
-    double score, tier_score;
+    double level_score, tier_score;
     if (level == 0) {
       // We treat level-0 specially by bounding the number of files
       // instead of number of bytes for two reasons:
@@ -1717,20 +1738,25 @@ void VersionSet::Finalize(Version* v) {
       // file size is small (perhaps because of a small write-buffer
       // setting, or very high compression ratios, or lots of
       // overwrites/deletions).
-      score = v->NumLevelingFiles(0) /
+      level_score = v->NumLevelingFiles(0) /
               static_cast<double>(config::kL0_CompactionTrigger);
+
       tier_score = v->NumTieringFiles(0) /
               static_cast<double>(config::kTiering_and_leveling_Multiplier);
+
       if (v->NumLevelingFiles(0) >= config::kL0_CompactionTrigger ) {
-        score = 100.0;  
+        level_score = 100.0;  
       }
+
       if (v->NumTieringFiles(0) >= config::kTiering_and_leveling_Multiplier) {
         tier_score = 100.0;  
       }
+
     } else {
       // Compute the ratio of current size to size limit.
-      const uint64_t level_bytes = TotalFileSize(v->leveling_files_[level]);  
-      score=static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
+      const uint64_t level_bytes = TotalFileSize(v->partitioning_leveling_files_[level]);  
+      level_score=static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
+
       const uint64_t tiering_bytes = TotalFileSize(v->tiering_runs_[level]);
       tier_score = static_cast<double>(tiering_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
     }

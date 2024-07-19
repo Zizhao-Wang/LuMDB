@@ -132,6 +132,8 @@ class Version {
   // ==== Start of modified code ====
   int NumLevelingFiles(int level) const;
 
+  int NumPartitioningFiles(int Level) const;
+
   int NumTieringFiles(int level) const;
 
   void InitializeTieringRuns();
