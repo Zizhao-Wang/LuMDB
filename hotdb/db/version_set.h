@@ -344,7 +344,7 @@ class VersionSet {
 
   // Add all files listed in any live version to *live.
   // May also mutate some internal state.
-  void AddLiveFiles(std::set<uint64_t>* live);
+  void AddLiveFiles(std::set<uint64_t>* live, bool is_leveling);
 
   // Return the approximate offset in the database of the data for
   // "key" as of version "v".

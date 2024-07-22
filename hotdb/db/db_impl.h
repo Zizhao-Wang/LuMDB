@@ -273,6 +273,8 @@ class DBImpl : public DB {
   // Delete any unneeded files and stale in-memory entries.
   void RemoveObsoleteFiles() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  void TieringRemoveObsoleteFiles() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   // Compact the in-memory write buffer to disk.  Switches to a new
   // log-file/memtable and writes a new descriptor iff successful.
   // Errors are recorded in bg_error_.

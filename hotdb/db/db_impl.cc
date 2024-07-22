@@ -151,6 +151,18 @@ Options SanitizeOptions(const std::string& dbname,
       result.info_log = nullptr;
     }
   }
+
+  // Initialize leveling_info_log
+  if (result.leveling_info_log == nullptr) {
+    // Open a log file specifically for leveling info log in the same directory as the db
+    std::string leveling_log_filename = dbname + "/Leveling_LOG";
+    Status s = src.env->NewLogger(leveling_log_filename, &result.leveling_info_log);
+    if (!s.ok()) {
+      // Handle error: fail to create leveling_info_log
+      result.leveling_info_log = nullptr;
+    }
+  }
+
   if (result.block_cache == nullptr) {
     result.block_cache = NewLRUCache(8 << 20);
   }
@@ -287,7 +299,82 @@ void DBImpl::RemoveObsoleteFiles() {
 
   // Make a set of all of the live files
   std::set<uint64_t> live = pending_outputs_;
-  versions_->AddLiveFiles(&live);
+  versions_->AddLiveFiles(&live, true);
+
+  std::vector<std::string> filenames;
+  env_->GetChildren(dbname_, &filenames);  // Ignoring errors on purpose
+  uint64_t number;
+  FileType type;
+  std::vector<std::string> files_to_delete;
+  for (std::string& filename : filenames) {
+    if (ParseFileName(filename, &number, &type)) {
+      bool keep = true;
+      switch (type) {
+        case kLogFile:
+          keep = ((number >= versions_->LogNumber()) ||
+                  (number == versions_->PrevLogNumber()));
+          // Log(options_.info_log, "Checking LogFile: #%llu, keep: %d", (unsigned long long)number, keep);
+          break;
+        case kDescriptorFile:
+          // Keep my manifest file, and any newer incarnations'
+          // (in case there is a race that allows other incarnations)
+          keep = (number >= versions_->ManifestFileNumber());
+          // Log(options_.info_log, "Checking DescriptorFile: #%llu, keep: %d", (unsigned long long)number, keep);
+          break;
+        case kTableFile:
+          keep = (live.find(number) != live.end());
+          // Log(options_.info_log, "Checking TableFile: #%llu, keep: %d", (unsigned long long)number, keep);
+          break;
+        case kTempFile:
+          // Any temp files that are currently being written to must
+          // be recorded in pending_outputs_, which is inserted into "live"
+          keep = (live.find(number) != live.end());
+          // Log(options_.info_log, "Checking TempFile: #%llu, keep: %d", (unsigned long long)number, keep);
+          break;
+        case kCurrentFile:
+        case kDBLockFile:
+        case kInfoLogFile:
+          keep = true;
+          // Log(options_.info_log, "Checking %s, keep: %d", filename.c_str(), keep);
+          break;
+      }
+
+      if (!keep) {
+        files_to_delete.push_back(std::move(filename));
+        if (type == kTableFile) {
+          table_cache_->Evict(number);
+        }
+        // Log(options_.info_log, "Delete type=%d #%lld\n", static_cast<int>(type),
+            // static_cast<unsigned long long>(number));
+      }else{
+        // Log(options_.info_log, "Unrecognized file name: %s", filename.c_str());
+      }
+    }
+  }
+
+  // While deleting all files unblock other threads. All files being deleted
+  // have unique names which will not collide with newly created files and
+  // are therefore safe to delete while allowing other threads to proceed.
+  mutex_.Unlock();
+  for (const std::string& filename : files_to_delete) {
+    Log(options_.info_log, "Removing file: %s", filename.c_str());
+    env_->RemoveFile(dbname_ + "/" + filename);
+  }
+  mutex_.Lock();
+}
+
+void DBImpl::TieringRemoveObsoleteFiles() {
+  mutex_.AssertHeld();
+
+  if (!bg_error_.ok()) {
+    // After a background error, we don't know whether a new version may
+    // or may not have been committed, so we cannot safely garbage collect.
+    return;
+  }
+
+  // Make a set of all of the live files
+  std::set<uint64_t> live = pending_outputs_;
+  versions_->AddLiveFiles(&live, false);
 
   std::vector<std::string> filenames;
   env_->GetChildren(dbname_, &filenames);  // Ignoring errors on purpose
@@ -404,7 +491,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     return s;
   }
   std::set<uint64_t> expected;
-  versions_->AddLiveFiles(&expected);
+  versions_->AddLiveFiles(&expected, true);
   uint64_t number;
   FileType type;
   std::vector<uint64_t> logs;
@@ -659,7 +746,7 @@ void DBImpl::CompactTieringMemTable() {
   } else {
     RecordBackgroundError(hot_s);
   }
-  RemoveObsoleteFiles();
+  TieringRemoveObsoleteFiles();
 }
 
 
@@ -821,7 +908,7 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
   file_meta->number = versions_->NewFileNumber();
   pending_outputs_.insert(file_meta->number); 
 
-  fprintf(stderr, "New file(%lu) was created!\n", file_meta->number);
+  // fprintf(stderr, "New file(%lu) was created!\n", file_meta->number);
   std::string fname = TableFileName(dbname_, file_meta->number);
   WritableFile* file;
   s = env_->NewWritableFile(fname, &file);
@@ -841,7 +928,7 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
 
   std::string current_key_str(current_key_pointer, current_key_size);
   mem_partition_guard temp_partition(current_key_str, current_key_str);
-  
+
   bool is_last_expand = false;
     
   // 使用 upper_bound 查找第一个大于 temp_partition 的 partition
@@ -858,7 +945,7 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
     }else{
       std::string new_start_str(current_key_pointer,current_key_size);
       current_partition = CreateAndInsertPartition(new_start_str, new_start_str, versions_->NewPartitionNumber(), mem_partitions_);
-      Log(options_.info_log,"[DEBUG] current_partition->partition_num: %lu",
+      Log(options_.leveling_info_log,"[DEBUG] current_partition->partition_num: %lu",
         current_partition->partition_num);
     }
 
@@ -963,7 +1050,7 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
         if((*it)->CompareWithEnd(current_key_pointer,current_key_size)<0){
           std::string new_start_key_str(current_key_pointer, current_key_size);
           current_partition = CreateAndInsertPartition(new_start_key_str, new_start_key_str, versions_->NewPartitionNumber(), mem_partitions_);
-          Log(options_.info_log,"[DEBUG] current_partition->partition_num: %lu",
+          Log(options_.leveling_info_log,"[DEBUG] current_partition->partition_num: %lu",
             current_partition->partition_num);
           end_partition++;
         }else{
@@ -981,7 +1068,7 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
 
           }else{
             current_partition = CreateAndInsertPartition(temp_key_str, temp_key_str, versions_->NewPartitionNumber(), mem_partitions_);
-            Log(options_.info_log,"[DEBUG] current_partition->partition_num: %lu",
+            Log(options_.leveling_info_log,"[DEBUG] current_partition->partition_num: %lu",
               current_partition->partition_num);
           }
         }else{
@@ -1057,8 +1144,8 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
   }
 
 
-  fprintf(stderr,"we created %d partitions because of ending the set!\n",end_partition);
-  PrintPartitions(mem_partitions_);
+  // fprintf(stderr,"we created %d partitions because of ending the set!\n",end_partition);
+  // PrintPartitions(mem_partitions_);
   return s;
 }
 
@@ -1096,11 +1183,11 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, TableCac
 
   uint64_t now_partition_number = versions_->NewPartitionNumber();
   current_partition->partition_num = now_partition_number;
-  Log(options_.info_log,
+  Log(options_.leveling_info_log,
     "[DEBUG] now_partition_number: %lu, current_partition->partition_num: %lu",
     now_partition_number, current_partition->partition_num);
 
-  Log(options_.info_log,
+  Log(options_.leveling_info_log,
     "Level-0 Leveling: partition:%lu, Table #%llu minor compaction - Started",
     current_partition->partition_num, (unsigned long long)file_meta->number);
 
@@ -1166,7 +1253,7 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, TableCac
       current_partition = new mem_partition_guard(new_key_str, new_key_str);
       now_partition_number = versions_->NewPartitionNumber();
       current_partition->partition_num = now_partition_number;
-      Log(options_.info_log,
+      Log(options_.leveling_info_log,
         "[DEBUG] now_partition_number: %lu, current_partition->partition_num: %lu",
         now_partition_number, current_partition->partition_num);
 
@@ -1231,7 +1318,7 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, TableCac
   }
 
   int64_t end_micros = env_->NowMicros();
-  PrintPartitions(mem_partitions_);
+  // PrintPartitions(mem_partitions_);
   return s;
 }
 
@@ -1261,7 +1348,7 @@ Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
   for (const auto& partition_file : partition_files) {
     uint64_t partition_start = partition_file.first;
     FileMetaData* file_meta = partition_file.second;
-    Log(options_.info_log,
+    Log(options_.leveling_info_log,
       "Level-0 Leveling:Partition:%lu Table #%llu, Size: %lld bytes, Status: %s",partition_start,
       (unsigned long long)file_meta->number,
       (unsigned long long)file_meta->file_size,
@@ -1486,17 +1573,17 @@ void DBImpl::BackgroundCompaction() {
   Log(options_.info_log, "start background Compaction!");
 
   if (imm_ != nullptr) {
-    Log(options_.info_log, "Starting leveling CompactMemTable");
+    Log(options_.leveling_info_log, "Starting leveling CompactMemTable");
     CompactLevelingMemTable();
     background_work_finished_signal_.SignalAll();
-    Log(options_.info_log, "Finished leveling CompactMemTable");
+    Log(options_.leveling_info_log, "Finished leveling CompactMemTable\n\n");
   }
 
   if (hot_imm_ != nullptr) {
     Log(options_.info_log, "Starting tiering CompactHotMemTable");
     CompactTieringMemTable();
     background_work_finished_signal_.SignalAll();
-    Log(options_.info_log, "Finished tiering CompactHotMemTable");
+    Log(options_.info_log, "Finished tiering CompactHotMemTable\n\n");
   }
 
   if(!versions_->NeedsCompaction()){
@@ -1547,15 +1634,15 @@ void DBImpl::BackgroundCompaction() {
         // Move file to next level
         assert(c->num_input_files(0) == 1);
         FileMetaData* f = c->input(0, 0);
-        c->edit()->RemoveFile(c->level(), f->number);
-        c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
-                          f->largest);
+        c->edit()->RemovePartitionFile(c->level(), c->partition_num(), f->number);
+        c->edit()->AddPartitionLevelingFile(c->partition_num(), c->level() + 1, f->number, 
+                f->file_size, f->smallest,f->largest);
         status = versions_->LogAndApply(c->edit(), &mutex_);
         if (!status.ok()) {
           RecordBackgroundError(status);
         }
         VersionSet::LevelSummaryStorage tmp;
-        Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+        Log(options_.leveling_info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
             static_cast<unsigned long long>(f->number), c->level() + 1,
             static_cast<unsigned long long>(f->file_size),
             status.ToString().c_str(), versions_->LevelSummary(&tmp));
@@ -1564,7 +1651,6 @@ void DBImpl::BackgroundCompaction() {
         level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
         level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
         level_stats_[c->level()].number_TrivialMove++;
-      
       } else {
 
         CompactionState* compact = new CompactionState(c);
@@ -1578,6 +1664,7 @@ void DBImpl::BackgroundCompaction() {
         c->ReleaseInputs();
         RemoveObsoleteFiles();
       }
+      Log(options_.info_log, "\n\n");
       delete c;
     }
 
@@ -1612,8 +1699,9 @@ void DBImpl::BackgroundCompaction() {
         }
         CleanupCompaction(tier_compact);
         tiering_com->ReleaseInputs();
-        RemoveObsoleteFiles();
+        TieringRemoveObsoleteFiles();
       }
+      Log(options_.info_log, "\n\n");
       delete tiering_com; 
       tiering_com = nullptr;  
     }
@@ -2304,7 +2392,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
   // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
   // compact->compaction->num_input_files(1) 示与当前级别有重叠的下一个级别（level + 1）中参与压缩的文件数量。
-  Log(options_.info_log, "[Partition Leveling: Partition %lu]Compacting %d@%d + %d@%d files",
+  Log(options_.leveling_info_log, "[Partition Leveling: Partition %lu]Compacting %d@%d + %d@%d files",
       compact->compaction->partition_num(),
       compact->compaction->num_input_files(0), compact->compaction->level(),
       compact->compaction->num_input_files(1),
@@ -2373,7 +2461,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     if (compact->compaction->ShouldStopBefore(key) &&
         compact->builder != nullptr) {
       status = FinishCompactionOutputFile(compact, input);
-      Log(options_.info_log, "DoCompactionWork: finished compaction output file: %s", status.ToString().c_str());
+      Log(options_.leveling_info_log, "DoCompactionWork: finished compaction output file: %s", status.ToString().c_str());
       if (!status.ok()) {
         break;
       }
@@ -2429,9 +2517,9 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       // Open output file if necessary
       if (compact->builder == nullptr) {
         status = OpenCompactionOutputFile(compact);
-        Log(options_.info_log, "DoCompactionWork: Open compaction output file: %s", status.ToString().c_str());
+        Log(options_.leveling_info_log, "DoCompactionWork: Open compaction output file: %s", status.ToString().c_str());
         if (!status.ok()) {
-          Log(options_.info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
+          Log(options_.leveling_info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
           break;
         }
       }
@@ -2446,7 +2534,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
           compact->compaction->MaxOutputFileSize()) {
         status = FinishCompactionOutputFile(compact, input);
         if (!status.ok()) {
-          Log(options_.info_log, "DoCompactionWork: Error finishing compaction output file: %s", status.ToString().c_str());
+          Log(options_.leveling_info_log, "DoCompactionWork: Error finishing compaction output file: %s", status.ToString().c_str());
           break;
         }
       }
@@ -2455,21 +2543,21 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     input->Next();
     i++;
   }
-  Log(options_.info_log, "We have already executed %d operations!\n", i);
+  Log(options_.leveling_info_log, "We have already executed %d operations!\n", i);
 
   if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
     status = Status::IOError("Deleting DB during compaction");
   }
 
   if (status.ok() && compact->builder != nullptr) {
-    Log(options_.info_log, "DoCompactionWork: Finishing last compaction output file");
+    Log(options_.leveling_info_log, "DoCompactionWork: Finishing last compaction output file");
     status = FinishCompactionOutputFile(compact, input);
     if (!status.ok()) {
-      Log(options_.info_log, "DoCompactionWork: Error finishing last compaction output file: %s", status.ToString().c_str());
+      Log(options_.leveling_info_log, "DoCompactionWork: Error finishing last compaction output file: %s", status.ToString().c_str());
     }
   }
   if (status.ok()) {
-    Log(options_.info_log, "DoCompactionWork: we need to execute input->status(), last status: %s", status.ToString().c_str());
+    Log(options_.leveling_info_log, "DoCompactionWork: we need to execute input->status(), last status: %s", status.ToString().c_str());
     status = input->status();
   }
   delete input;
@@ -2494,19 +2582,19 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
 
   if (status.ok()) {
-    Log(options_.info_log, "DoCompactionWork: Installing compaction results");
+    Log(options_.leveling_info_log, "DoCompactionWork: Installing compaction results");
     status = InstallCompactionResults(compact);
     if (!status.ok()) {
-      Log(options_.info_log, "DoCompactionWork: Error installing compaction results: %s", status.ToString().c_str());
+      Log(options_.leveling_info_log, "DoCompactionWork: Error installing compaction results: %s", status.ToString().c_str());
     }
   } else {
-    Log(options_.info_log, "DoCompactionWork: Error during compaction: %s", status.ToString().c_str());
+    Log(options_.leveling_info_log, "DoCompactionWork: Error during compaction: %s", status.ToString().c_str());
   }
   if (!status.ok()) {
     RecordBackgroundError(status);
   }
   VersionSet::LevelSummaryStorage tmp;
-  Log(options_.info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  Log(options_.leveling_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
   return status;
 }
 
@@ -3047,7 +3135,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
         imm_ = mem_;
         has_imm_.store(true, std::memory_order_release);
         mem_ = new MemTable(internal_comparator_);
-        Log(options_.info_log, "\n\nIn-memory immutable(size:%lu) is saturated!",imm_->ApproximateMemoryUsage());
+        Log(options_.info_log, "In-memory immutable(size:%lu) is saturated!",imm_->ApproximateMemoryUsage());
         mem_->Ref();
       } 
       
@@ -3055,7 +3143,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
         hot_imm_ = hot_mem_;
         has_hot_imm_.store(true, std::memory_order_release);
         hot_mem_ = new MemTable(internal_comparator_);
-        Log(options_.info_log, "\n\nIn-memory hot immutable(size:%lu) is saturated!",hot_imm_->ApproximateMemoryUsage());
+        Log(options_.info_log, "In-memory hot immutable(size:%lu) is saturated!",hot_imm_->ApproximateMemoryUsage());
         hot_mem_->Ref();
       }
 
