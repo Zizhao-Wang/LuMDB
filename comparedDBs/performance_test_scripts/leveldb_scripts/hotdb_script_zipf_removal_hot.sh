@@ -39,19 +39,19 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.1 1.2 1.3 1.4 1.5; do  #  1.2 
+            for zipf_a in 1.5 1.4 1.3 1.2 1.1 ; do  #  1.2 
                     percentages1=() # 1 5 10 15 20 25 30
-                    No_hot_percentages=(0 ) #10 20 30 40 50 60 70 80 90 100
+                    No_hot_percentages=(0) #10 20 30 40 50 60 70 80 90 100
 
                     for no_hot in "${No_hot_percentages[@]}"; do
 
-                        for buffer_size in 67108864 33554432 16777216 8388608; do
+                        for buffer_size in 33554432 16777216 8388608 1048576; do
 
                             buffer_size_mb=$((buffer_size / 1048576))
                             # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                             log_file="leveldb_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}.log"
                             data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                            memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_${num_format}_key16_val${value_size}_${buffer_size_mb}MB_zipf${zipf_a}.log"
+                            memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_${num_format}_key16_val${value_size}.log"
                             # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                             # hot_files=${hot_files%?} # 移除最后一个逗号
 
@@ -92,7 +92,7 @@ for i in {10..10}; do
                             echo "$num_format"
 
                             # 创建相应的目录
-                            db_dir="/mnt/nvm/level10B/${zipf_a}"
+                            db_dir="/mnt/level10B/${zipf_a}"
                             if [ ! -d "$db_dir" ]; then
                                 mkdir -p "$db_dir"
                             fi
@@ -104,10 +104,10 @@ for i in {10..10}; do
 
                             echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
 
-                            iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_${buffer_size_mb}MB_zipf${zipf_a}_IOstats.log &
+                            iostat -d 100 -x $DEVICE_NAME > leveldb_HDD_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_IOstats.log &
                             PID_IOSTAT=$!
                         
-                            cgexec -g memory:group8 ../../../leveldb/release/db_bench \
+                            cgexec -g memory:group16 ../../../leveldb/release/db_bench \
                             --db=$db_dir \
                             --num=$num_entries \
                             --value_size=$value_size \
@@ -126,8 +126,8 @@ for i in {10..10}; do
                             --compression=0 \
                             --stats_interval=$stats_interva \
                             --histogram=1 \
-                            --write_buffer_size=1048576 \
-                            --max_file_size=1048576   \
+                            --write_buffer_size=$buffer_size \
+                            --max_file_size=$buffer_size   \
                             --print_wa=true \
                             &> >( tee $log_file) &  
 
@@ -137,7 +137,7 @@ for i in {10..10}; do
                             DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
                             echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
-                            perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_${buffer_size_mb}MB_zipf${zipf_a}.txt" &
+                            perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}.txt" &
                             PERF_PID=$!
 
                             wait $DB_BENCH_PID
@@ -156,11 +156,11 @@ for i in {10..10}; do
                             else
                                 echo "iostat process $PID_IOSTAT is no longer running."
                             fi
+
+                        done
                     done
-                done
             done
         done
 done
-
 
 

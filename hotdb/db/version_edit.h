@@ -76,8 +76,12 @@ class VersionEdit {
     has_last_sequence_ = true;
     last_sequence_ = seq;
   }
-  void SetCompactPointer(int level, const InternalKey& key) {
-    compact_pointers_.push_back(std::make_pair(level, key));
+  void SetCompactPointer(int level, uint64_t partition_num, const InternalKey& key) {
+    compact_pointers_.push_back(std::make_tuple(level, partition_num, key));
+  }
+
+  void SetCompactPointer(int level, int run, const InternalKey& key) {
+    tier_compact_pointers_.push_back(std::make_tuple(level, run, key));
   }
 
   void set_is_tiering() {
@@ -185,7 +189,11 @@ class VersionEdit {
   bool has_last_sequence_;
   Logger* logger_;
 
-  std::vector<std::pair<int, InternalKey>> compact_pointers_;
+  // std::vector<std::pair<int, InternalKey>> compact_pointers_;
+
+  std::vector<std::tuple<int, uint64_t, InternalKey>> compact_pointers_;
+
+  std::vector<std::tuple<int, uint64_t, InternalKey>> tier_compact_pointers_;
 
   DeletedFileSet deleted_files_;
 

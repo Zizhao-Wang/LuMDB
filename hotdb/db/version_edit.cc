@@ -85,8 +85,9 @@ void VersionEdit::EncodeTo(std::string* dst) const {
 
   for (size_t i = 0; i < compact_pointers_.size(); i++) {
     PutVarint32(dst, kCompactPointer);
-    PutVarint32(dst, compact_pointers_[i].first);  // level
-    PutLengthPrefixedSlice(dst, compact_pointers_[i].second.Encode());
+    PutVarint32(dst, std::get<0>(compact_pointers_[i]));  // level
+    PutVarint64(dst, std::get<1>(compact_pointers_[i]));  // partition_number
+    PutLengthPrefixedSlice(dst, std::get<2>(compact_pointers_[i]).Encode());
   }
 
   for (const auto& deleted_file_kvp : deleted_files_) {
@@ -115,6 +116,17 @@ static bool GetInternalKey(Slice* input, InternalKey* dst) {
   }
 }
 
+
+static bool GetPartitionNumber(Slice* input, uint64_t* partition_number) {
+  uint64_t v;
+  if (GetVarint64(input, &v)) {
+    *partition_number = v;
+    return true;
+  } else {
+    return false;
+  }
+}
+
 static bool GetLevel(Slice* input, int* level) {
   uint32_t v;
   if (GetVarint32(input, &v) && v < config::kNumLevels) {
@@ -133,6 +145,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
 
   // Temporary storage for parsing
   int level;
+  uint64_t partition_number;
   uint64_t number;
   FileMetaData f;
   Slice str;
@@ -182,8 +195,8 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kCompactPointer:
-        if (GetLevel(&input, &level) && GetInternalKey(&input, &key)) {
-          compact_pointers_.push_back(std::make_pair(level, key));
+        if (GetLevel(&input, &level) && GetPartitionNumber(&input, &partition_number) && GetInternalKey(&input, &key)) {
+          compact_pointers_.push_back(std::make_tuple(level, partition_number,key));
         } else {
           msg = "compaction pointer";
         }
@@ -250,9 +263,11 @@ std::string VersionEdit::DebugString() const {
   }
   for (size_t i = 0; i < compact_pointers_.size(); i++) {
     r.append("\n  CompactPointer: ");
-    AppendNumberTo(&r, compact_pointers_[i].first);
+    AppendNumberTo(&r, std::get<0>(compact_pointers_[i]));  // level
     r.append(" ");
-    r.append(compact_pointers_[i].second.DebugString());
+    AppendNumberTo(&r, std::get<1>(compact_pointers_[i]));  // partition_number
+    r.append(" ");
+    r.append(std::get<2>(compact_pointers_[i]).DebugString());  // InternalKey
   }
   for (const auto& deleted_files_kvp : deleted_files_) {
     r.append("\n  RemoveFile: ");

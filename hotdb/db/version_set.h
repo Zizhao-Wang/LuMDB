@@ -33,6 +33,7 @@ class Writer;
 }
 
 class Compaction;
+class TieringCompaction;
 class Iterator;
 class MemTable;
 class TableBuilder;
@@ -107,6 +108,12 @@ class Version {
       const InternalKey* begin,  // nullptr means before all keys
       const InternalKey* end,    // nullptr means after all keys
       std::vector<FileMetaData*>* inputs);
+
+    void GetOverlappingInputs(
+      int level,
+      const InternalKey* begin,  // nullptr means before all keys
+      const InternalKey* end,    // nullptr means after all keys
+      std::vector<FileMetaData*>* inputs, uint64_t partition_number);
   
 
   void GetOverlappingInputsWithTier(
@@ -149,6 +156,7 @@ class Version {
 
  private:
   friend class Compaction;
+  friend class TieringCompaction;
   friend class VersionSet;
 
   class LevelFileNumIterator;
@@ -193,7 +201,7 @@ class Version {
   std::vector<FileMetaData*> leveling_files_[config::kNumLevels];
 
   std::map<uint64_t,std::vector<FileMetaData*>> partitioning_leveling_files_[config::kNumLevels];
-
+  std::map<uint64_t, int> partitions_to_merge_;
   
   // std::vector<FileMetaData*> tiering_files_[config::kNumLevels]; 
   std::map<int, std::vector<FileMetaData*>> tiering_runs_[config::kNumLevels];
@@ -211,6 +219,7 @@ class Version {
   double compaction_score_;
   double tieirng_compaction_score_;
   int compaction_level_;
+  int tiering_compaction_level_;
 };
 
 class VersionSet {
@@ -294,7 +303,9 @@ class VersionSet {
   // Returns nullptr if there is no compaction to be done.
   // Otherwise returns a pointer to a heap-allocated object that
   // describes the compaction.  Caller should delete the result.
-  Compaction* PickCompaction();
+  void PickCompaction(std::vector<Compaction*>& leveling_compactions, TieringCompaction** tiering_compaction);
+
+  void CreateCompactionForPartitionLeveling(std::vector<Compaction*>& compactions); 
 
   // Return a compaction object for compacting the range [begin,end] in
   // the specified level.  Returns nullptr if there is nothing in that
@@ -311,7 +322,9 @@ class VersionSet {
   // The caller should delete the iterator when no longer needed.
   Iterator* MakeInputIterator(Compaction* c);
 
-  Iterator* MakeTieringInputIterator(Compaction* c);
+  Iterator* MakeTieringInputIterator(TieringCompaction* c);
+
+
 
   /**
  * @brief Checks if any level in the current version needs a compaction.
@@ -326,7 +339,7 @@ class VersionSet {
  */
   bool NeedsCompaction() const {
     Version* v = current_;
-    return (v->compaction_score_ >= 1) || (v->file_to_compact_in_leveling != nullptr) || (v->file_to_compact_in_tiering != nullptr) || (v->tieirng_compaction_score_ >= 1);
+    return (v->compaction_score_ >= 1.00) || (v->tieirng_compaction_score_ >= 1.00);
   }
 
   // Add all files listed in any live version to *live.
@@ -375,6 +388,7 @@ class VersionSet {
   class Builder;
 
   friend class Compaction;
+  friend class TieringCompaction;
   friend class Version;
 
   bool ReuseManifest(const std::string& dscname, const std::string& dscbase);
@@ -390,7 +404,7 @@ class VersionSet {
 
   void SetupOtherInputs(Compaction* c);
 
-  void SetupOtherInputsWithTier(Compaction* c);
+  void SetupOtherInputsWithTier(TieringCompaction* c);
 
   // Save current contents to *log
   Status WriteSnapshot(log::Writer* log);
@@ -418,7 +432,8 @@ class VersionSet {
 
   // Per-level key at which the next compaction at that level should start.
   // Either an empty string, or a valid InternalKey.
-  std::string compact_pointer_[config::kNumLevels];
+  // std::string compact_pointer_[config::kNumLevels];
+  std::map<uint64_t, std::string> compact_pointer_[config::kNumLevels];
 
   std::map<int, int> tiering_compact_pointer_[config::kNumLevels];
 
@@ -434,6 +449,8 @@ class Compaction {
   // Return the level that is being compacted.  Inputs from "level"
   // and "level+1" will be merged to produce a set of "level+1" files.
   int level() const { return level_; }
+
+  uint64_t partition_num() const { return partition_num_; }
 
   // Return the object that holds the edits to the descriptor done
   // by this compaction.
@@ -454,6 +471,114 @@ class Compaction {
   // Is this a trivial compaction that can be implemented by just
   // moving a single input file to the next level (no merging or splitting)
   bool IsTrivialMove() const;
+
+  bool IsTrivialMoveWithTier() const;
+
+  // Add all inputs to this compaction as delete operations to *edit.
+  void AddInputDeletions(VersionEdit* edit);
+
+  void AddPartitionInputDeletions(uint64_t partition_num, VersionEdit* edit);
+
+  void AddTieringInputDeletions(VersionEdit* edit);
+
+  // Returns true if the information we have available guarantees that
+  // the compaction is producing data in "level+1" for which no data exists
+  // in levels greater than "level+1".
+  bool IsBaseLevelForKey(const Slice& user_key);
+
+  // Returns true iff we should stop building the current output
+  // before processing "internal_key".
+  bool ShouldStopBefore(const Slice& internal_key);
+
+  // Release the input version for the compaction, once the compaction
+  // is successful.
+  void ReleaseInputs();
+
+  //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
+  int get_compaction_type();
+
+  // "which" must be either 0 or 1
+  int num_input_tier_files(int which) const { return tiering_inputs_[which].size(); }
+
+  // Return the ith input file at "level()+which" ("which" must be 0 or 1).
+  FileMetaData* tier_input(int which, int i) const { return tiering_inputs_[which][i]; }
+
+  void set_tiering() { is_tiering = true; }
+
+  bool get_is_tieirng() const { return is_tiering; }
+
+  int get_selected_run_in_next_level() const { return selected_run_in_next_level; }
+
+  int get_selected_run_in_input_level() const { return selected_run_in_input_level; }
+
+
+ private:
+  friend class Version;
+  friend class VersionSet;
+
+  Compaction(const Options* options, int level, uint64_t partition);
+
+  int level_;
+  uint64_t partition_num_;
+  uint64_t max_output_file_size_;
+  uint64_t max_tiering_file_size_;
+  Version* input_version_;
+  VersionEdit edit_;
+
+  // Each compaction reads inputs from "level_" and "level_+1"
+  std::vector<FileMetaData*> inputs_[2];  // The two sets of inputs
+
+  // Each compaction reads inputs from "level_" and "level_+1" for tiering policies
+  std::vector<FileMetaData*> tiering_inputs_[2];  // The two sets of inputs
+
+  // State used to check for number of overlapping grandparent files
+  // (parent == level_ + 1, grandparent == level_ + 2)
+  std::vector<FileMetaData*> grandparents_;
+  size_t grandparent_index_;  // Index in grandparent_starts_
+  bool seen_key_;             // Some output key has been seen
+  int64_t overlapped_bytes_;  // Bytes of overlap between current output
+                              // and grandparent files
+
+  // State for implementing IsBaseLevelForKey
+
+  // level_ptrs_ holds indices into input_version_->levels_: our state
+  // is that we are positioned at one of the file ranges for each
+  // higher level than the ones involved in this compaction (i.e. for
+  // all L >= level_ + 2).
+  size_t level_ptrs_[config::kNumLevels];
+
+  //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's Compaction Type Recording ~~~~~~~~~~~~~~~~~~~~~~
+  //record compaction type
+  // - 0 ==> Manual Compaction: This type is triggered by direct user action. It's not automatic and requires explicit command to run.
+  // - 1 ==> Size Compaction: This is the standard, automated compaction triggered when the total size of SSTables at a certain level exceeds our predetermined threshold.
+  // - 2 ==> Seek Compaction: Triggered when a file has been seeked too many times. It's an optimization to reduce read latency.
+  // - 3 ==> Trivial Move: A lightweight operation where a file can simply be moved to the next level without merging or splitting, significantly reducing compaction overhead.
+  // - 4 ==> None compaction
+  int compaction_type;
+
+  bool is_tiering;
+
+  int selected_run_in_next_level, selected_run_in_input_level;;
+
+};
+
+class TieringCompaction {
+ public:
+  ~TieringCompaction();
+
+  // Return the level that is being compacted.  Inputs from "level"
+  // and "level+1" will be merged to produce a set of "level+1" files.
+  int level() const { return level_; }
+
+  // Return the object that holds the edits to the descriptor done
+  // by this compaction.
+  VersionEdit* edit() { return &edit_; }
+
+  // Maximum size of files to build during this compaction.
+  uint64_t MaxOutputFileSize() const { return max_output_file_size_; }
+
+    // Maximum size of files to build during this compaction.
+  uint64_t MaxTieringOutputFileSize() const { return max_tiering_file_size_; }
 
   bool IsTrivialMoveWithTier() const;
 
@@ -497,7 +622,7 @@ class Compaction {
   friend class Version;
   friend class VersionSet;
 
-  Compaction(const Options* options, int level);
+  TieringCompaction(const Options* options, int level);
 
   int level_;
   uint64_t max_output_file_size_;

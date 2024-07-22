@@ -73,6 +73,7 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
     if (s.ok()) {
       start_time = env_->NowMicros();
       s = Table::Open(options_, file, file_size, &table);
+      // fprintf(stderr, "Table::Open: Successfully created table\n");
       end_time = env_->NowMicros();
       table_cache_time_stats.table_creation_time += (end_time - start_time);
     }
@@ -82,6 +83,7 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
       delete file;
       // We do not cache error results so that if the error is transient,
       // or somebody repairs the file, we recover automatically.
+      
     } else {
       TableAndFile* tf = new TableAndFile;
       tf->file = file;
@@ -102,6 +104,7 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
   Cache::Handle* handle = nullptr;
   Status s = FindTable(file_number, file_size, &handle);
   if (!s.ok()) {
+    // Log(options_.info_log, "error in NewIterator %s", s.ToString().c_str());
     return NewErrorIterator(s);
   }
 

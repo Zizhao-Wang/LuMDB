@@ -100,6 +100,7 @@ class DBImpl : public DB {
  private:
   friend class DB;
   struct CompactionState;
+  struct TieringCompactionState;
   struct Writer;
 
   // Information for a manual compaction
@@ -278,9 +279,11 @@ class DBImpl : public DB {
   
 
 
-  Status CreatePartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  Status CreatePartitions(Iterator* iter, const Options& options, TableCache* table_cache, 
+                                std::vector<std::pair<uint64_t,FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status AddDataIntoPartitions(Iterator* iter, const Options& options, std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  Status AddDataIntoPartitions(Iterator* iter, const Options& options, TableCache* table_cache, 
+                                std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
@@ -318,20 +321,31 @@ class DBImpl : public DB {
   void BackgroundAddData(const Slice& key);
 
   void BackgroundCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   void CleanupCompaction(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  
+    void CleanupCompaction(TieringCompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   Status DoCompactionWork(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status DoTieringCompactionWork(CompactionState* compact)
+  Status DoTieringCompactionWork(TieringCompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status OpenCompactionOutputFile(CompactionState* compact);
+
+  Status OpenCompactionOutputFile(TieringCompactionState* compact);
+
   Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
+
+  Status FinishCompactionOutputFile(TieringCompactionState* compact, Iterator* input);
+
   Status InstallCompactionResults(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   
-  Status InstallTieringCompactionResults(CompactionState* compact)
+  Status InstallTieringCompactionResults(TieringCompactionState* compact)
     EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   const Comparator* user_comparator() const {

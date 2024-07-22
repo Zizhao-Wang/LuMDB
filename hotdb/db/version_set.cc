@@ -797,6 +797,71 @@ void Version::GetOverlappingInputs(int level, const InternalKey* begin,
 }
 
 
+
+
+// Store in "*inputs" all files in "level" that overlap [begin,end]
+void Version::GetOverlappingInputs(int level, const InternalKey* begin,
+                                   const InternalKey* end,
+                                   std::vector<FileMetaData*>* inputs, uint64_t partition_number) {
+  assert(level >= 0);
+  assert(level < config::kNumLevels);
+
+  // clear all files in inputs
+  inputs->clear();
+
+  // get user key
+  Slice user_begin, user_end;
+  if (begin != nullptr) {
+    user_begin = begin->user_key();
+  }
+  if (end != nullptr) {
+    user_end = end->user_key();
+  }
+
+  const Comparator* user_cmp = vset_->icmp_.user_comparator();
+  for (size_t i = 0; i < partitioning_leveling_files_[level][partition_number].size();) {
+
+    // iterate all files in the specific level
+    FileMetaData* f = partitioning_leveling_files_[level][partition_number][i++];
+    const Slice file_start = f->smallest.user_key();
+    const Slice file_limit = f->largest.user_key();
+
+    // key space:
+    // |-----------------------------|------------------------------------|-----------------------------|
+    //           user_begin                       file_start                  file_limit
+    //                               <----------------f------------------>
+    if (begin != nullptr && user_cmp->Compare(file_limit, user_begin) < 0) {
+      // situation 1: f is completely before specified range; skip it
+      // |-------------------|----------------|--------------------------------|----------------------------|
+      //         file_start       file_limit           user_begin                      user_end
+      //       <------f------>
+    } else if (end != nullptr && user_cmp->Compare(file_start, user_end) > 0) {
+      // situation 2: "f" is completely after specified range; skip it
+      // |-----------------------------------|----------------------------|-----------------|----------|
+      //               user_begin                    user_end          file_start    file_limit
+      //                                                                 <-----f----->
+    } else {
+      inputs->push_back(f);
+      if (level == 0) {
+        // Level-0 files may overlap each other.  So check if the newly
+        // added file has expanded the range.  If so, restart search.
+        if (begin != nullptr && user_cmp->Compare(file_start, user_begin) < 0) {
+          user_begin = file_start;
+          inputs->clear();
+          i = 0;
+        } else if (end != nullptr &&
+                   user_cmp->Compare(file_limit, user_end) > 0) {
+          user_end = file_limit;
+          inputs->clear();
+          i = 0;
+        }
+      }
+    }
+
+  }
+}
+
+
 // Store in "*inputs" all files in "level" that overlap [begin,end]
 /**
  * @brief Store in "*inputs" all files in "level" that overlap [begin, end]
@@ -1110,8 +1175,10 @@ class VersionSet::Builder {
 
     // Update compaction pointers
     for (size_t i = 0; i < edit->compact_pointers_.size(); i++) {
-      const int level = edit->compact_pointers_[i].first;
-      vset_->compact_pointer_[level] = edit->compact_pointers_[i].second.Encode().ToString();
+      const int level = std::get<0>(edit->compact_pointers_[i]);  
+      const uint64_t partition = std::get<1>(edit->compact_pointers_[i]);
+      const InternalKey key = std::get<2>(edit->compact_pointers_[i]);
+      vset_->compact_pointer_[level][partition] = key.Encode().ToString();
     }
 
     // Delete files
@@ -1120,8 +1187,8 @@ class VersionSet::Builder {
       const uint64_t partition = std::get<1>(deleted_file_set_kvp);
       const uint64_t number = std::get<2>(deleted_file_set_kvp);
       partition_levels_[level].partition_deleted_files[partition].insert(number);
-
-      Log(vset_->options_->info_log, "Apply: Deleting file at level=%d,partition%lu, number=%lu", level,partition, number);
+      // DebugPrintPartitionDeletedFiles(level, partition);
+      Log(vset_->options_->info_log, "Apply: Deleting file at level=%d,partition=%lu, number=%lu", level,partition, number);
     }
 
     // Add new files
@@ -1209,7 +1276,8 @@ class VersionSet::Builder {
       for (const auto& base_partition : base_->partitioning_leveling_files_[level]) {
         uint64_t partition_id = base_partition.first;
         // 如果 partition_added_files 中没有该分区，直接复制基础版本中的文件
-        if (partition_levels_[level].partition_added_files.find(partition_id) == partition_levels_[level].partition_added_files.end()) {
+        if (partition_levels_[level].partition_added_files.find(partition_id) == partition_levels_[level].partition_added_files.end()
+              && partition_levels_[level].partition_deleted_files.find(partition_id) == partition_levels_[level].partition_deleted_files.end()){
           Log(vset_->options_->info_log, "Copying base files for partition %lu at level %d", partition_id, level);
           v->partitioning_leveling_files_[level][partition_id] = base_partition.second;
           for(int i = 0; i<v->partitioning_leveling_files_[level][partition_id].size();i++){
@@ -1251,7 +1319,28 @@ class VersionSet::Builder {
     }
   }
 
+  // 添加调试输出的函数
+  void DebugPrintPartitionDeletedFiles(int level, uint64_t partition) {
+    auto& partition_deleted_files = partition_levels_[level].partition_deleted_files;
+
+    if (partition_deleted_files.find(partition) != partition_deleted_files.end()) {
+        const std::set<uint64_t>& deleted_files = partition_deleted_files[partition];
+        if (!deleted_files.empty()) {
+          fprintf(stderr, "Deleted files in partition %lu at level %d:\n", partition, level);
+          for (const auto& file : deleted_files) {
+            fprintf(stderr, "  File number: %lu\n", file);
+          }
+        } else {
+          fprintf(stderr, "No deleted files in partition %lu at level %d (set is empty)\n", partition, level);
+        }
+    } else {
+      fprintf(stderr, "No entry for partition %lu at level %d in partition_deleted_files\n", partition, level);
+    }
+  }
+
+
   void MaybeAddFile(Version* v, int level, uint64_t partition, FileMetaData* f) {
+    // DebugPrintPartitionDeletedFiles(level, partition);
     if (partition_levels_[level].partition_deleted_files[partition].count(f->number) > 0) {
       // File is deleted: do nothing
       Log(vset_->options_->info_log, "File %lu in partition %lu at level %d is deleted, skipping", f->number, partition, level);
@@ -1721,11 +1810,55 @@ void VersionSet::MarkFileNumberUsed(uint64_t number) {
 void VersionSet::Finalize(Version* v) {
 
   // Precomputed best level for next compaction
-  int best_tiering_level = -1, best_levling_level = -1;
-  double best_tier_score = -1, best_score = -1;
+  int best_tiering_level = -1;
+  double best_tier_score = -1;
 
+  double best_leveling_score = -1;
+
+  std::map<uint64_t, double> best_scores;
+  bool need_compaction_in_leveling = false;
+  // for partitioning leveling
   for (int level = 0; level < config::kNumLevels - 1; level++) {
-    double level_score, tier_score;
+
+    for (const auto& partition : v->partitioning_leveling_files_[level]) {
+
+      uint64_t partition_number = partition.first;
+      double level_score = 0.0;
+
+      if (level == 0) {
+        level_score = partition.second.size() / static_cast<double>(config::kPartitionLevelingCompactionTrigger);   
+      }else{
+        const uint64_t level_bytes = TotalFileSize(partition.second);  
+        level_score = static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level) );
+      }
+
+      
+      if(level_score >= 1.00){
+        need_compaction_in_leveling = true;
+        auto it = best_scores.find(partition_number);
+        if (it == best_scores.end() || level_score > it->second) {
+          best_scores[partition_number] = level_score;
+          v->partitions_to_merge_[partition_number] = level;
+          // fprintf(stderr,"partition: second:%lu level score:%.3f captured\n",partition.second.size(), level_score);
+        }
+      }
+    }
+  }
+
+  if(need_compaction_in_leveling){
+    v->compaction_score_ = 1.0;
+  }
+  // 记录需要合并的 partition
+  for (const auto& entry : v->partitions_to_merge_) {
+    uint64_t partition_number = entry.first;
+    int level = entry.second;
+    Log(options_->info_log, "Partition %lu needs compaction at level %d", partition_number, level);
+  }
+
+
+  // for tiering part
+  for (int level = 0; level < config::kNumLevels - 1; level++) {
+    double tier_score;
     if (level == 0) {
       // We treat level-0 specially by bounding the number of files
       // instead of number of bytes for two reasons:
@@ -1738,40 +1871,24 @@ void VersionSet::Finalize(Version* v) {
       // file size is small (perhaps because of a small write-buffer
       // setting, or very high compression ratios, or lots of
       // overwrites/deletions).
-      level_score = v->NumLevelingFiles(0) /
-              static_cast<double>(config::kL0_CompactionTrigger);
-
       tier_score = v->NumTieringFiles(0) /
               static_cast<double>(config::kTiering_and_leveling_Multiplier);
-
-      if (v->NumLevelingFiles(0) >= config::kL0_CompactionTrigger ) {
-        level_score = 100.0;  
-      }
-
-      if (v->NumTieringFiles(0) >= config::kTiering_and_leveling_Multiplier) {
-        tier_score = 100.0;  
-      }
-
     } else {
       // Compute the ratio of current size to size limit.
-      const uint64_t level_bytes = TotalFileSize(v->partitioning_leveling_files_[level]);  
-      level_score=static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
-
       const uint64_t tiering_bytes = TotalFileSize(v->tiering_runs_[level]);
       tier_score = static_cast<double>(tiering_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
     }
 
-    if ( (score+tier_score) > best_score) {
-      best_level = level;
-      best_score = score+tier_score;
+    if ( tier_score > best_tier_score) {
+      best_tiering_level = level;
       best_tier_score = tier_score;
     }
   }
 
-  v->compaction_level_ = best_level;
-  v->compaction_score_ = best_score - best_tier_score;
+
+  v->tiering_compaction_level_ = best_tiering_level;
   v->tieirng_compaction_score_ = best_tier_score;
-  Log(options_->info_log, "Finalize: Best level = %d, best_score = %f, best_tier_score = %f", best_level, best_score, best_tier_score);
+  Log(options_->info_log, "Finalize:  Best tiering level = %d, Best tiering score = %f", best_tiering_level, best_tier_score);
 }
 
 Status VersionSet::WriteSnapshot(log::Writer* log) {
@@ -1783,19 +1900,28 @@ Status VersionSet::WriteSnapshot(log::Writer* log) {
 
   // Save compaction pointers
   for (int level = 0; level < config::kNumLevels; level++) {
-    if (!compact_pointer_[level].empty()) {
-      InternalKey key;
-      key.DecodeFrom(compact_pointer_[level]);
-      edit.SetCompactPointer(level, key);
+    for (const auto& entry : compact_pointer_[level]) {
+      uint64_t partition_number = entry.first;
+      const std::string& compact_pointer = entry.second;
+      if (!compact_pointer_[level].empty()) {
+        InternalKey key;
+        key.DecodeFrom(compact_pointer);
+        edit.SetCompactPointer(level,partition_number, key);
+      }
     }
   }
 
   // Save files
   for (int level = 0; level < config::kNumLevels; level++) {
-    const std::vector<FileMetaData*>& files = current_->leveling_files_[level];
-    for (size_t i = 0; i < files.size(); i++) {
-      const FileMetaData* f = files[i];
-      edit.AddFile(level, f->number, f->file_size, f->smallest, f->largest);
+    // const std::vector<FileMetaData*>& files = current_->leveling_files_[level];
+    const auto& partitions = current_->partitioning_leveling_files_[level];
+    for (const auto& partition_entry : partitions) {
+      uint64_t partition_number = partition_entry.first;
+      const std::vector<FileMetaData*>& files = partition_entry.second;
+      for (size_t i = 0; i < files.size(); i++) {
+        const FileMetaData* f = files[i];
+        edit.AddPartitionLevelingFile(partition_number, level, f->number, f->file_size, f->smallest, f->largest);
+      }
     }
   }
 
@@ -2029,9 +2155,9 @@ void VersionSet::AddLiveFiles(std::set<uint64_t>* live) {
         Log(options_->info_log, "  Level %d, Partition %llu: %zu files", level, (unsigned long long)partition_id, leveling_files.size());    
         for (size_t i = 0; i < leveling_files.size(); i++) {
           live->insert(leveling_files[i]->number);
-          Log(options_->info_log, "    Leveling File #%llu, size: %llu",
-          (unsigned long long)leveling_files[i]->number,
-          (unsigned long long)leveling_files[i]->file_size);
+          // Log(options_->info_log, "    Leveling File #%llu, size: %llu",
+          // (unsigned long long)leveling_files[i]->number,
+          // (unsigned long long)leveling_files[i]->file_size);
         }
       }
 
@@ -2042,9 +2168,9 @@ void VersionSet::AddLiveFiles(std::set<uint64_t>* live) {
         Log(options_->info_log, "  Level %d (tiering, run %d): %zu files", level, run, tiering_files.size());
         for (size_t i = 0; i < tiering_files.size(); i++) {
           live->insert(tiering_files[i]->number);
-          Log(options_->info_log, "    Tiering File #%llu, size: %llu",
-              (unsigned long long)tiering_files[i]->number,
-              (unsigned long long)tiering_files[i]->file_size);
+          // Log(options_->info_log, "    Tiering File #%llu, size: %llu",
+              // (unsigned long long)tiering_files[i]->number,
+              // (unsigned long long)tiering_files[i]->file_size);
         }
       }
     }
@@ -2144,7 +2270,7 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
   return result;
 }
 
-Iterator* VersionSet::MakeTieringInputIterator(Compaction* c) {
+Iterator* VersionSet::MakeTieringInputIterator(TieringCompaction* c) {
   ReadOptions options;
   options.verify_checksums = options_->paranoid_checks;
   options.fill_cache = false;
@@ -2321,141 +2447,157 @@ bool VersionSet::DetermineCompaction(int& level) {
   return false;
 }
 
-Compaction* VersionSet::PickCompaction() {
-  Compaction* c;
-  int level = -1;
+void VersionSet::CreateCompactionForPartitionLeveling(std::vector<Compaction*>& compactions) {
 
-  // Version* v = current_;  current_是当前可用的活动的version
-  // We prefer compactions triggered by too much data in a level over
-  // the compactions triggered by seeks.
+  for (const auto& entry : current_->partitions_to_merge_) {
+    uint64_t partition_number = entry.first;
+    int level = entry.second;
 
-  const bool size_compaction = DetermineCompaction(current_->compaction_level_);
-  const bool seek_compaction = (current_->file_to_compact_in_leveling != nullptr);
+    Compaction* c = new Compaction(options_, level, partition_number);
 
-  Log(options_->info_log, "PickCompaction: size_compaction=%d, seek_compaction=%d", size_compaction, seek_compaction);
-
-  if (size_compaction) {
-    level = current_->compaction_level_;
-    assert(level >= 0); // 确保选定的层级有效
-    assert(level + 1 < config::kNumLevels);// 确保有下一个层级存在，因为压缩操作可能会涉及到数据移动到下一层级
-    
-    // 创建一个新的压缩任务（Compaction），指定压缩操作的层级
-    c = new Compaction(options_, level);
-    Log(options_->info_log, "PickCompaction: size_compaction - level=%d, leveling_score=%.2f tiering_score=%.2f", 
-        level, current_->compaction_score_, current_->tieirng_compaction_score_);
-
-    if(current_->compaction_score_ >= 1.00){
-      Log(options_->info_log, "DetermineCompaction: Compaction score >= 1.00 for level=%d, leveling_score=%.2f", 
-        level, current_->compaction_score_);
-      // Pick the first file that comes after compact_pointer_[level]
-      for (size_t i = 0; i < current_->leveling_files_[level].size(); i++) {
-        FileMetaData* f = current_->leveling_files_[level][i];
-        if (compact_pointer_[level].empty() ||
-            icmp_.Compare(f->largest.Encode(), compact_pointer_[level]) > 0) {
+    // Pick the first file that comes after compact_pointer_[level][partition_number]
+    auto it = compact_pointer_[level].find(partition_number);
+    if (it != compact_pointer_[level].end()) {
+      const std::string& compact_pointer = it->second;
+      for (size_t i = 0; i < current_->partitioning_leveling_files_[level][partition_number].size(); i++) {
+        FileMetaData* f = current_->partitioning_leveling_files_[level][partition_number][i];
+        if (icmp_.Compare(f->largest.Encode(), compact_pointer_[level][partition_number]) > 0) {
           c->inputs_[0].push_back(f);
           Log(options_->info_log, "DetermineCompaction: Adding leveling file with largest key=%s", 
-            f->largest.DebugString().c_str());
+              f->largest.DebugString().c_str());
           break;
         }
       }
-      if (c->inputs_[0].empty()) {
-        // Wrap-around to the beginning of the key space
-        c->inputs_[0].push_back(current_->leveling_files_[level][0]);
-        Log(options_->info_log, "DetermineCompaction: Wrap-around, adding first leveling file with largest key=%s", 
-          current_->leveling_files_[level][0]->largest.DebugString().c_str());
-      }
     }
-    
-    // If the tiering part also needs to be compressed, merge the tiering files.
-    if (current_->tieirng_compaction_score_ >= 1.00) {
-      Log(options_->info_log, "DetermineCompaction: Tiering compaction score >= 1.00 for level=%d, tiering_score=%.2f", 
-        level, current_->tieirng_compaction_score_);
+
+    if (c->inputs_[0].empty()) {
+      // Wrap-around to the beginning of the key space
+      c->inputs_[0].push_back(current_->partitioning_leveling_files_[level][partition_number][0]);
+      Log(options_->info_log, "DetermineCompaction: Wrap-around, adding first leveling file with largest key=%s", 
+        c->inputs_[0][0]->largest.DebugString().c_str());
+    }
+
+    compactions.push_back(c);
+  }
+
+}
+
+void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, TieringCompaction** tiering_compaction) {
+
+  bool leveling_size_compaction = (current_->compaction_score_ >= 1.00);
+  bool tiering_size_compaction  = (current_->tieirng_compaction_score_ >= 1.00);
+  bool leveling_seek_compaction = (current_->file_to_compact_in_leveling != nullptr);
+  bool tiering_seek_compaction  = (current_->file_to_compact_in_tiering != nullptr);
+
+  Log(options_->info_log, "PickCompaction: Address of tiering_compaction pointer: %p", (void*)tiering_compaction);
+  Log(options_->info_log, "PickCompaction: Address stored in tiering_compaction: %p", (void*)*tiering_compaction);
+
+
+  Log(options_->info_log, "PickCompaction: leveling_size_compaction=%d, tiering_size_compaction=%d, leveling_seek_compaction=%d, tiering_seek_compaction=%d",
+    leveling_size_compaction, tiering_size_compaction, leveling_seek_compaction, tiering_seek_compaction);
+
+
+  if(leveling_size_compaction || tiering_size_compaction){
+    if (leveling_size_compaction ) {
+      CreateCompactionForPartitionLeveling(leveling_compactions);
+    } 
+
+    if(tiering_size_compaction){
+      int tier_level = current_->tiering_compaction_level_;
+      (*tiering_compaction) = new TieringCompaction(options_, tier_level);
+
+      // Log new pointer address
+      Log(options_->info_log, "PickCompaction: New address stored in tiering_compaction: %p", (void*)*tiering_compaction);
+
 
       int oldest_compaction_pointer = -1;
       int selected_run_in_input_level1 = -1;
 
-      for (const auto& entry : tiering_compact_pointer_[level]) {
+      for (const auto& entry : tiering_compact_pointer_[tier_level]) {
         if (entry.second > oldest_compaction_pointer) {
           oldest_compaction_pointer = entry.second;
           selected_run_in_input_level1 = entry.first;
         }
       }
-      c->tiering_inputs_[0].push_back(current_->tiering_runs_[level][selected_run_in_input_level1][oldest_compaction_pointer]);
-      c->selected_run_in_input_level = selected_run_in_input_level1;
-      Log(options_->info_log, "Selected run in input level: %d: Oldest compaction pointer: %d", 
-        selected_run_in_input_level1, oldest_compaction_pointer);
-      c->set_tiering();
-      FileMetaData* selected_file = current_->tiering_runs_[level][selected_run_in_input_level1][oldest_compaction_pointer];
-      Log(options_->info_log, "Selected file for compaction: level=%d, run=%d, file_number=%llu, file_size=%llu", 
-        level, selected_run_in_input_level1, 
+
+      (*tiering_compaction)->tiering_inputs_[0].push_back(current_->tiering_runs_[tier_level][selected_run_in_input_level1][oldest_compaction_pointer]);
+      (*tiering_compaction)->selected_run_in_input_level = selected_run_in_input_level1;
+      (*tiering_compaction)->set_tiering();
+      FileMetaData* selected_file = current_->tiering_runs_[tier_level][selected_run_in_input_level1][oldest_compaction_pointer];
+
+      // Consolidated log output
+      Log(options_->info_log, "Tiering compaction: level=%d, run=%d, file_number=%llu, file_size=%llu, selected run in input level: %d, oldest compaction pointer: %d",
+        tier_level, selected_run_in_input_level1, 
         (unsigned long long)selected_file->number, 
-        (unsigned long long)selected_file->file_size);
+        (unsigned long long)selected_file->file_size,
+        selected_run_in_input_level1, oldest_compaction_pointer);
+
+      (*tiering_compaction)->compaction_type = 1;
     }
+  }else if(tiering_seek_compaction || leveling_seek_compaction){
+    // If the tiering part also needs to be compressed, merge the tiering files.
+    // if (leveling_seek_compaction ) {
+    //   level = current_->file_to_compact_level_in_leveling;
+    //   tiering_compaction = new Compaction(options_, level);
+    //   c->inputs_[0].push_back(current_->file_to_compact_in_leveling);
+    //   Log(options_->info_log, "PickCompaction: seek_compaction - level=%d", level);
+    //   // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
+    //   c->compaction_type = 2;
+    //   // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
+    // }
 
-    c->compaction_type = 1;
-
-  } else if (seek_compaction) {
-    level = current_->file_to_compact_level_in_leveling;
-    c = new Compaction(options_, level);
-    c->inputs_[0].push_back(current_->file_to_compact_in_leveling);
-    Log(options_->info_log, "PickCompaction: seek_compaction - level=%d", level);
-    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
-    c->compaction_type = 2;
-    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
-
-  } else {
+    if (tiering_seek_compaction){
+      int level = current_->file_to_compact_level_in_leveling;
+      (*tiering_compaction) = new TieringCompaction(options_, level);
+      (*tiering_compaction)->inputs_[0].push_back(current_->file_to_compact_in_leveling);
+      Log(options_->info_log, "PickCompaction: seek_compaction - level=%d", level);
+      (*tiering_compaction)->compaction_type = 2;
+    }
+  }else {
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~
     Log(options_->info_log, "PickCompaction: no compaction needed"); 
-    return nullptr;
-    c->compaction_type = 4;
+    return ;
     // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
-    
   }
 
-  // 将当前数据库的版本（Version）赋值给压缩任务（Compaction）对象的input_version_。
-  // 这意味着当前的压缩任务将会基于这个版本的数据进行。
-  c->input_version_ = current_;
-  // 增加input_version_的引用计数，确保在压缩过程中该版本数据不会被删除或修改。
-  c->input_version_->Ref();
 
-  // Files in level 0 may overlap each other, so pick up all overlapping ones
-  if (level == 0) {
-    // 获取当前选定进行压缩的文件集的最小和最大键。
-    InternalKey smallest, largest;
-    if(c->get_is_tieirng()){
-      GetRange(c->tiering_inputs_[0], &smallest, &largest);
-    }else{
-      GetRange(c->inputs_[0], &smallest, &largest);
+  if(!leveling_compactions.empty()){
+    for(int i=0; i<leveling_compactions.size(); i++){
+      InternalKey smallest, largest;
+
+      leveling_compactions[i]->input_version_ = current_;
+      leveling_compactions[i]->input_version_->Ref();
+
+      if(leveling_compactions[i]->level_ == 0){
+        GetRange(leveling_compactions[i]->inputs_[0], &smallest, &largest);
+        current_->GetOverlappingInputs(0, &smallest, &largest, &leveling_compactions[i]->inputs_[0], leveling_compactions[i]->partition_num());
+        assert(!leveling_compactions[i]->inputs_[0].empty());
+      }
+
+      Log(options_->info_log, "PickCompaction: level 0 compaction - smallest=%s, largest=%s", smallest.DebugString().c_str(), largest.DebugString().c_str());
+
+      SetupOtherInputs(leveling_compactions[i]);
     }
-    Log(options_->info_log, "PickCompaction: level 0 compaction - smallest=%s, largest=%s", smallest.DebugString().c_str(), largest.DebugString().c_str());
-
-    // Note that the next call will discard the file we placed in
-    // c->inputs_[0] earlier and replace it with an overlapping set
-    // which will include the picked file.
-    if(c->get_is_tieirng()){
-      current_->GetOverlappingInputsWithTier(0, &smallest, &largest, &c->tiering_inputs_[0], c->selected_run_in_next_level);
-      assert(!c->tiering_inputs_[0].empty());
-    }else{
-      current_->GetOverlappingInputs(0, &smallest, &largest, &c->inputs_[0]);
-      assert(!c->inputs_[0].empty());
-    }
-  }
-
-  if(c->get_is_tieirng()){
-    SetupOtherInputsWithTier(c);
-  }else{
-    SetupOtherInputs(c);
   }
   
+  if((*tiering_compaction) != nullptr){
+    
+    (*tiering_compaction)->input_version_ = current_;
+    (*tiering_compaction)->input_version_->Ref();
 
-  // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
-  if (c->IsTrivialMove()) {
-    c->compaction_type = 3;
+    if((*tiering_compaction)->level_ == 0){
+      InternalKey smallest, largest;
+      GetRange((*tiering_compaction)->tiering_inputs_[0], &smallest, &largest);
+      current_->GetOverlappingInputsWithTier(0, &smallest, &largest, &(*tiering_compaction)->tiering_inputs_[0], (*tiering_compaction)->selected_run_in_input_level);
+      assert(!(*tiering_compaction)->tiering_inputs_[0].empty());
+      Log(options_->info_log, "PickCompaction: Tiering level 0 compaction - smallest=%s, largest=%s", smallest.DebugString().c_str(), largest.DebugString().c_str());
+    }
+    SetupOtherInputsWithTier((*tiering_compaction));
   }
-  // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
 
-  return c;
+  return ;
 }
+
 
 // Finds the largest key in a vector of files. Returns true if files is not
 // empty.
@@ -2538,16 +2680,21 @@ void AddBoundaryInputs(const InternalKeyComparator& icmp,
 
 void VersionSet::SetupOtherInputs(Compaction* c) {
   const int level = c->level();
+  if(level == 0){
+    return ;
+  }
+
   InternalKey smallest, largest;
+  const uint64_t partition_number = c->partition_num();
 
   // find boundary files and add to compaction then get new range
   // Possibly extends inputs_[0] 
-  AddBoundaryInputs(icmp_, current_->leveling_files_[level], &c->inputs_[0]);
+  AddBoundaryInputs(icmp_, current_->partitioning_leveling_files_[level][partition_number], &c->inputs_[0]);
   GetRange(c->inputs_[0], &smallest, &largest);
 
   // also find boundary files for the next level and add to inputs_[1]
-  current_->GetOverlappingInputs(level + 1, &smallest, &largest, &c->inputs_[1]);
-  AddBoundaryInputs(icmp_, current_->leveling_files_[level + 1], &c->inputs_[1]);
+  current_->GetOverlappingInputs(level + 1, &smallest, &largest, &c->inputs_[1],partition_number);
+  AddBoundaryInputs(icmp_, current_->partitioning_leveling_files_[level + 1][partition_number], &c->inputs_[1]);
 
   // Get entire range covered by compaction
   // insert all files from inputs_[0] and inputs_[1] then utilize GetRange() to get lagger range 
@@ -2559,8 +2706,8 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
   if (!c->inputs_[1].empty()) {
 
     std::vector<FileMetaData*> expanded0;
-    current_->GetOverlappingInputs(level, &all_start, &all_limit, &expanded0);
-    AddBoundaryInputs(icmp_, current_->leveling_files_[level], &expanded0);
+    current_->GetOverlappingInputs(level, &all_start, &all_limit, &expanded0,partition_number);
+    AddBoundaryInputs(icmp_, current_->partitioning_leveling_files_[level][partition_number], &expanded0);
     const int64_t inputs0_size = TotalFileSize(c->inputs_[0]);
     const int64_t inputs1_size = TotalFileSize(c->inputs_[1]);
     const int64_t expanded0_size = TotalFileSize(expanded0);
@@ -2572,8 +2719,8 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
       GetRange(expanded0, &new_start, &new_limit);
       std::vector<FileMetaData*> expanded1;
       current_->GetOverlappingInputs(level + 1, &new_start, &new_limit,
-                                     &expanded1);
-      AddBoundaryInputs(icmp_, current_->leveling_files_[level + 1], &expanded1);
+                                     &expanded1,partition_number);
+      AddBoundaryInputs(icmp_, current_->partitioning_leveling_files_[level + 1][partition_number], &expanded1);
       if (expanded1.size() == c->inputs_[1].size()) {
         Log(options_->info_log,
             "Expanding@%d %d+%d (%ld+%ld bytes) to %d+%d (%ld+%ld bytes)\n",
@@ -2601,8 +2748,8 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
   // We update this immediately instead of waiting for the VersionEdit
   // to be applied so that if the compaction fails, we will try a different
   // key range next time.
-  compact_pointer_[level] = largest.Encode().ToString();
-  c->edit_.SetCompactPointer(level, largest);
+  compact_pointer_[level][partition_number] = largest.Encode().ToString();
+  c->edit_.SetCompactPointer(level,partition_number, largest);
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   set_overlap_range(c->inputs_[0], c->inputs_[1]);
@@ -2611,10 +2758,10 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
 }
 
 
-void VersionSet::SetupOtherInputsWithTier(Compaction* c) {
+void VersionSet::SetupOtherInputsWithTier(TieringCompaction* c) {
   const int level = c->level();
   InternalKey smallest, largest;
-
+  const int selected_run = c->get_selected_run_in_input_level();
   // find boundary files and add to compaction then get new range
   // Possibly extends tiering_inputs_[0] 
   // AddBoundaryInputs(icmp_, current_->leveling_files_[level], &c->tiering_inputs_[0]);
@@ -2675,8 +2822,8 @@ void VersionSet::SetupOtherInputsWithTier(Compaction* c) {
   // We update this immediately instead of waiting for the VersionEdit
   // to be applied so that if the compaction fails, we will try a different
   // key range next time.
-  compact_pointer_[level] = largest.Encode().ToString();
-  c->edit_.SetCompactPointer(level, largest);
+  // tiering_compact_pointer_[level][selected_run] = largest.Encode().ToString();
+  c->edit_.SetCompactPointer(level, selected_run, largest);
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   set_overlap_range(c->inputs_[0], c->inputs_[1]);
@@ -2709,7 +2856,7 @@ Compaction* VersionSet::CompactRange(int level, const InternalKey* begin,
     }
   }
 
-  Compaction* c = new Compaction(options_, level);
+  Compaction* c = new Compaction(options_, 0,level);
   c->input_version_ = current_;
   c->input_version_->Ref();
   c->inputs_[0] = inputs;
@@ -2717,8 +2864,9 @@ Compaction* VersionSet::CompactRange(int level, const InternalKey* begin,
   return c;
 }
 
-Compaction::Compaction(const Options* options, int level)
+Compaction::Compaction(const Options* options, int level, uint64_t partition)
     : level_(level),
+      partition_num_(partition),
       max_output_file_size_(MaxFileSizeForLevel(options, level)),
       max_tiering_file_size_(MaxTieringFileSizeForLevel(options, level)),
       input_version_(nullptr),
@@ -2763,6 +2911,14 @@ void Compaction::AddInputDeletions(VersionEdit* edit) {
   for (int which = 0; which < 2; which++) {
     for (size_t i = 0; i < inputs_[which].size(); i++) {
       edit->RemoveFile(level_ + which, inputs_[which][i]->number);
+    }
+  }
+}
+
+void Compaction::AddPartitionInputDeletions(uint64_t partition_num, VersionEdit* edit) {
+  for (int which = 0; which < 2; which++) {
+    for (size_t i = 0; i < inputs_[which].size(); i++) {
+      edit->RemovePartitionFile( level_ + which,partition_num, inputs_[which][i]->number);
     }
   }
 }
@@ -2831,5 +2987,115 @@ void Compaction::ReleaseInputs() {
 //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes
 //  ~~~~~~~~~~~~~~~~~~~~~~
 int Compaction::get_compaction_type() { return compaction_type; }
+
+
+
+
+
+TieringCompaction::TieringCompaction(const Options* options, int level)
+    : level_(level),
+      max_output_file_size_(MaxFileSizeForLevel(options, level)),
+      max_tiering_file_size_(MaxTieringFileSizeForLevel(options, level)),
+      input_version_(nullptr),
+      grandparent_index_(0),
+      seen_key_(false),
+      overlapped_bytes_(0),
+      compaction_type(0),
+      is_tiering(false),
+      selected_run_in_next_level(-1) {
+  for (int i = 0; i < config::kNumLevels; i++) {
+    level_ptrs_[i] = 0;
+  }
+}
+
+TieringCompaction::~TieringCompaction() {
+  if (input_version_ != nullptr) {
+    input_version_->Unref();
+  }
+}
+
+bool TieringCompaction::IsTrivialMoveWithTier() const {
+  const VersionSet* vset = input_version_->vset_;
+  // Avoid a move if there is lots of overlapping grandparent data.
+  // Otherwise, the move could create a parent file that will require
+  // a very expensive merge later on.
+  return (num_input_tier_files(0) == 1 && num_input_tier_files(1) == 0);
+}
+
+void TieringCompaction::AddInputDeletions(VersionEdit* edit) {
+  for (int which = 0; which < 2; which++) {
+    for (size_t i = 0; i < inputs_[which].size(); i++) {
+      edit->RemoveFile(level_ + which, inputs_[which][i]->number);
+    }
+  }
+}
+
+void TieringCompaction::AddTieringInputDeletions(VersionEdit* edit) {
+  for (int which = 0; which < 2; which++) {
+    for (size_t i = 0; i < tiering_inputs_[which].size(); i++) {
+      int run = (which == 0 ? selected_run_in_input_level : selected_run_in_next_level);
+      edit->RemovetieringFile(level_ + which, run, tiering_inputs_[which][i]->number);
+    }
+  }
+}
+
+bool TieringCompaction::IsBaseLevelForKey(const Slice& user_key) {
+  // Maybe use binary search to find right entry instead of linear search?
+  const Comparator* user_cmp = input_version_->vset_->icmp_.user_comparator();
+  for (int lvl = level_ + 2; lvl < config::kNumLevels; lvl++) {
+    const std::vector<FileMetaData*>& files = input_version_->leveling_files_[lvl];
+    while (level_ptrs_[lvl] < files.size()) {
+      FileMetaData* f = files[level_ptrs_[lvl]];
+      if (user_cmp->Compare(user_key, f->largest.user_key()) <= 0) {
+        // We've advanced far enough
+        if (user_cmp->Compare(user_key, f->smallest.user_key()) >= 0) {
+          // Key falls in this file's range, so definitely not base level
+          return false;
+        }
+        break;
+      }
+      level_ptrs_[lvl]++;
+    }
+  }
+  return true;
+}
+
+bool TieringCompaction::ShouldStopBefore(const Slice& internal_key) {
+  const VersionSet* vset = input_version_->vset_;
+  // Scan to find earliest grandparent file that contains key.
+  const InternalKeyComparator* icmp = &vset->icmp_;
+  while (grandparent_index_ < grandparents_.size() &&
+         icmp->Compare(internal_key,
+                       grandparents_[grandparent_index_]->largest.Encode()) >
+             0) {
+    if (seen_key_) {
+      overlapped_bytes_ += grandparents_[grandparent_index_]->file_size;
+    }
+    grandparent_index_++;
+  }
+  seen_key_ = true;
+
+  if (overlapped_bytes_ > MaxGrandParentOverlapBytes(vset->options_)) {
+    // Too much overlap for current output; start new output
+    overlapped_bytes_ = 0;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void TieringCompaction::ReleaseInputs() {
+  if (input_version_ != nullptr) {
+    input_version_->Unref();
+    input_version_ = nullptr;
+  }
+}
+
+//  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes
+//  ~~~~~~~~~~~~~~~~~~~~~~
+int TieringCompaction::get_compaction_type() { return compaction_type; }
+
+
+
 
 }  // namespace leveldb

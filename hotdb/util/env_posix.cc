@@ -197,11 +197,13 @@ class PosixRandomAccessFile final : public RandomAccessFile {
   }
 
   Status Read(uint64_t offset, size_t n, Slice* result,
-              char* scratch) const override {
+            char* scratch) const override {
     int fd = fd_;
     if (!has_permanent_fd_) {
+      // fprintf(stderr, "Read: Opening file %s\n", filename_.c_str());
       fd = ::open(filename_.c_str(), O_RDONLY | kOpenBaseFlags);
       if (fd < 0) {
+        // fprintf(stderr, "Read: Error opening file %s: %s\n", filename_.c_str(), strerror(errno));
         return PosixError(filename_, errno);
       }
     }
@@ -209,19 +211,26 @@ class PosixRandomAccessFile final : public RandomAccessFile {
     assert(fd != -1);
 
     Status status;
+    // fprintf(stderr, "Read: Reading %zu bytes from offset %lu\n", n, offset);
     ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
     *result = Slice(scratch, (read_size < 0) ? 0 : read_size);
     if (read_size < 0) {
       // An error: return a non-ok status.
+      // fprintf(stderr, "Read: Error reading file %s: %s\n", filename_.c_str(), strerror(errno));
       status = PosixError(filename_, errno);
+    } else {
+      // fprintf(stderr, "Read: Successfully read %zd bytes\n", read_size);
     }
+
     if (!has_permanent_fd_) {
       // Close the temporary file descriptor opened earlier.
+      // fprintf(stderr, "Read: Closing temporary file descriptor\n");
       assert(fd != fd_);
       ::close(fd);
     }
     return status;
   }
+
 
  private:
   const bool has_permanent_fd_;  // If false, the file is opened on every read.
@@ -258,7 +267,11 @@ class PosixMmapReadableFile final : public RandomAccessFile {
 
   Status Read(uint64_t offset, size_t n, Slice* result,
               char* scratch) const override {
+    // fprintf(stderr, "Read: Start reading at offset %lu with size %zu\n", offset, n);
+    // fprintf(stderr, "Read: length_ = %lu, filename_ = %s, mmap_base_ = %p\n", length_, filename_.c_str(), static_cast<void*>(mmap_base_));
+
     if (offset + n > length_) {
+      // fprintf(stderr, "Read: Error - offset %lu with size %zu exceeds file length %lu\n", offset, n, length_);
       *result = Slice();
       return PosixError(filename_, EINVAL);
     }
@@ -542,11 +555,13 @@ class PosixEnv : public Env {
     *result = nullptr;
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
+      // fprintf(stderr, "open %s failed\n", filename.c_str());
       return PosixError(filename, errno);
     }
 
     if (!mmap_limiter_.Acquire()) {
       *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
+      // fprintf(stderr, "open ok\n");
       return Status::OK();
     }
 
@@ -559,6 +574,7 @@ class PosixEnv : public Env {
         *result = new PosixMmapReadableFile(filename,
                                             reinterpret_cast<char*>(mmap_base),
                                             file_size, &mmap_limiter_);
+        // fprintf(stderr, "PosixMmapReadableFile open ok\n");
       } else {
         status = PosixError(filename, errno);
       }
@@ -567,6 +583,7 @@ class PosixEnv : public Env {
     if (!status.ok()) {
       mmap_limiter_.Release();
     }
+    // fprintf(stderr, "filename:%s open status: %s \n",filename.c_str(), status.ToString().c_str());
     return status;
   }
 

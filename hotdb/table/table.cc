@@ -42,18 +42,28 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
                    uint64_t size, Table** table) {
   *table = nullptr;
   if (size < Footer::kEncodedLength) {
+    // fprintf(stderr, "Table::Open: file is too short to be an sstable\n");
     return Status::Corruption("file is too short to be an sstable");
   }
 
   char footer_space[Footer::kEncodedLength];
   Slice footer_input;
+
+  // fprintf(stderr, "Table::Open: Reading footer from file\n");
   Status s = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
                         &footer_input, footer_space);
-  if (!s.ok()) return s;
+  if (!s.ok()) {
+    // fprintf(stderr, "Table::Open: Error reading footer: %s\n\n\n", s.ToString().c_str());
+    return s;
+  }
 
   Footer footer;
+  // fprintf(stderr, "Table::Open: Decoding footer\n");
   s = footer.DecodeFrom(&footer_input);
-  if (!s.ok()) return s;
+  if (!s.ok()) {
+    // fprintf(stderr, "Table::Open: Error decoding footer: %s\n", s.ToString().c_str());
+    return s;
+  }
 
   // Read the index block
   BlockContents index_block_contents;
@@ -61,26 +71,33 @@ Status Table::Open(const Options& options, RandomAccessFile* file,
   if (options.paranoid_checks) {
     opt.verify_checksums = true;
   }
+  
+  // fprintf(stderr, "Table::Open: Reading index block\n");
   s = ReadBlock(file, opt, footer.index_handle(), &index_block_contents);
-
-  if (s.ok()) {
-    // We've successfully read the footer and the index block: we're
-    // ready to serve requests.
-    Block* index_block = new Block(index_block_contents);
-    Rep* rep = new Table::Rep;
-    rep->options = options;
-    rep->file = file;
-    rep->metaindex_handle = footer.metaindex_handle();
-    rep->index_block = index_block;
-    rep->cache_id = (options.block_cache ? options.block_cache->NewId() : 0);
-    rep->filter_data = nullptr;
-    rep->filter = nullptr;
-    *table = new Table(rep);
-    (*table)->ReadMeta(footer);
+  if (!s.ok()) {
+    // fprintf(stderr, "Table::Open: Error reading index block: %s\n", s.ToString().c_str());
+    return s;
   }
+
+  // We've successfully read the footer and the index block: we're ready to serve requests.
+  // fprintf(stderr, "Table::Open: Successfully read footer and index block\n");
+  Block* index_block = new Block(index_block_contents);
+  Rep* rep = new Table::Rep;
+  rep->options = options;
+  rep->file = file;
+  rep->metaindex_handle = footer.metaindex_handle();
+  rep->index_block = index_block;
+  rep->cache_id = (options.block_cache ? options.block_cache->NewId() : 0);
+  rep->filter_data = nullptr;
+  rep->filter = nullptr;
+  *table = new Table(rep);
+  (*table)->ReadMeta(footer);
+
+  
 
   return s;
 }
+
 
 void Table::ReadMeta(const Footer& footer) {
   if (rep_->options.filter_policy == nullptr) {
