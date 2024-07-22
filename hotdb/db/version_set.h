@@ -262,14 +262,26 @@ class VersionSet {
     }
   }
 
+  // ==== start of modified code ====
+
   // Return the number of Table files at the specified level.
   int NumLevelFiles(int level) const;
 
-    // Return the number of Table files(tiering) at the specified level.
-  int NumLevel_tiering_Files(int level) const;
+    
+  // Return the number of Table files(leveling) at the specified level.
+  int Num_Level_leveling_Files(int level) const;
 
-    // Return the number of Table files(leveling) at the specified level.
-  int NumLevel_leveling_Files(int level) const;
+  // Return the number of Table files(tiering) at the specified level.
+  int Num_Level_tiering_Files(int level, int run) const;
+
+  // Return the number of Table files(tiering) at the specified level.
+  int Num_Level_tiering_Files(int level) const;
+
+  int Num_Level_Partitionleveling_Files(int level, uint64_t part) const;
+
+  int Num_Level_Partitionleveling_Files(int level) const;
+
+  // ==== End of modified code ====
 
   // Return the combined file size of all files at the specified level.
   int64_t NumLevelBytes(int level) const;

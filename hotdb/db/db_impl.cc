@@ -2214,7 +2214,7 @@ Status DBImpl::DoTieringCompactionWork(TieringCompactionState* compact) {
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
 
   // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
-  assert(versions_->NumLevelFiles(compact->tiercompaction->level()) > 0);
+  assert(versions_->Num_Level_tiering_Files(compact->tiercompaction->level()) > 0);
   assert(compact->builder == nullptr);
   assert(compact->outfile == nullptr);
   if (snapshots_.empty()) {
@@ -2413,7 +2413,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
 
   // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
-  assert(versions_->NumLevelFiles(compact->compaction->level()) > 0);
+  assert(versions_->Num_Level_Partitionleveling_Files(compact->compaction->level(), compact->compaction->partition_num()) > 0);
   assert(compact->builder == nullptr);
   assert(compact->outfile == nullptr);
   if (snapshots_.empty()) {
@@ -2517,7 +2517,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
       // Open output file if necessary
       if (compact->builder == nullptr) {
         status = OpenCompactionOutputFile(compact);
-        Log(options_.leveling_info_log, "DoCompactionWork: Open compaction output file: %s", status.ToString().c_str());
+        // Log(options_.leveling_info_log, "DoCompactionWork: Open compaction output file: %s", status.ToString().c_str());
         if (!status.ok()) {
           Log(options_.leveling_info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
           break;
@@ -3082,14 +3082,14 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // one is still being compacted, so we wait.
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
-    } else if (versions_->NumLevel_leveling_Files(0) >= config::kL0_StopWritesTrigger ) {
+    } else if (versions_->Num_Level_leveling_Files(0) >= config::kL0_StopWritesTrigger ) {
       // There are too many level-0 leveling files.
       Log(options_.info_log, "Too many L0 leveling files; waiting...\n");
       background_work_finished_signal_.Wait();
-    }else if (versions_->NumLevel_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
+    }else if (versions_->Num_Level_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
       // There are too many level-0 tiering files.
       Log(options_.info_log, "Too many L0 tiering files; waiting... NumLevel_tiering_Files = %d, kTiering_and_leveling_Multiplier = %d\n",
-      versions_->NumLevel_tiering_Files(0), config::kTiering_and_leveling_Multiplier);
+          versions_->Num_Level_tiering_Files(0), config::kTiering_and_leveling_Multiplier);
       background_work_finished_signal_.Wait();
     } else {
       // Attempt to switch to a new memtable and trigger compaction of old
@@ -3269,8 +3269,8 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
       if(level == 0){
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
-      int files = versions_->NumLevel_leveling_Files(level);
-      int tierfiles = versions_->NumLevel_tiering_Files(level);
+      int files = versions_->Num_Level_leveling_Files(level);
+      int tierfiles = versions_->Num_Level_tiering_Files(level);
       if (stats_[level].micros > 0 || files > 0 || tierfiles >0) {
         std::vector<int> percents = GetLevelPercents();
         std::snprintf(buf, sizeof(buf), "%5d %5d(%4d) %7.0f %7.0f %7.0f %7.0f %8.0f %8.0f %6d %7d(%7d) %5d(%7d) %5d(%7d) %7d(%7d) %6d(%7d) %6d(%7d) %5d %9d %8.0f %8.0f\n",
