@@ -936,7 +936,6 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
   if(it == mem_partitions_.begin()){
     current_partition = *it;
     it++;
-    next_partition = *it;
     assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size) > 0);
 
     if(current_partition->GetAverageFileSize() < options.min_file_size){
@@ -950,10 +949,11 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
     }
 
   }else{
-    next_partition = *it;
     --it;
     current_partition = *it;
   }
+
+  GetNextPartition(mem_partitions_, current_partition, next_partition);
   // fprintf(stderr, "Partition start: %s, end: %s\n", (*it)->partition_start.ToString().c_str(), (*it)->partition_end.ToString().c_str());
 
   for (; iter->Valid(); iter->Next()) {
@@ -1318,7 +1318,7 @@ Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, TableCac
   }
 
   int64_t end_micros = env_->NowMicros();
-  // PrintPartitions(mem_partitions_);
+  PrintPartitions(mem_partitions_);
   return s;
 }
 
