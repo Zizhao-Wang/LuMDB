@@ -23,6 +23,10 @@ namespace leveldb {
     std::vector<FileMetaData*> level_files[config::kNumLevels];
   };
 
+
+
+  struct mem_partition_guard;
+
   struct mem_partition_guard
   {
     mem_partition_guard()
@@ -175,8 +179,7 @@ namespace leveldb {
  
   };
 
-
-  struct PartitionGuardComparator {
+    struct PartitionGuardComparator {
     bool operator() (const mem_partition_guard* lhs, const mem_partition_guard* rhs) const {
       return lhs->partition_start.compare(rhs->partition_start) < 0;
     }
