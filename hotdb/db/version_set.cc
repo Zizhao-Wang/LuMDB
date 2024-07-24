@@ -1361,7 +1361,7 @@ class VersionSet::Builder {
       Log(vset_->options_->leveling_info_log, "File %lu in partition %lu at level %d is deleted, skipping", f->number, partition, level);
     } else {
       std::vector<FileMetaData*>* files = &v->partitioning_leveling_files_[level][partition];
-      if (level > 1 && !files->empty()) {
+      if (level > 0 && !files->empty()) {
         // Must not overlap
         assert(vset_->icmp_.Compare((*files)[files->size() - 1]->largest, f->smallest) < 0);
       }
