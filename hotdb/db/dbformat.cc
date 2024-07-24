@@ -31,6 +31,8 @@ int kTiering_and_leveling_Multiplier = 24;
 
 int kPartitionLevelingCompactionTrigger = 128;
 
+int kPartitionLevelingL1CompactionTrigger = 12;
+
 int kLevelingL0PartitionSize = 128 * 1024 * 1024;
 
 int kLevelingL1PartitionSize = 64 * 1024 * 1024;

@@ -332,6 +332,9 @@ class DBImpl : public DB {
 
   Status DoCompactionWork(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  
+  Status DoL0CompactionWork(CompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status DoTieringCompactionWork(TieringCompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -343,6 +346,9 @@ class DBImpl : public DB {
   Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
 
   Status FinishCompactionOutputFile(TieringCompactionState* compact, Iterator* input);
+  
+  Status CreateL1PartitionAndInstallCompactionResults(CompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status InstallCompactionResults(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -419,7 +425,7 @@ class DBImpl : public DB {
   std::atomic<bool> has_hot_imm_;         // So bg thread can detect non-null imm_
 
   std::set<mem_partition_guard*, PartitionGuardComparator> mem_partitions_ GUARDED_BY(mutex_);
-
+  std::map<uint64_t, bool> partition_first_L0flush_map_;
 
   // ==== End of modified code ====
 
