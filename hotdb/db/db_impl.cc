@@ -1663,12 +1663,7 @@ void DBImpl::BackgroundCompaction() {
       } else {
 
         CompactionState* compact = new CompactionState(c);
-        bool is_first_L0flush = partition_first_L0flush_map_[c->partition_num()];
-        if(c->level()==0 && !is_first_L0flush){
-          status = DoL0CompactionWork(compact);
-        }else{
-          status = DoCompactionWork(compact);
-        }
+        status = DoCompactionWork(compact);
             
         if (!status.ok()) {
           RecordBackgroundError(status);
@@ -1991,7 +1986,6 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
   compact->compaction->AddPartitionInputDeletions(partition_num, compact->compaction->edit());
   const int level = compact->compaction->level();
 
-  
   for (size_t i = 0; i < compact->outputs.size(); i++) {
     const CompactionState::Output& out = compact->outputs[i];
     compact->compaction->edit()->AddPartitionLevelingFile(partition_num, level + 1, out.number, out.file_size,
