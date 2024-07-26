@@ -1991,23 +1991,13 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
   compact->compaction->AddPartitionInputDeletions(partition_num, compact->compaction->edit());
   const int level = compact->compaction->level();
 
-  if(compact->compaction->level() == 0){
-    // assert(compact->L1_partitions_.size() == compact->outputs.size());
-    for (size_t i = 0; i < compact->outputs.size(); i++) {
-      const CompactionState::Output& out = compact->outputs[i];
-      compact->compaction->edit()->AddPartitionLevelingFile(compact->L1_partitions_[i], level + 1, out.number, out.file_size,
+  
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    const CompactionState::Output& out = compact->outputs[i];
+    compact->compaction->edit()->AddPartitionLevelingFile(partition_num, level + 1, out.number, out.file_size,
                                         out.smallest, out.largest);
-      Log(options_.leveling_info_log, "finished a compaction output file:Partition[%lu] File #%llu: size=%llu, smallest=%s, largest=%s",
-        compact->L1_partitions_[i], (unsigned long long)out.number,(unsigned long long)out.file_size,
-        out.smallest.user_key().ToString().c_str(), out.largest.user_key().ToString().c_str());
-    }
-  }else{
-    for (size_t i = 0; i < compact->outputs.size(); i++) {
-      const CompactionState::Output& out = compact->outputs[i];
-      compact->compaction->edit()->AddPartitionLevelingFile(partition_num, level + 1, out.number, out.file_size,
-                                        out.smallest, out.largest);
-    }
   }
+  
   return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
 }
 
@@ -2666,12 +2656,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
 
   if (status.ok()) {
-    if(compact->compaction->level()==0){
-      status = CreateL1PartitionAndInstallCompactionResults(compact);
-    }else{
-      status = InstallCompactionResults(compact);
-    }
-    
+    status = InstallCompactionResults(compact);
+   
     if (!status.ok()) {
       Log(options_.leveling_info_log, "DoCompactionWork: Error installing from L%d to L%d compaction results: %s",
         compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
