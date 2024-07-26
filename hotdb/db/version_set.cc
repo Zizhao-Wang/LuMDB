@@ -26,6 +26,10 @@ static size_t TargetFileSize(const Options* options) {
   return options->max_file_size;
 }
 
+static size_t TargetMinFileSize(const Options* options) {
+  return options->min_file_size;
+}
+
 static size_t TargetTieringFileSize(const Options* options) {
   return options->max_tiering_file_size;
 }
@@ -59,6 +63,11 @@ static double MaxBytesForLevel(const Options* options, int level) {
 static uint64_t MaxFileSizeForLevel(const Options* options, int level) {
   // We could vary per level to reduce number of files?
   return TargetFileSize(options);
+}
+
+static uint64_t MinFileSizeForLevel(const Options* options, int level) {
+  // We could vary per level to reduce number of files?
+  return TargetMinFileSize(options);
 }
 
 static uint64_t MaxTieringFileSizeForLevel(const Options* options, int level) {
@@ -842,7 +851,7 @@ void Version::GetOverlappingInputs(int level, const InternalKey* begin,
       //                                                                 <-----f----->
     } else {
       inputs->push_back(f);
-      if (level == 0) {
+      if (level == 0 || level == 1) {
         // Level-0 files may overlap each other.  So check if the newly
         // added file has expanded the range.  If so, restart search.
         if (begin != nullptr && user_cmp->Compare(file_start, user_begin) < 0) {
@@ -1105,6 +1114,7 @@ class VersionSet::Builder {
     // }
 
     for (int level = 0; level < config::kNumLevels; level++) {
+      partition_levels_[level].partition_deleted_files.clear();
       if(level == 0){
         tiering_levels_[level].added_files_every_runs[0] = new Tiering_files_in_run(cmp);
       }else{
@@ -1182,6 +1192,7 @@ class VersionSet::Builder {
     }
 
     // Delete files
+    
     for (const auto& deleted_file_set_kvp : edit->deleted_partitioning_files_) {
       const int level = std::get<0>(deleted_file_set_kvp);
       const uint64_t partition = std::get<1>(deleted_file_set_kvp);
@@ -1193,6 +1204,7 @@ class VersionSet::Builder {
     }
 
     // Add new files
+    // Log(vset_->options_->leveling_info_log, "{Apply}: Adding %lu new files", edit->new_partitioning_files_.size());
     for (size_t i = 0; i < edit->new_partitioning_files_.size(); i++) {
 
       const int level = std::get<0>(edit->new_partitioning_files_[i]);
@@ -1216,12 +1228,19 @@ class VersionSet::Builder {
       f->allowed_seeks = static_cast<int>((f->file_size / 16384U));
       if (f->allowed_seeks < 100) f->allowed_seeks = 100;
 
-      partition_levels_[level].partition_deleted_files[partition].erase(f->number);
+        auto& deleted_files = partition_levels_[level].partition_deleted_files[partition];
+        deleted_files.erase(f->number);
+        
+        // Check if the partition has no more deleted files and remove it
+        if (deleted_files.empty()) {
+          partition_levels_[level].partition_deleted_files.erase(partition);
+        }
 
       // 确保 partition_added_files 已存在
       EnsurePartitionFileSetExists(level, partition);
       partition_levels_[level].partition_added_files[partition]->insert(f);
-      Log(vset_->options_->leveling_info_log, "Apply: Adding new file at level=%d,partition=%lu, number=%lu, size=%lu", level, partition,f->number, f->file_size);
+      Log(vset_->options_->leveling_info_log, "Apply: Adding new file at level=%d,partition=%lu, number=%lu, size=%lu added_files:%lu", 
+        level, partition,f->number, f->file_size,partition_levels_[level].partition_added_files[partition]->size() );
     }
   }
 
@@ -1238,53 +1257,70 @@ class VersionSet::Builder {
       for (const auto& partition_pair : partition_levels_[level].partition_added_files) {
         uint64_t partition_id = partition_pair.first;
         const PartitionFileSet* added_files = partition_pair.second;
+        // Log(vset_->options_->leveling_info_log, "partition_id %lu partition_pair.second %lu", 
+        //       partition_id, partition_pair.second->size());
+        int base_files_count = 0;
+        int added_files_count = 0;
+        int remaining_base_files_count = 0;
 
         if (base_->partitioning_leveling_files_[level].find(partition_id) != base_->partitioning_leveling_files_[level].end()) {
           const std::vector<FileMetaData*>& base_files = base_->partitioning_leveling_files_[level][partition_id];
           std::vector<FileMetaData*>::const_iterator base_iter = base_files.begin();
           std::vector<FileMetaData*>::const_iterator base_end = base_files.end();
 
-          v->partitioning_leveling_files_[level][partition_id].reserve(base_files.size() + added_files->size());
-          Log(vset_->options_->leveling_info_log, "Merging files for partition %lu at level %d", partition_id, level);
+          v->partitioning_leveling_files_[level][partition_id].reserve(base_files.size()+ added_files->size());
+          Log(vset_->options_->leveling_info_log, "Merging files for partition %lu at level %d base_files.size():%lu added_files->size():%lu", 
+              partition_id, level,base_files.size(), added_files->size());
 
           for (const auto& added_file : *added_files) {
             // Add all smaller files listed in base_
             for (std::vector<FileMetaData*>::const_iterator bpos = std::upper_bound(base_iter, base_end, added_file, cmp); base_iter != bpos; ++base_iter) {
-              MaybeAddFile(v, level, partition_id, *base_iter);
+                MaybeAddFile(v, level, partition_id, *base_iter);
+                // Log(vset_->options_->info_log, "Adding base file: %p, partition: %lu, refs: %d", *base_iter, partition_id, (*base_iter)->refs);
+                base_files_count++;
             }
             MaybeAddFile(v, level, partition_id, added_file);
+            // Log(vset_->options_->info_log, "Adding added file: %p, partition: %lu, refs: %d", added_file, partition_id, added_file->refs);
+            added_files_count++;
           }
           // Add remaining base files
           for (; base_iter != base_end; ++base_iter) {
             MaybeAddFile(v, level, partition_id, *base_iter);
+            // Log(vset_->options_->info_log, "Adding remaining base file: %p, partition: %lu, refs: %d", *base_iter, partition_id, (*base_iter)->refs);
+              remaining_base_files_count++;
           }
         }else{
-          Log(vset_->options_->leveling_info_log, "Adding new files for partition %lu at level %d", partition_id, level);
+          // Log(vset_->options_->leveling_info_log, "Adding new files for partition %lu at level %d", partition_id, level);
           for (FileMetaData* file : *added_files) {
             v->partitioning_leveling_files_[level][partition_id].push_back(file);
             // Log(vset_->options_->info_log, "FileMetaData* file: %p", file);
           }
           for(int i = 0; i<v->partitioning_leveling_files_[level][partition_id].size();i++){
             v->partitioning_leveling_files_[level][partition_id][i]->refs++;
-            // Log(vset_->options_->info_log, "FileMetaData* v->partitioning_leveling_files_[level][partition_id][%lu]: %p", i, v->partitioning_leveling_files_[level][partition_id][i]);
+            // Log(vset_->options_->info_log, "FileMetaData* v->partitioning_leveling_files_[level][partition_id][i]: %p", v->partitioning_leveling_files_[level][partition_id][i]);
           }
         }
+        // Log(vset_->options_->leveling_info_log, "Partition %lu at level %d: base_files_count=%d, added_files_count=%d, remaining_base_files_count=%d",
+        // partition_id, level, base_files_count, added_files_count, remaining_base_files_count);
       }
-
+      
       // Handle partitions that have only deletions
+      
       for (const auto& deleted_partition : partition_levels_[level].partition_deleted_files) {
         uint64_t partition_id = deleted_partition.first;
         const std::set<uint64_t>& deleted_files = deleted_partition.second;
-        Log(vset_->options_->leveling_info_log, "Processing deleted files for partition %lu at level %d", partition_id, level);
-        if (partition_levels_[level].partition_added_files.find(partition_id) == partition_levels_[level].partition_added_files.end()) {
-          
+        // Log(vset_->options_->leveling_info_log, "Partition %lu at level %d: deleted_partition.second.size()=%lu deleted_files.size()=%lu",
+        // partition_id, level, deleted_partition.second.size(), deleted_files.size());
+        if(!deleted_files.empty()){
+          Log(vset_->options_->leveling_info_log, "Processing deleted %lu files for partition %lu at level %d", deleted_files.size(), partition_id, level);
           const std::vector<FileMetaData*>& base_files = base_->partitioning_leveling_files_[level][partition_id];
           for (const auto& base_file : base_files) {
             MaybeAddFile(v, level, partition_id, base_file);
           }
         }
       }
-
+      
+      
       // Handle partitions that are in the base but not in added or deleted lists
       for (const auto& base_partition : base_->partitioning_leveling_files_[level]) {
         uint64_t partition_id = base_partition.first;
@@ -1354,8 +1390,8 @@ class VersionSet::Builder {
 
   void MaybeAddFile(Version* v, int level, uint64_t partition, FileMetaData* f) {
     // DebugPrintPartitionDeletedFiles(level, partition);
-    Log(vset_->options_->leveling_info_log, "Deleting files at level=%d,partition=%lu now deleted files: %lu", 
-          level,partition, partition_levels_[level].partition_deleted_files[partition].size());
+    // Log(vset_->options_->leveling_info_log, "Deleting files at level=%d,partition=%lu now deleted files: %lu", 
+    //       level,partition, partition_levels_[level].partition_deleted_files[partition].size());
     if (partition_levels_[level].partition_deleted_files[partition].count(f->number) > 0) {
       // File is deleted: do nothing
       Log(vset_->options_->leveling_info_log, "File %lu in partition %lu at level %d is deleted, skipping", f->number, partition, level);
@@ -1841,7 +1877,7 @@ void VersionSet::Finalize(Version* v) {
       double level_score = 0.0;
 
       if (level == 0) {
-        level_score = partition.second.size() / static_cast<double>(config::kPartitionLevelingCompactionTrigger);   
+        level_score = partition.second.size() / static_cast<double>(config::kInitialPartitionLevelingCompactionTrigger);   
       }else if(level == 1){
         level_score = partition.second.size() / static_cast<double>(config::kPartitionLevelingL1CompactionTrigger); 
       }else{
@@ -2020,6 +2056,19 @@ int VersionSet::Num_Level_Partitionleveling_Files(int level,uint64_t part) const
   assert(level >= 0);
   assert(level < config::kNumLevels);
   return current_->partitioning_leveling_files_[level][part].size();
+}
+
+int VersionSet::Num_Level_maxPartitionleveling_Files(int level) const {
+  assert(level >= 0);
+  assert(level < config::kNumLevels);
+  int max_files = 0;
+
+  for (const auto& partition : current_->partitioning_leveling_files_[level]) {
+    if(partition.second.size() > max_files){
+      max_files = partition.second.size();
+    }
+  }
+  return max_files;
 }
 
 int VersionSet::Num_Level_Partitionleveling_Files(int level) const {
@@ -2308,12 +2357,12 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
   // Level-0 files have to be merged together.  For other levels,
   // we will make a concatenating iterator per level.
   // TODO(opt): use concatenating iterator for level-0 if there is no overlap
-  const int space = (c->level() == 0 ? c->inputs_[0].size() + 1 : 2);
+  const int space = (c->level() == 0 ? c->inputs_[0].size() + c->inputs_[1].size() : (c->level() == 1 ? c->inputs_[0].size() + 1 : 2));
   Iterator** list = new Iterator*[space];
   int num = 0;
   for (int which = 0; which < 2; which++) {
     if (!c->inputs_[which].empty()) {
-      if (c->level() + which == 0) {
+      if (c->level() + which <= 1) {
         const std::vector<FileMetaData*>& files = c->inputs_[which];
         for (size_t i = 0; i < files.size(); i++) {
           list[num++] = table_cache_->NewIterator(options, files[i]->number,
@@ -2545,6 +2594,37 @@ void VersionSet::CreateCompactionForPartitionLeveling(std::vector<Compaction*>& 
 
 }
 
+void VersionSet::RePickCompaction(Compaction* leveling_compaction, std::vector<uint64_t>& merge_and_deletes){
+  
+  leveling_compaction->set_partition_num(merge_and_deletes.back());
+  leveling_compaction->inputs_[0].clear();
+
+  Log(options_->leveling_info_log, "Merged into partition: %lu, deleted partitions: %s",
+        merge_and_deletes.back(),
+        [&]() {
+            std::string result;
+            for (size_t i = 0; i < merge_and_deletes.size() - 1; ++i) {
+                result += std::to_string(merge_and_deletes[i]) + " ";
+            }
+            return result;
+        }().c_str());
+  
+  // Iterate over the partitions to be deleted and collect their L0 files
+  for (size_t i = 0; i < merge_and_deletes.size() - 1; ++i) {
+    uint64_t partition_num = merge_and_deletes[i];
+    for (int i=0; i<current_->partitioning_leveling_files_[0][partition_num].size();i++) {
+        leveling_compaction->inputs_[0].push_back(current_->partitioning_leveling_files_[0][partition_num][i]);
+        leveling_compaction->merged_partitions_.push_back(partition_num);
+      }
+      Log(options_->leveling_info_log, "Added %ld(double verfied: %lu) L0 files from partition: %lu to compaction inputs",
+        leveling_compaction->merged_partitions_.size(), leveling_compaction->inputs_[0].size(), partition_num);
+  }
+
+  leveling_compaction->set_merge_compaction();
+  return ;
+}
+
+
 void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, TieringCompaction** tiering_compaction) {
 
   bool leveling_size_compaction = (current_->compaction_score_ >= 1.00);
@@ -2564,6 +2644,7 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
 
   if(leveling_size_compaction || tiering_size_compaction){
     if (leveling_size_compaction ) {
+
       CreateCompactionForPartitionLeveling(leveling_compactions);
     } 
 
@@ -2633,15 +2714,17 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
       leveling_compactions[i]->input_version_ = current_;
       leveling_compactions[i]->input_version_->Ref();
 
-      if(leveling_compactions[i]->level_ == 0){
+      if(leveling_compactions[i]->level_ == 0 || leveling_compactions[i]->level_ == 1){
         GetRange(leveling_compactions[i]->inputs_[0], &smallest, &largest);
-        current_->GetOverlappingInputs(0, &smallest, &largest, &leveling_compactions[i]->inputs_[0], leveling_compactions[i]->partition_num());
+        current_->GetOverlappingInputs(leveling_compactions[i]->level_, &smallest, &largest, &leveling_compactions[i]->inputs_[0], leveling_compactions[i]->partition_num());
         assert(!leveling_compactions[i]->inputs_[0].empty());
       }
 
       Log(options_->leveling_info_log, "PickCompaction: level %d compaction - smallest=%s, largest=%s",leveling_compactions[i]->level_, smallest.DebugString().c_str(), largest.DebugString().c_str());
-
-      SetupOtherInputs(leveling_compactions[i]);
+      if(leveling_compactions[i]->level_ > 0){
+        SetupOtherInputs(leveling_compactions[i]);
+      }
+      
     }
   }
   
@@ -2930,13 +3013,14 @@ Compaction::Compaction(const Options* options, int level, uint64_t partition)
     : level_(level),
       partition_num_(partition),
       max_output_file_size_(MaxFileSizeForLevel(options, level)),
-      max_tiering_file_size_(MaxTieringFileSizeForLevel(options, level)),
+      min_output_file_size_(MinFileSizeForLevel(options, level)),
       input_version_(nullptr),
       grandparent_index_(0),
       seen_key_(false),
       overlapped_bytes_(0),
       compaction_type(0),
       is_tiering(false),
+      is_merge_compaction_(false),
       selected_run_in_next_level(-1) {
   for (int i = 0; i < config::kNumLevels; i++) {
     level_ptrs_[i] = 0;
@@ -2983,6 +3067,16 @@ void Compaction::AddPartitionInputDeletions(uint64_t partition_num, VersionEdit*
       edit->RemovePartitionFile( level_ + which,partition_num, inputs_[which][i]->number);
     }
   }
+}
+
+void Compaction::AddL0MergePartitionInputDeletions(VersionEdit* edit) {
+  assert(is_merge_compaction_);
+  assert(inputs_[1].size() == 0);
+  
+  for (size_t i = 0; i < inputs_[0].size(); i++) {
+    edit->RemovePartitionFile(level_ ,merged_partitions_[i], inputs_[0][i]->number);
+  }
+  
 }
 
 void Compaction::AddTieringInputDeletions(VersionEdit* edit) {

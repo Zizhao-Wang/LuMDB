@@ -72,6 +72,8 @@ struct LEVELDB_EXPORT Options {
 
   Logger* leveling_info_log = nullptr;
 
+  Logger* leveling_compaction_info_log = nullptr;
+
   // -------------------
   // Parameters that affect performance
 
@@ -127,6 +129,8 @@ struct LEVELDB_EXPORT Options {
   size_t max_tiering_file_size = 2 * 1024 * 1024;
 
   size_t min_file_size = 1024 * 1024;
+
+  size_t too_small_file_size = 1 * 1024;
 
   // Compress blocks using the specified compression algorithm.  This
   // parameter can be changed dynamically.

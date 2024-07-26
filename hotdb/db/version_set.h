@@ -280,6 +280,8 @@ class VersionSet {
   int Num_Level_Partitionleveling_Files(int level, uint64_t part) const;
 
   int Num_Level_Partitionleveling_Files(int level) const;
+  
+  int Num_Level_maxPartitionleveling_Files(int level) const;
 
   // ==== End of modified code ====
 
@@ -316,6 +318,8 @@ class VersionSet {
   // Otherwise returns a pointer to a heap-allocated object that
   // describes the compaction.  Caller should delete the result.
   void PickCompaction(std::vector<Compaction*>& leveling_compactions, TieringCompaction** tiering_compaction);
+
+  void RePickCompaction(Compaction* leveling_compactions, std::vector<uint64_t>&);
 
   void CreateCompactionForPartitionLeveling(std::vector<Compaction*>& compactions); 
 
@@ -464,6 +468,12 @@ class Compaction {
 
   uint64_t partition_num() const { return partition_num_; }
 
+  bool is_merge_compaction() const { return is_merge_compaction_; }
+
+  void set_merge_compaction() { is_merge_compaction_ = true;}
+
+  void set_partition_num(uint64_t partition) { partition_num_ = partition; }
+
   // Return the object that holds the edits to the descriptor done
   // by this compaction.
   VersionEdit* edit() { return &edit_; }
@@ -477,8 +487,7 @@ class Compaction {
   // Maximum size of files to build during this compaction.
   uint64_t MaxOutputFileSize() const { return max_output_file_size_; }
 
-    // Maximum size of files to build during this compaction.
-  uint64_t MaxTieringOutputFileSize() const { return max_tiering_file_size_; }
+  uint64_t MinOutputFileSize() const { return min_output_file_size_; }
 
   // Is this a trivial compaction that can be implemented by just
   // moving a single input file to the next level (no merging or splitting)
@@ -490,6 +499,8 @@ class Compaction {
   void AddInputDeletions(VersionEdit* edit);
 
   void AddPartitionInputDeletions(uint64_t partition_num, VersionEdit* edit);
+
+  void AddL0MergePartitionInputDeletions( VersionEdit* edit);
 
   void AddTieringInputDeletions(VersionEdit* edit);
 
@@ -531,14 +542,16 @@ class Compaction {
   Compaction(const Options* options, int level, uint64_t partition);
 
   int level_;
+  bool is_merge_compaction_;
   uint64_t partition_num_;
   uint64_t max_output_file_size_;
-  uint64_t max_tiering_file_size_;
+  uint64_t min_output_file_size_;
   Version* input_version_;
   VersionEdit edit_;
 
   // Each compaction reads inputs from "level_" and "level_+1"
   std::vector<FileMetaData*> inputs_[2];  // The two sets of inputs
+  std::vector<uint64_t> merged_partitions_;
 
   // Each compaction reads inputs from "level_" and "level_+1" for tiering policies
   std::vector<FileMetaData*> tiering_inputs_[2];  // The two sets of inputs

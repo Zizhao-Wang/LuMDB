@@ -280,12 +280,13 @@ class DBImpl : public DB {
   // Errors are recorded in bg_error_.
   
 
+  void Merge_all_supersmall_partitions(std::vector<uint64_t>& deleted_partition_nums) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status CreatePartitions(Iterator* iter, const Options& options, TableCache* table_cache, 
                                 std::vector<std::pair<uint64_t,FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status AddDataIntoPartitions(Iterator* iter, const Options& options, TableCache* table_cache, 
-                                std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+                                std::vector<std::pair<uint64_t, FileMetaData*>>& partition_files,uint64_t mem_size) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 

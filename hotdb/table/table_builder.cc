@@ -96,9 +96,12 @@ void TableBuilder::Add(const Slice& key, const Slice& value) {
   assert(!r->closed);
   if (!ok()) return;
   if (r->num_entries > 0) {
-    assert(r->options.comparator->Compare(key, Slice(r->last_key)) > 0);
+    if(r->options.comparator->Compare(key, Slice(r->last_key)) <= 0){
+      fprintf(stderr, "Assertion failed: key = %s, last_key = %s\n", key.ToString().c_str(), r->last_key.c_str());
+      assert(false);
+    }
   }
-
+  
   if (r->pending_index_entry) {
     assert(r->data_block.empty());
     r->options.comparator->FindShortestSeparator(&r->last_key, key);

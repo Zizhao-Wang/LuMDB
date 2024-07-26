@@ -37,7 +37,7 @@ extern int kL0_StopWritesTrigger;
 // Tiering strategy limit multiplier
 extern int kTiering_and_leveling_Multiplier;
 
-extern int kPartitionLevelingCompactionTrigger;
+extern int kInitialPartitionLevelingCompactionTrigger;
 
 extern int kPartitionLevelingL1CompactionTrigger;
 

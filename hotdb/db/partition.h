@@ -41,6 +41,7 @@ namespace leveldb {
     inline bool contains(const char* value, size_t value_size) const;
     inline int CompareWithEnd(const char* key_ptr, size_t key_size) const;
     inline int CompareWithBegin(const char* key_ptr, size_t key_size) const;
+    inline bool is_key_contains(const char* key_ptr, size_t key_size) const;
 
     unsigned long long GetPartitionSize() const;
     unsigned long long GetPartitionLength() const;
@@ -93,6 +94,16 @@ namespace leveldb {
     }
 
     return true;
+  }
+
+  inline bool mem_partition_guard::is_key_contains(const char* key_ptr, size_t key_size) const{
+    if(CompareWithBegin(key_ptr, key_size) < 0 && CompareWithEnd(key_ptr, key_size) > 0){
+      return true;
+    }else if(CompareWithBegin(key_ptr, key_size) == 0 || CompareWithEnd(key_ptr, key_size) == 0){
+      return true;
+    }
+
+    return false;
   }
 
   inline int mem_partition_guard::CompareWithEnd(const char* key_ptr, size_t key_size) const {
