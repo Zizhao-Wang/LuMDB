@@ -2076,12 +2076,6 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   bool has_current_user_key = false;
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
 
-  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-  std::map<int,uint64_t> hot_data_counts; 
-  std::map<int,uint64_t> cold_data_counts;
-  uint64_t total_data_count = 0;
-  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
     // Prioritize immutable compaction work
     if (has_imm_.load(std::memory_order_relaxed)) {
@@ -2098,25 +2092,6 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     }
 
     Slice key = input->key();
-    
-    //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-    bool is_hot_data1 = false;
-    if(versions_->compute_hot_cold_range(key, hot_range, is_hot_data1)){
-      std::string str(key.data(), key.size());
-      uint64_t key_number = std::stoull(str);
-
-       for (const auto& percentage_set : hot_keys_sets) {
-        int percentage = percentage_set.first; // 当前的百分比
-        // fprintf(stderr,"percentage: %d in docompaction work!\n", percentage);
-        if (is_hot_key(percentage, key_number)) {
-          hot_data_counts[percentage]++; 
-        } else {
-          cold_data_counts[percentage]++;
-        }
-      }
-      total_data_count++;
-    }
-    //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
     if (compact->compaction->ShouldStopBefore(key) &&
         compact->builder != nullptr) {
@@ -2241,79 +2216,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   stats_[compact->compaction->level() + 1].Add(stats);
   level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
-
-  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-
-  // double hot_data_percentage = (double)hot_data_count / total_data_count;
-  // double cold_data_percentage = (double)cold_data_count / total_data_count;
-
-  // level_stats_[compact->compaction->level()].bytes_read_hot += init_level_bytes_read*hot_data_percentage;
-  // level_stats_[compact->compaction->level()].bytes_read_cold += init_level_bytes_read*cold_data_percentage;
-
-  // uint64_t participate_level_bytes_read = stats.bytes_read - init_level_bytes_read;
-  // level_stats_[compact->compaction->level() + 1].bytes_read_hot += participate_level_bytes_read*hot_data_percentage;
-  // level_stats_[compact->compaction->level() + 1].bytes_read_cold += participate_level_bytes_read*cold_data_percentage;
-
-  // level_stats_[compact->compaction->level() + 1].bytes_written_hot += stats.bytes_written*hot_data_percentage;
-  // level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
-  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-
-
-  for (const auto& percentage : hot_data_counts) {
-    int perc = percentage.first; // 当前的百分比
-    int64_t hot_count = hot_data_counts[perc];
-    int64_t cold_count = cold_data_counts[perc];
-
-    assert(total_data_count == hot_count + cold_count); 
-    assert(total_data_count != 0);
-
-    // double hot_data_percentage = total_data_count > 0 ? (double)hot_count / total_data_count : 0;
-    // double cold_data_percentage = total_data_count > 0 ? (double)cold_count / total_data_count : 0;
-
-    // auto& levelStatsMap = level_hot_cold_stats[compact->compaction->level()];
-    // if (levelStatsMap.find(perc) == levelStatsMap.end()) {
-    //     levelStatsMap[perc] = LevelHotColdStats(); // 如果没有，就初始化一个
-    // }
-    // // 更新当前level的hot和cold数据读取统计
-    // levelStatsMap[perc].bytes_read_hot += init_level_bytes_read * hot_data_percentage;
-    // levelStatsMap[perc].bytes_read_cold += init_level_bytes_read * cold_data_percentage;
-
-    // auto& nextLevelStatsMap = level_hot_cold_stats[compact->compaction->level() + 1];
-    // if (nextLevelStatsMap.find(perc) == nextLevelStatsMap.end()) {
-    //     nextLevelStatsMap[perc] = LevelHotColdStats(); // 如果没有，就初始化一个
-    //     fprintf(stderr,"initialize a new LevelHotColdStats object for level %d and percentage %d\n", compact->compaction->level() + 1, perc);
-    //     fflush(stderr);
-    // }
-    // const double epsilon = 2; 
-    // 更新参与下一级压缩的level的hot和cold数据读取统计
-    // nextLevelStatsMap[perc].bytes_read_hot += hot_count;
-    // nextLevelStatsMap[perc].bytes_read_cold += cold_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot += hot_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold += cold_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot += hot_count;
-    level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold += cold_count;
-    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot!=0 && hot_count!=0);
-    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_cold!=0 && hot_count!=0);
-    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_hot!=0);
-    // assert(level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold!=0);
-    // fprintf(stdout,"bytes_written_hot: %ld hot_count:%ld, bytes_read_cold: %ld in compaction cold_count: %ld level:%u prec:%d\n", level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_written_hot, hot_count, level_hot_cold_stats[compact->compaction->level() + 1][perc].bytes_read_cold, cold_count, compact->compaction->level() + 1, perc);
-    // double read_diff = fabs((nextLevelStatsMap[perc].bytes_read_hot + nextLevelStatsMap[perc].bytes_read_cold) - stats.bytes_read);
-    // fprintf(stdout,"==========\n\n");
-    // fprintf(stdout, "hot data: %ld, cold data: %ld, total data: %ld\n", hot_count, cold_count, total_data_count);
-    // fprintf(stdout, "bytes_read_hot: %f, bytes_read_cold: %f, stats.bytes_read: %ld\n", stats.bytes_read * hot_data_percentage, stats.bytes_read * cold_data_percentage, stats.bytes_read);
-    // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read_diff: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
-    // assert(read_diff < epsilon);
-    
-    // 更新下一级level的写入统计（假设压缩导致的写入均为hot数据）;
-    // nextLevelStatsMap[perc].bytes_written_hot += hot_count;
-    // nextLevelStatsMap[perc].bytes_written_cold += cold_count;
-    // double written_diff = fabs((nextLevelStatsMap[perc].bytes_written_hot + nextLevelStatsMap[perc].bytes_written_cold) - stats.bytes_written);
-    // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
-    // assert(written_diff < epsilon);
-    // fprintf(stdout,"==========\n\n");
-    // fflush(stdout);
-    
-  }
+  
 
   if (status.ok()) {
     status = InstallCompactionResults(compact);
