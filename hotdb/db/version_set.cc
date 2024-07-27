@@ -851,7 +851,7 @@ void Version::GetOverlappingInputs(int level, const InternalKey* begin,
       //                                                                 <-----f----->
     } else {
       inputs->push_back(f);
-      if (level == 0 || level == 1) {
+      if (level == 0) {
         // Level-0 files may overlap each other.  So check if the newly
         // added file has expanded the range.  If so, restart search.
         if (begin != nullptr && user_cmp->Compare(file_start, user_begin) < 0) {
@@ -1287,7 +1287,7 @@ class VersionSet::Builder {
           for (; base_iter != base_end; ++base_iter) {
             MaybeAddFile(v, level, partition_id, *base_iter);
             // Log(vset_->options_->info_log, "Adding remaining base file: %p, partition: %lu, refs: %d", *base_iter, partition_id, (*base_iter)->refs);
-              remaining_base_files_count++;
+            remaining_base_files_count++;
           }
         }else{
           // Log(vset_->options_->leveling_info_log, "Adding new files for partition %lu at level %d", partition_id, level);
@@ -1306,19 +1306,19 @@ class VersionSet::Builder {
       
       // Handle partitions that have only deletions
       
-      for (const auto& deleted_partition : partition_levels_[level].partition_deleted_files) {
-        uint64_t partition_id = deleted_partition.first;
-        const std::set<uint64_t>& deleted_files = deleted_partition.second;
-        // Log(vset_->options_->leveling_info_log, "Partition %lu at level %d: deleted_partition.second.size()=%lu deleted_files.size()=%lu",
-        // partition_id, level, deleted_partition.second.size(), deleted_files.size());
-        if(!deleted_files.empty()){
-          Log(vset_->options_->leveling_info_log, "Processing deleted %lu files for partition %lu at level %d", deleted_files.size(), partition_id, level);
-          const std::vector<FileMetaData*>& base_files = base_->partitioning_leveling_files_[level][partition_id];
-          for (const auto& base_file : base_files) {
-            MaybeAddFile(v, level, partition_id, base_file);
-          }
-        }
-      }
+      // for (const auto& deleted_partition : partition_levels_[level].partition_deleted_files) {
+      //   uint64_t partition_id = deleted_partition.first;
+      //   const std::set<uint64_t>& deleted_files = deleted_partition.second;
+      //   // Log(vset_->options_->leveling_info_log, "Partition %lu at level %d: deleted_partition.second.size()=%lu deleted_files.size()=%lu",
+      //   // partition_id, level, deleted_partition.second.size(), deleted_files.size());
+      //   if(!deleted_files.empty()){
+      //     Log(vset_->options_->leveling_info_log, "Processing deleted %lu files for partition %lu at level %d", deleted_files.size(), partition_id, level);
+      //     const std::vector<FileMetaData*>& base_files = base_->partitioning_leveling_files_[level][partition_id];
+      //     for (const auto& base_file : base_files) {
+      //       MaybeAddFile(v, level, partition_id, base_file);
+      //     }
+      //   }
+      // }
       
       
       // Handle partitions that are in the base but not in added or deleted lists
@@ -1397,7 +1397,7 @@ class VersionSet::Builder {
       Log(vset_->options_->leveling_info_log, "File %lu in partition %lu at level %d is deleted, skipping", f->number, partition, level);
     } else {
       std::vector<FileMetaData*>* files = &v->partitioning_leveling_files_[level][partition];
-      if (level > 1 && !files->empty()) {
+      if (level > 0 && !files->empty()) {
         // Must not overlap
         assert(vset_->icmp_.Compare((*files)[files->size() - 1]->largest, f->smallest) < 0);
       }
@@ -2357,12 +2357,12 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
   // Level-0 files have to be merged together.  For other levels,
   // we will make a concatenating iterator per level.
   // TODO(opt): use concatenating iterator for level-0 if there is no overlap
-  const int space = (c->level() == 0 ? c->inputs_[0].size() + c->inputs_[1].size() : (c->level() == 1 ? c->inputs_[0].size() + 1 : 2));
+  const int space = (c->level() == 0 ? c->inputs_[0].size() + 1 :  2);
   Iterator** list = new Iterator*[space];
   int num = 0;
   for (int which = 0; which < 2; which++) {
     if (!c->inputs_[which].empty()) {
-      if (c->level() + which <= 1) {
+      if (c->level() + which == 0) {
         const std::vector<FileMetaData*>& files = c->inputs_[which];
         for (size_t i = 0; i < files.size(); i++) {
           list[num++] = table_cache_->NewIterator(options, files[i]->number,
@@ -2588,7 +2588,7 @@ void VersionSet::CreateCompactionForPartitionLeveling(std::vector<Compaction*>& 
       Log(options_->leveling_info_log, "DetermineCompaction: Wrap-around, adding first leveling file with largest key=%s", 
         c->inputs_[0][0]->largest.DebugString().c_str());
     }
-
+    c->compaction_type = 1;
     compactions.push_back(c);
   }
 
@@ -2714,17 +2714,15 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
       leveling_compactions[i]->input_version_ = current_;
       leveling_compactions[i]->input_version_->Ref();
 
-      if(leveling_compactions[i]->level_ == 0 || leveling_compactions[i]->level_ == 1){
+      if(leveling_compactions[i]->level_ == 0){
         GetRange(leveling_compactions[i]->inputs_[0], &smallest, &largest);
-        current_->GetOverlappingInputs(leveling_compactions[i]->level_, &smallest, &largest, &leveling_compactions[i]->inputs_[0], leveling_compactions[i]->partition_num());
+        current_->GetOverlappingInputs(0, &smallest, &largest, &leveling_compactions[i]->inputs_[0], leveling_compactions[i]->partition_num());
         assert(!leveling_compactions[i]->inputs_[0].empty());
       }
 
       Log(options_->leveling_info_log, "PickCompaction: level %d compaction - smallest=%s, largest=%s",leveling_compactions[i]->level_, smallest.DebugString().c_str(), largest.DebugString().c_str());
-      if(leveling_compactions[i]->level_ > 0){
-        SetupOtherInputs(leveling_compactions[i]);
-      }
-      
+    
+      SetupOtherInputs(leveling_compactions[i]); 
     }
   }
   
@@ -2897,7 +2895,7 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
   c->edit_.SetCompactPointer(level,partition_number, largest);
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-  set_overlap_range(c->inputs_[0], c->inputs_[1]);
+  // set_overlap_range(c->inputs_[0], c->inputs_[1]);
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
 }

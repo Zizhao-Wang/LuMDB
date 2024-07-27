@@ -1549,6 +1549,7 @@ Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
 
 
   int64_t total_file_size = 0;
+  int64_t total_files = partition_files.size();
   for (const auto& partition_file : partition_files) {
     uint64_t partition_start = partition_file.first;
     FileMetaData* file_meta = partition_file.second;
@@ -1589,7 +1590,7 @@ Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
   // newly added source codes
   level_stats_[level].micros = env_->NowMicros() - start_micros;
   level_stats_[level].user_bytes_written = total_file_size;
-  level_stats_[level].num_leveling_files++;
+  level_stats_[level].num_leveling_files += total_files;
   level_stats_[level].leveling_bytes_written += total_file_size;
   
   
@@ -1882,12 +1883,7 @@ void DBImpl::BackgroundCompaction() {
       } else {
 
         CompactionState* compact = new CompactionState(c);
-        
-        if(c->level()==0 && !is_first_L0flush){
-          status = DoL0CompactionWork(compact);
-        }else{
-          status = DoCompactionWork(compact);
-        }
+        status = DoCompactionWork(compact);
             
         if (!status.ok()) {
           RecordBackgroundError(status);
@@ -2208,33 +2204,14 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
   const uint64_t partition_num = compact->compaction->partition_num();
   const int level = compact->compaction->level();
 
-  if(compact->compaction->is_merge_compaction()){
-    compact->compaction->AddL0MergePartitionInputDeletions(compact->compaction->edit());
-  }else{
-    compact->compaction->AddPartitionInputDeletions(partition_num, compact->compaction->edit());
-  }
+  compact->compaction->AddPartitionInputDeletions(partition_num, compact->compaction->edit());
 
-  if(compact->compaction->level() == 0 && !compact->compaction->is_merge_compaction()){
-    assert(compact->L1_partitions_.size() == compact->outputs.size());
-    size_t i = 0;
-    for (; i < compact->outputs.size(); i++) {
-      const CompactionState::Output& out = compact->outputs[i];
-      compact->compaction->edit()->AddPartitionLevelingFile(compact->L1_partitions_[i], level + 1, out.number, out.file_size,
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    const CompactionState::Output& out = compact->outputs[i];
+    compact->compaction->edit()->AddPartitionLevelingFile(partition_num, level + 1, out.number, out.file_size,
                                         out.smallest, out.largest);
-      Log(options_.leveling_compaction_info_log, "finished a compaction output file:Partition[%lu] File #%llu: size=%llu, smallest=%s, largest=%s",
-        compact->L1_partitions_[i], (unsigned long long)out.number,(unsigned long long)out.file_size,
-        out.smallest.user_key().ToString().c_str(), out.largest.user_key().ToString().c_str());
-    }
-    // if(current_sub_partition->CompareWithEnd(compact->outputs[i].largest.user_key().data(), compact->outputs[i].largest.user_key().size())<0 ){
-
-    // }
-  }else{
-    for (size_t i = 0; i < compact->outputs.size(); i++) {
-      const CompactionState::Output& out = compact->outputs[i];
-      compact->compaction->edit()->AddPartitionLevelingFile(partition_num, level + 1, out.number, out.file_size,
-                                        out.smallest, out.largest);
-    }
   }
+  
   return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
 }
 
@@ -2879,12 +2856,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
 
   if (status.ok()) {
-    if(compact->compaction->level()==0 && !compact->compaction->is_merge_compaction()){
-      status = CreateL1PartitionAndInstallCompactionResults(compact);
-    }else{
-      status = InstallCompactionResults(compact);
-    }
-    
+    status = InstallCompactionResults(compact);
+  
     if (!status.ok()) {
       Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error installing from L%d to L%d compaction results: %s",
         compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
@@ -2953,7 +2926,7 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
   int i = 0;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-  PrintPartitions(mem_partitions_);
+  // PrintPartitions(mem_partitions_);
   std::string new_str(input->key().data(), input->key().size()-8);
   mem_partition_guard* temp_partition = new mem_partition_guard(new_str, new_str);
   Log(options_.leveling_info_log, "Current key:%s ",temp_partition->partition_start_str.c_str());
@@ -3151,6 +3124,9 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
   stats_[compact->compaction->level() + 1].Add(stats);
   level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
+  level_stats_[compact->compaction->level() + 1].num_leveling_files += compact->outputs.size();
+  level_stats_[compact->compaction->level() + 1].num_leveling_files -= compact->compaction->num_input_files(1);
+  level_stats_[compact->compaction->level()].num_leveling_files -= compact->compaction->num_input_files(0);
 
   if (status.ok()) {
     
@@ -3844,7 +3820,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
       if(level == 0){
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
-      int files = versions_->Num_Level_leveling_Files(level);
+      int files = versions_->Num_Level_Partitionleveling_Files(level);
       int tierfiles = versions_->Num_Level_tiering_Files(level);
       if (stats_[level].micros > 0 || files > 0 || tierfiles >0) {
         std::vector<int> percents = GetLevelPercents();
