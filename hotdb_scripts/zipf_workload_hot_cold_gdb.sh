@@ -39,11 +39,11 @@ for i in {10..10}; do
     fi
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 10000))
+            stats_interva=$((num_entries / 1000))
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
