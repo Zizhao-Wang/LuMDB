@@ -123,35 +123,62 @@ class MemTableInserter : public WriteBatch::Handler {
   SequenceNumber sequence_;
   MemTable* mem_;
   MemTable* hot_mem_;
-  range_identifier* hot_identifier;
-  std::set<mem_partition_guard*>* mem_partitions_set;
-  std::unordered_map<std::string, int>* batch_data_map;
+  HotRangesContext* hot_identifier;
 
-  int mem_count;  // Counter for mem_
-  int hot_mem_count;  // Counter for hot_mem_
+  int mem_count;          // Counter for mem_
+  int hot_mem_count;      // Counter for hot_mem_
+  int hot_intensity_count; // Counter for hot intensity data
+  int hot_range_count;    // Counter for hot range data
+  int cold_data_count;    // Counter for cold data
 
   MemTableInserter()
-      : sequence_(0), mem_(nullptr), hot_mem_(nullptr), hot_identifier(nullptr), mem_count(0), hot_mem_count(0) {}
+    : sequence_(0), mem_(nullptr), hot_mem_(nullptr), hot_identifier(nullptr),
+    mem_count(0), hot_mem_count(0), hot_intensity_count(0), hot_range_count(0), cold_data_count(0) {}
 
   void Put(const Slice& key, const Slice& value) override {
-      
-    if(hot_identifier->is_hot(key) == true){
-      hot_mem_->Add(sequence_, kTypeValue, key, value);
-      hot_mem_count++;
+
+    if(!hot_identifier->hot_ranges_.empty()){
+      hot_range new_hot_range(key.data(), key.size(), key.data(), key.size());
+      // fprintf(stderr, "min_max_range start: %.*s, end: %.*s\n",
+      //   static_cast<int>(hot_identifier->min_max_range->start_size),
+      //   hot_identifier->min_max_range->start_ptr,
+      //   static_cast<int>(hot_identifier->min_max_range->end_size),
+      //   hot_identifier->min_max_range->end_ptr);
+
+      if(hot_identifier->min_max_range->CompareWithEnd(key.data(), key.size()) < 0 ||
+        hot_identifier->min_max_range->CompareWithBegin(key.data(), key.size()) > 0){
+        // fprintf(stderr, "Key: %.*s, Result: Outside min_max_range\n\n", static_cast<int>(key.size()), key.data());
+        mem_->Add(sequence_, kTypeValue, key, value);
+        mem_count++;
+        sequence_++;
+        return;
+      }
+
+      if(hot_identifier->largest_intensity_range->is_key_contains(key.data(), key.size())){
+        hot_mem_->Add(sequence_, kTypeValue, key, value);
+        hot_intensity_count++;  // Increment hot intensity data counter
+        sequence_++;
+        return;
+      }
+
+      auto it = hot_identifier->hot_ranges_.upper_bound(new_hot_range);
+      if(it!= hot_identifier->hot_ranges_.begin()){
+        --it;
+        if(it->is_key_contains(key.data(), key.size())){
+          hot_mem_->Add(sequence_, kTypeValue, key, value);
+          hot_range_count++;  // Increment hot range data counters
+        }else{
+          mem_->Add(sequence_, kTypeValue, key, value);
+          cold_data_count++;  // Increment cold data counter
+        }
+      }
+      sequence_++;
+      return;
+
     }else{
       mem_->Add(sequence_, kTypeValue, key, value);
-      mem_count++;
+      cold_data_count++;  // Increment cold data counter
     }
-      // else{
-      //   auto it = batch_data_map->find(key.ToString());
-      //   if(it->second >= 2){
-      //     hot_mem_->Add(sequence_, kTypeValue, key, value);
-      //     hot_mem_count++;
-      //   }else{
-      //     mem_->Add(sequence_, kTypeValue, key, value);
-      //     mem_count++;
-      //   }
-      // }
     // fprintf(stderr, "key:%s,  unordered_map:%d, hot key count: %d cold key count: %d \n", key.ToString().c_str(), (*batch_data_map)[key.ToString()],hot_mem_count, mem_count);
     sequence_++;
   }
@@ -160,11 +187,7 @@ class MemTableInserter : public WriteBatch::Handler {
     if(hot_identifier == nullptr || hot_mem_ == nullptr ){
       mem_->Add(sequence_, kTypeDeletion, key, Slice());
     }else{
-      if(hot_identifier->is_hot(key) == true){
-        hot_mem_->Add(sequence_, kTypeDeletion, key, Slice());
-      }else{
-        mem_->Add(sequence_, kTypeDeletion, key, Slice());
-      }
+      mem_->Add(sequence_, kTypeDeletion, key, Slice());
     }
     sequence_++;
   }
@@ -234,30 +257,28 @@ class MultiMemTableInserter : public WriteBatch::Handler {
 
 }  // namespace
 
-Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger, std::unordered_map<std::string, int>* batch_data) {
+Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, MemTable* hot_memtable, Logger* info_loger, HotRangesContext* hot_indentifier) {
   MemTableInserter inserter;
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
   inserter.mem_ = memtable;
   inserter.hot_mem_ = hot_memtable;
-  inserter.hot_identifier = hot_key_idetiifer;
-  inserter.batch_data_map = batch_data;
+  inserter.hot_identifier = hot_indentifier;
   Status s = b->Iterate(&inserter);
 
-  if(info_loger!= nullptr)
-    Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
-
-
+  if (info_loger != nullptr) {
+  Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries, Hot Intensity Data Count: %d, Hot Range Data Count: %d, Cold Data Count: %d",
+    inserter.hot_mem_count, inserter.mem_count, inserter.hot_intensity_count, inserter.hot_range_count, inserter.cold_data_count);
+  }
   return s;
 }
 
 
-Status WriteBatchInternal::InsertInto(const WriteBatch* b, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger, std::unordered_map<std::string, int>* batch_data){
+Status WriteBatchInternal::InsertInto(const WriteBatch* b, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger){
   MultiMemTableInserter inserter;
   inserter.sequence_ = WriteBatchInternal::Sequence(b);
   inserter.mem_partitions_set = memtables;
   inserter.hot_mem_ = hot_memtable;
   inserter.hot_identifier = hot_key_idetiifer;
-  inserter.batch_data_map = batch_data;
   Status s = b->Iterate(&inserter);
 
   if(info_loger!= nullptr)

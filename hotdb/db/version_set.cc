@@ -22,6 +22,22 @@
 
 namespace leveldb {
 
+namespace TieringSpaceConfig{
+
+  const double kTieringLevelSizes[] = {
+    10. * 1048576.0, // Level 0
+    128 * 1048576.0, // Level 1
+    512 * 1048576.0, // Level 2
+    4096 * 1048576.0, // Level 3
+    32768 * 1048576.0, // Level 4
+    262144 * 1048576.0, // Level 5
+    2097152 * 1048576.0 // Level 6
+    // Add more levels if needed
+  };
+
+}
+
+
 static size_t TargetFileSize(const Options* options) {
   return options->max_file_size;
 }
@@ -59,6 +75,8 @@ static double MaxBytesForLevel(const Options* options, int level) {
   }
   return result;
 }
+
+
 
 static uint64_t MaxFileSizeForLevel(const Options* options, int level) {
   // We could vary per level to reduce number of files?
@@ -1884,7 +1902,6 @@ void VersionSet::Finalize(Version* v) {
         const uint64_t level_bytes = TotalFileSize(partition.second);  
         level_score = static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level) );
       }
-
       
       if(level_score >= 1.00){
         need_compaction_in_leveling = true;
@@ -1936,7 +1953,7 @@ void VersionSet::Finalize(Version* v) {
     } else {
       // Compute the ratio of current size to size limit.
       const uint64_t tiering_bytes = TotalFileSize(v->tiering_runs_[level]);
-      tier_score = static_cast<double>(tiering_bytes) / (MaxBytesForLevel(options_, level)*CompactionConfig::adaptive_compaction_configs[level]->tieirng_ratio);
+      tier_score = static_cast<double>(tiering_bytes) / (TieringSpaceConfig::kTieringLevelSizes[level]);
     }
 
     if ( tier_score > best_tier_score) {
@@ -2287,6 +2304,7 @@ void VersionSet::AddLiveFiles(std::set<uint64_t>* live, bool is_leveling) {
       }
     }
   }
+  Log(options_->leveling_info_log, "\n\n");
 }
 
 
@@ -2589,35 +2607,37 @@ void VersionSet::CreateCompactionForPartitionLeveling(std::vector<Compaction*>& 
         c->inputs_[0][0]->largest.DebugString().c_str());
     }
 
+    c->compaction_type = 1;
+
     compactions.push_back(c);
   }
 
 }
 
 void VersionSet::RePickCompaction(Compaction* leveling_compaction, std::vector<uint64_t>& merge_and_deletes){
-  
   leveling_compaction->set_partition_num(merge_and_deletes.back());
   leveling_compaction->inputs_[0].clear();
 
   Log(options_->leveling_info_log, "Merged into partition: %lu, deleted partitions: %s",
-        merge_and_deletes.back(),
-        [&]() {
-            std::string result;
-            for (size_t i = 0; i < merge_and_deletes.size() - 1; ++i) {
-                result += std::to_string(merge_and_deletes[i]) + " ";
-            }
-            return result;
-        }().c_str());
+    merge_and_deletes.back(),[&]() {
+    std::string result;
+    for (size_t i = 0; i < merge_and_deletes.size() - 1; ++i) {
+      result += std::to_string(merge_and_deletes[i]) + " ";
+    }
+    return result;
+    }().c_str());
+  
   
   // Iterate over the partitions to be deleted and collect their L0 files
   for (size_t i = 0; i < merge_and_deletes.size() - 1; ++i) {
     uint64_t partition_num = merge_and_deletes[i];
     for (int i=0; i<current_->partitioning_leveling_files_[0][partition_num].size();i++) {
-        leveling_compaction->inputs_[0].push_back(current_->partitioning_leveling_files_[0][partition_num][i]);
-        leveling_compaction->merged_partitions_.push_back(partition_num);
-      }
-      Log(options_->leveling_info_log, "Added %ld(double verfied: %lu) L0 files from partition: %lu to compaction inputs",
-        leveling_compaction->merged_partitions_.size(), leveling_compaction->inputs_[0].size(), partition_num);
+      leveling_compaction->inputs_[0].push_back(current_->partitioning_leveling_files_[0][partition_num][i]);
+      leveling_compaction->merged_partitions_.push_back(partition_num);
+    }
+    leveling_compaction->small_merge_partitions += std::to_string(merge_and_deletes[i]) + " ";
+    Log(options_->leveling_info_log, "Added %ld(double verfied: %lu) L0 files from partition: %lu to compaction inputs",
+      leveling_compaction->merged_partitions_.size(), leveling_compaction->inputs_[0].size(), partition_num);
   }
 
   leveling_compaction->set_merge_compaction();
@@ -2644,7 +2664,6 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
 
   if(leveling_size_compaction || tiering_size_compaction){
     if (leveling_size_compaction ) {
-
       CreateCompactionForPartitionLeveling(leveling_compactions);
     } 
 
@@ -2679,6 +2698,8 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
         selected_run_in_input_level1, oldest_compaction_pointer);
 
       (*tiering_compaction)->compaction_type = 1;
+    }else{
+      *tiering_compaction = nullptr;
     }
   }else if(tiering_seek_compaction || leveling_seek_compaction){
     // If the tiering part also needs to be compressed, merge the tiering files.
@@ -2724,7 +2745,6 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
       if(leveling_compactions[i]->level_ > 0){
         SetupOtherInputs(leveling_compactions[i]);
       }
-      
     }
   }
   
@@ -3019,9 +3039,7 @@ Compaction::Compaction(const Options* options, int level, uint64_t partition)
       seen_key_(false),
       overlapped_bytes_(0),
       compaction_type(0),
-      is_tiering(false),
-      is_merge_compaction_(false),
-      selected_run_in_next_level(-1) {
+      is_merge_compaction_(false) {
   for (int i = 0; i < config::kNumLevels; i++) {
     level_ptrs_[i] = 0;
   }
@@ -3039,16 +3057,6 @@ bool Compaction::IsTrivialMove() const {
   // Otherwise, the move could create a parent file that will require
   // a very expensive merge later on.
   return (num_input_files(0) == 1 && num_input_files(1) == 0 &&
-          TotalFileSize(grandparents_) <=
-              MaxGrandParentOverlapBytes(vset->options_));
-}
-
-bool Compaction::IsTrivialMoveWithTier() const {
-  const VersionSet* vset = input_version_->vset_;
-  // Avoid a move if there is lots of overlapping grandparent data.
-  // Otherwise, the move could create a parent file that will require
-  // a very expensive merge later on.
-  return (num_input_tier_files(0) == 1 && num_input_tier_files(1) == 0 &&
           TotalFileSize(grandparents_) <=
               MaxGrandParentOverlapBytes(vset->options_));
 }
@@ -3077,15 +3085,6 @@ void Compaction::AddL0MergePartitionInputDeletions(VersionEdit* edit) {
     edit->RemovePartitionFile(level_ ,merged_partitions_[i], inputs_[0][i]->number);
   }
   
-}
-
-void Compaction::AddTieringInputDeletions(VersionEdit* edit) {
-  for (int which = 0; which < 2; which++) {
-    for (size_t i = 0; i < tiering_inputs_[which].size(); i++) {
-      int run = (which == 0 ? selected_run_in_input_level : selected_run_in_next_level);
-      edit->RemovetieringFile(level_ + which, run, tiering_inputs_[which][i]->number);
-    }
-  }
 }
 
 bool Compaction::IsBaseLevelForKey(const Slice& user_key) {

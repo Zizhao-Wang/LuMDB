@@ -21,11 +21,116 @@ namespace leveldb {
   struct mem_partition_guard;
   struct PartitionGuardComparator;
 
+  struct HotRangeComparator;
+  struct hot_range;
+
+  struct HotRangesContext;
+
+  struct hot_range{
+    hot_range();
+
+    hot_range(const std::string& start1, const std::string& end1);
+
+    hot_range(const char* start,const size_t start_size, const char* end,const size_t end_size);
+
+    hot_range& operator=(const hot_range& )= default;
+    hot_range(const hot_range&) = default;
+
+    // inline bool contains(const std::string& value) const;
+    // inline bool contains(const char* value, size_t value_size) const;
+    inline int CompareWithEnd(const char* key_ptr, size_t key_size) const;
+    inline int CompareWithBegin(const char* key_ptr, size_t key_size) const;
+    inline bool is_key_contains(const char* key_ptr, size_t key_size) const;
+
+    // unsigned long long GetPartitionSize() const;
+    // unsigned long long GetPartitionLength() const;
+    // unsigned long long GetPartitionStart() const;
+    // unsigned long long GetPartitionEnd() const;
+
+    // Three-way comparison.  Returns value:
+    //   <  0 iff "*this" <  "b",
+    //   == 0 iff "*this" == "b",
+    //   >  0 iff "*this" >  "b"
+    int compare(const hot_range& b) const;
+
+    std::string getStartString() const {
+      return std::string(start_ptr, start_size);
+    }
+
+    std::string getEndString() const {
+      return std::string(end_ptr, end_size);
+    }
+
+    const char* start_ptr; 
+    const char* end_ptr;
+    const size_t start_size, end_size;
+  };
 
 
+  inline int hot_range::compare(const hot_range& b) const {
+    const size_t min_len = (start_size < b.start_size) ? start_size : b.start_size;
+    int r = memcmp(start_ptr, b.start_ptr, min_len);
+    if (r == 0) {
+      if (start_size < b.start_size)
+        r = -1;
+      else if (start_size > b.start_size)
+        r = +1;
+    }
+    return r;
+  }
 
-  struct mem_partition_guard
-  {
+  inline int hot_range::CompareWithEnd(const char* key_ptr, size_t key_size) const {
+    const size_t min_len = (end_size < key_size) ? end_size : key_size;
+    int r = memcmp(end_ptr, key_ptr, min_len);
+    if (r == 0) {
+      if (end_size < key_size)
+      r = -1;
+      else if (end_size > key_size)
+      r = +1;
+    }
+    return r;
+  }
+
+  inline int hot_range::CompareWithBegin(const char* key_ptr, size_t key_size) const {
+    const size_t min_len = (start_size < key_size) ? start_size : key_size;
+    int r = memcmp(start_ptr, key_ptr, min_len);
+    if (r == 0) {
+      if (start_size < key_size)
+        r = -1;
+      else if (start_size > key_size)
+        r = +1;
+    }
+    return r;
+  }
+
+  inline bool hot_range::is_key_contains(const char* key_ptr, size_t key_size) const{
+    if(CompareWithBegin(key_ptr, key_size) < 0 && CompareWithEnd(key_ptr, key_size) > 0){
+      return true;
+    }else if(CompareWithBegin(key_ptr, key_size) == 0 || CompareWithEnd(key_ptr, key_size) == 0){
+      return true;
+    }
+
+    return false;
+  }
+
+  struct HotRangeComparator {
+    bool operator() (const hot_range lhs, const hot_range rhs) const {
+      return lhs.compare(rhs) < 0;
+    }
+  };
+
+  struct HotRangesContext {
+    std::set<hot_range, HotRangeComparator> hot_ranges_;
+    hot_range* largest_intensity_range;
+    hot_range* min_max_range;
+
+    std::string largestindensity_start_str;
+    std::string largestindensity_end_str;
+    
+  };
+
+
+  struct mem_partition_guard{
     mem_partition_guard();
 
     mem_partition_guard(const Slice& start1, const Slice& end1);
@@ -72,6 +177,17 @@ namespace leveldb {
     std::set<mem_partition_guard*, PartitionGuardComparator2> sub_partitions_;
   };
 
+  inline int CompareSlices(const char* a, const char* b, size_t a_size, size_t b_size) {
+    const size_t min_len = (a_size < b_size) ? a_size : b_size;
+    int r = memcmp(a, b, min_len);
+    if (r == 0) {
+      if (a_size < b_size)
+        r = -1;
+      else if (a_size > b_size)
+        r = +1;
+    }
+    return r;
+  }
 
   inline bool mem_partition_guard::contains(const std::string& value) const {
     return partition_start.compare(value) < 0 && partition_end.compare(value) > 0;

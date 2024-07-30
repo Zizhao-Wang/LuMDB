@@ -237,7 +237,8 @@ CMakeFiles/leveldb.dir/db/db_impl.cc.o: \
  /usr/include/x86_64-linux-gnu/c++/11/bits/time_members.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/messages_members.h \
  /usr/include/libintl.h /usr/include/c++/11/bits/locale_facets_nonio.tcc \
- /usr/include/c++/11/bits/locale_conv.h \
+ /usr/include/c++/11/bits/locale_conv.h /usr/include/c++/11/queue \
+ /usr/include/c++/11/bits/stl_queue.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/builder.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/db_iter.h \
  /home/jeff-wang/WorkloadAnalysis/hotdb/./db/filename.h \

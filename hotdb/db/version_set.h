@@ -519,21 +519,7 @@ class Compaction {
 
   //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
   int get_compaction_type();
-
-  // "which" must be either 0 or 1
-  int num_input_tier_files(int which) const { return tiering_inputs_[which].size(); }
-
-  // Return the ith input file at "level()+which" ("which" must be 0 or 1).
-  FileMetaData* tier_input(int which, int i) const { return tiering_inputs_[which][i]; }
-
-  void set_tiering() { is_tiering = true; }
-
-  bool get_is_tieirng() const { return is_tiering; }
-
-  int get_selected_run_in_next_level() const { return selected_run_in_next_level; }
-
-  int get_selected_run_in_input_level() const { return selected_run_in_input_level; }
-
+  std::string small_merge_partitions;
 
  private:
   friend class Version;
@@ -552,9 +538,6 @@ class Compaction {
   // Each compaction reads inputs from "level_" and "level_+1"
   std::vector<FileMetaData*> inputs_[2];  // The two sets of inputs
   std::vector<uint64_t> merged_partitions_;
-
-  // Each compaction reads inputs from "level_" and "level_+1" for tiering policies
-  std::vector<FileMetaData*> tiering_inputs_[2];  // The two sets of inputs
 
   // State used to check for number of overlapping grandparent files
   // (parent == level_ + 1, grandparent == level_ + 2)
@@ -580,10 +563,6 @@ class Compaction {
   // - 3 ==> Trivial Move: A lightweight operation where a file can simply be moved to the next level without merging or splitting, significantly reducing compaction overhead.
   // - 4 ==> None compaction
   int compaction_type;
-
-  bool is_tiering;
-
-  int selected_run_in_next_level, selected_run_in_input_level;;
 
 };
 

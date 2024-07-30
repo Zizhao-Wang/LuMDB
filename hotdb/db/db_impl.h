@@ -331,7 +331,7 @@ class DBImpl : public DB {
     void CleanupCompaction(TieringCompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status DoCompactionWork(CompactionState* compact)
+  Status DoCompactionWork(CompactionState* compact, bool merge_small_ranges = false)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   
   Status DoL0CompactionWork(CompactionState* compact)
@@ -340,11 +340,13 @@ class DBImpl : public DB {
   Status DoTieringCompactionWork(TieringCompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status OpenCompactionOutputFile(CompactionState* compact);
+  Status OpenCompactionOutputFile(CompactionState* compact, bool is_hot = false);
+
+  Status OpenHotCompactionOutputFile(CompactionState* compact);
 
   Status OpenCompactionOutputFile(TieringCompactionState* compact);
 
-  Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
+  Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input, bool is_hot=false);
 
   Status FinishCompactionOutputFile(TieringCompactionState* compact, Iterator* input);
   
@@ -425,8 +427,17 @@ class DBImpl : public DB {
   MemTable* hot_imm_ GUARDED_BY(mutex_);  // Hot Memtable being compacted
   std::atomic<bool> has_hot_imm_;         // So bg thread can detect non-null imm_
 
+  size_t ranges_upper_limit;
   std::set<mem_partition_guard*, PartitionGuardComparator> mem_partitions_ GUARDED_BY(mutex_);
+
+
+  HotRangesContext* HotRanges GUARDED_BY(mutex_);
+  std::vector<std::string> range_boundaries GUARDED_BY(mutex_);
+
+  
   std::map<uint64_t, bool> partition_first_L0flush_map_;
+
+  int hot_key_threshold;
 
   // ==== End of modified code ====
 
@@ -464,7 +475,6 @@ class DBImpl : public DB {
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
   std::vector<std::map<unsigned, LevelHotColdStats>> level_hot_cold_stats GUARDED_BY(mutex_);
-  std::pair<Slice, Slice> hot_range;
 
   struct SliceHash {
     size_t operator()(const leveldb::Slice& slice) const {

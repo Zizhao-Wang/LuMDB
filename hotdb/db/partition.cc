@@ -2,6 +2,15 @@
 
 namespace leveldb {
 
+  hot_range::hot_range()
+  :start_ptr(""), start_size(0), end_ptr(""), end_size(0){}
+
+  hot_range::hot_range(const std::string& start1, const std::string& end1)
+    :start_ptr(start1.data()), start_size(start1.size()), end_ptr(end1.data()), end_size(end1.size()){}
+  
+  hot_range::hot_range(const char* start,const size_t start_size1, const char* end,const size_t end_size1)
+    :start_ptr(start), start_size(start_size1), end_ptr(end), end_size(end_size1){}
+
   mem_partition_guard::mem_partition_guard()
     :written_kvs(0),
     total_file_size(0),

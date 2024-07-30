@@ -294,10 +294,10 @@ target_link_libraries(leveldb Threads::Threads)
 
 
 # 添加 AddressSanitizer
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  target_compile_options(leveldb PRIVATE -fsanitize=address -fno-omit-frame-pointer)
-  target_link_libraries(leveldb -fsanitize=address)
-endif()
+# if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+#   target_compile_options(leveldb PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+#   target_link_libraries(leveldb -fsanitize=address)
+# endif()
 
 add_executable(leveldbutil
   "db/leveldbutil.cc"

@@ -1359,6 +1359,9 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
+
+    std::fprintf(stdout, ":write_buffer_size: %ld\n", FLAGS_write_buffer_size);
+    std::fprintf(stdout, "Hot data definition: %d\n", options.hot_frequency_identification);
     
     options.hot_file_path = FLAGS_hot_file;
     options.percentages = FLAGS_percentages;
