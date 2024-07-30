@@ -4145,7 +4145,7 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
       if(level == 0){
         user_io = stats_[level].bytes_written/ 1048576.0;
       }
-      int files = versions_->Num_Level_leveling_Files(level);
+      int files = versions_->Num_Level_Partitionleveling_Files(level);
       int tierfiles = versions_->Num_Level_tiering_Files(level);
       if (stats_[level].micros > 0 || files > 0 || tierfiles >0) {
         std::vector<int> percents = GetLevelPercents();
