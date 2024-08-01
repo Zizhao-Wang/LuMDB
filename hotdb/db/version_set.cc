@@ -1329,7 +1329,7 @@ class VersionSet::Builder {
         const std::set<uint64_t>& deleted_files = deleted_partition.second;
         // Log(vset_->options_->leveling_info_log, "Partition %lu at level %d: deleted_partition.second.size()=%lu deleted_files.size()=%lu",
         // partition_id, level, deleted_partition.second.size(), deleted_files.size());
-        if(!deleted_files.empty()){
+        if(!deleted_files.empty() && partition_levels_[level].partition_added_files.find(partition_id) == partition_levels_[level].partition_added_files.end()){
           Log(vset_->options_->leveling_info_log, "Processing deleted %lu files for partition %lu at level %d", deleted_files.size(), partition_id, level);
           const std::vector<FileMetaData*>& base_files = base_->partitioning_leveling_files_[level][partition_id];
           for (const auto& base_file : base_files) {
@@ -3039,7 +3039,7 @@ Compaction::Compaction(const Options* options, int level, uint64_t partition)
       seen_key_(false),
       overlapped_bytes_(0),
       compaction_type(0),
-      is_merge_compaction_(false) {
+      is_small_merge_compaction_(false) {
   for (int i = 0; i < config::kNumLevels; i++) {
     level_ptrs_[i] = 0;
   }
@@ -3078,13 +3078,12 @@ void Compaction::AddPartitionInputDeletions(uint64_t partition_num, VersionEdit*
 }
 
 void Compaction::AddL0MergePartitionInputDeletions(VersionEdit* edit) {
-  assert(is_merge_compaction_);
+  assert(is_small_merge_compaction_);
   assert(inputs_[1].size() == 0);
   
   for (size_t i = 0; i < inputs_[0].size(); i++) {
     edit->RemovePartitionFile(level_ ,merged_partitions_[i], inputs_[0][i]->number);
   }
-  
 }
 
 bool Compaction::IsBaseLevelForKey(const Slice& user_key) {

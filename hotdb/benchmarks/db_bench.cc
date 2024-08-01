@@ -160,6 +160,11 @@ DEFINE_bool(comparisons, false, "Count the number of string comparisons performe
 DEFINE_int64(write_buffer_size, 1048576,
              "Number of bytes to buffer in all memtables before compacting");
 
+
+// Number of bytes to buffer in memtable before compacting
+// (initialized to default value by "main")
+DEFINE_int32(hot_frequency_identification, 1, "hot_frequency_identification");
+
 // Number of bytes written to each file.
 // (initialized to default value by "main")
 DEFINE_int64(max_file_size, 256 << 20, "");
@@ -979,6 +984,8 @@ class Benchmark {
     std::fprintf(stdout, "  hot_file_path: %s\n", FLAGS_hot_file.c_str());
     std::fprintf(stdout, "  data_file_path: %s\n", FLAGS_data_file.c_str());
     std::fprintf(stdout, "  percentages: %s\n", FLAGS_percentages.c_str());
+    std::fprintf(stdout, "  write_buffer_size: %ld\n", FLAGS_write_buffer_size);
+    std::fprintf(stdout, "  Hot data definition: %d\n", FLAGS_hot_frequency_identification);
     std::fprintf(stdout, "  Print Interval: %ld\n", FLAGS_stats_interval);
     // std::fprintf(stdout, "  Print Interval: %ld\n", );
     std::fprintf(stdout, "------------------------------------------------\n");
@@ -1359,9 +1366,6 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
-
-    std::fprintf(stdout, ":write_buffer_size: %ld\n", FLAGS_write_buffer_size);
-    std::fprintf(stdout, "Hot data definition: %d\n", options.hot_frequency_identification);
     
     options.hot_file_path = FLAGS_hot_file;
     options.percentages = FLAGS_percentages;
@@ -2061,7 +2065,9 @@ int main(int argc, char** argv) {
   FLAGS_max_file_size = leveldb::Options().max_file_size;
   FLAGS_block_size = leveldb::Options().block_size;
   FLAGS_open_files = leveldb::Options().max_open_files;
+  FLAGS_hot_frequency_identification = leveldb::Options().hot_frequency_identification;
   std::string default_db_path;
+
 
   // for (int i = 1; i < argc; i++) {
   //   double d;

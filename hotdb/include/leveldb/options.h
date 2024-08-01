@@ -116,7 +116,7 @@ struct LEVELDB_EXPORT Options {
   // leave this parameter alone.
   int block_restart_interval = 16;
 
-  int hot_frequency_identification = 1;
+  int hot_frequency_identification = 1000000;
 
   // Leveldb will write up to this amount of bytes to a file before
   // switching to a new one.

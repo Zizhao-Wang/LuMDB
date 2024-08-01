@@ -468,9 +468,9 @@ class Compaction {
 
   uint64_t partition_num() const { return partition_num_; }
 
-  bool is_merge_compaction() const { return is_merge_compaction_; }
+  bool is_merge_compaction() const { return is_small_merge_compaction_; }
 
-  void set_merge_compaction() { is_merge_compaction_ = true;}
+  void set_merge_compaction() { is_small_merge_compaction_ = true;}
 
   void set_partition_num(uint64_t partition) { partition_num_ = partition; }
 
@@ -528,7 +528,7 @@ class Compaction {
   Compaction(const Options* options, int level, uint64_t partition);
 
   int level_;
-  bool is_merge_compaction_;
+  bool is_small_merge_compaction_;
   uint64_t partition_num_;
   uint64_t max_output_file_size_;
   uint64_t min_output_file_size_;

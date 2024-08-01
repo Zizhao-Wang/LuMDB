@@ -333,6 +333,9 @@ class DBImpl : public DB {
 
   Status DoCompactionWork(CompactionState* compact, bool merge_small_ranges = false)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  Status DoCompactionWorkWithoutIdentification(CompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   
   Status DoL0CompactionWork(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
