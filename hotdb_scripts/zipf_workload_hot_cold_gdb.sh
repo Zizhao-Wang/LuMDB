@@ -1,7 +1,7 @@
 ./config.sh
 
 
-rm -rf /mnt/hotdb_test*
+rm -rf /mnt/hotdb_test/definition_no_2phase*
 rm  /mnt/logs/*.log
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
@@ -39,7 +39,7 @@ for i in {10..10}; do
     fi
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 10000))
+            stats_interva=$((num_entries / 1000))
 
             num_format=$(convert_to_billion_format $num_entries)
 
@@ -49,6 +49,7 @@ for i in {10..10}; do
 
                     log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                    db_directory="/mnt/hotdb_test/definition_no_2phase"
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
                       
@@ -100,7 +101,7 @@ for i in {10..10}; do
                     
                      
                     gdb --args ../hotdb/release/db_bench \
-                    --db=/mnt/hotdb_test \
+                    --db=$db_directory \
                     --num=$num_entries \
                     --value_size=$value_size \
                     --batch_size=1000 \
