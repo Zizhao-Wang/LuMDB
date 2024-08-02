@@ -1,7 +1,7 @@
 ./config.sh
 
-db_directory="/mnt/hotdb_test/hotdefinition1.5_1"
-rm -rf /mnt/hotdb_test/hotdefinition1.5_1*
+db_directory="/mnt/hotdb_test/zipf1.2_hotdefinition1"
+rm -rf /mnt/hotdb_test/zipf1.2_hotdefinition1*
 rm  /mnt/logs/*.log
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
@@ -43,7 +43,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.5; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
