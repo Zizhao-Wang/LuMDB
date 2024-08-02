@@ -1,7 +1,8 @@
 ./config.sh
 
 
-rm -rf /mnt/hotdb_test/definition_no_2phase*
+rm -rf /mnt/hotdb_test/zipf1.1_no2phase48*
+db_directory="/mnt/hotdb_test/zipf1.1_no2phase48"
 rm  /mnt/logs/*.log
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
@@ -43,13 +44,13 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
                     log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                    db_directory="/mnt/hotdb_test/definition_no_2phase"
+                    
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
                       
