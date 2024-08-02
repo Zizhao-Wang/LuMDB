@@ -31,7 +31,7 @@ int kTiering_and_leveling_Multiplier = 24;
 
 int kInitialPartitionLevelingCompactionTrigger = 24;
 
-int kDynamicallPartitionLevelingCompactionTrigger = 64;
+int kDynamicallPartitionLevelingCompactionTrigger = 24;
 
 int kPartitionLevelingL1CompactionTrigger = 8;
 
