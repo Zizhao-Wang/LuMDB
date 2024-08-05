@@ -134,14 +134,9 @@ class MemTableInserter : public WriteBatch::Handler {
       : sequence_(0), mem_(nullptr), hot_mem_(nullptr), hot_identifier(nullptr), mem_count(0), hot_mem_count(0) {}
 
   void Put(const Slice& key, const Slice& value) override {
-      
-    if(hot_identifier->is_hot(key) == true){
-      hot_mem_->Add(sequence_, kTypeValue, key, value);
-      hot_mem_count++;
-    }else{
-      mem_->Add(sequence_, kTypeValue, key, value);
-      mem_count++;
-    }
+    mem_->Add(sequence_, kTypeValue, key, value);
+    mem_count++;
+    
       // else{
       //   auto it = batch_data_map->find(key.ToString());
       //   if(it->second >= 2){
