@@ -5,7 +5,7 @@ sudo bash -c 'ulimit -n 800000'
 BASE_VALUE_SIZE=128
 billion=1000000000
 range_dividers=(1)
-DEVICE_NAME="nvme1n1"
+DEVICE_NAME="nvme2n1"
 
 
 convert_to_billion_format() {
@@ -37,10 +37,10 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.1 1.2 1.3 1.4 1.5; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.5; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
-                log_file="Pebblesdb_${num_format}_val_${value_size}_mem1MB_zipf${zipf_a}.log"
+                log_file="Pebbles10B_${num_format}_val_${value_size}_mem1MB_zipf${zipf_a}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_usage_${num_format}_key16_val${value_size}.log"
 
@@ -57,7 +57,7 @@ for i in {10..10}; do
                 echo "$num_format"
 
                 # 创建相应的目录
-                db_dir="/mnt/nvm/pebbles10B/${zipf_a}"
+                db_dir="/mnt/hotdb_test/pebbles10B/${zipf_a}"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
                 fi
