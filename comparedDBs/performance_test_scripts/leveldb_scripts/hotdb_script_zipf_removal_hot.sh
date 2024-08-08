@@ -28,7 +28,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_leveldb_zipf_hot_removal"
+    dir1="${i}B_leveldb_zipf_mp400"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -39,13 +39,13 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.5 1.4 1.3 1.2 1.1 ; do  #  1.2 
+            for zipf_a in 1.3  ; do  #  1.2 
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(0) #10 20 30 40 50 60 70 80 90 100
 
                     for no_hot in "${No_hot_percentages[@]}"; do
 
-                        for buffer_size in 33554432 16777216 8388608 1048576; do
+                        for buffer_size in 1048576; do
 
                             buffer_size_mb=$((buffer_size / 1048576))
                             # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
@@ -92,7 +92,7 @@ for i in {10..10}; do
                             echo "$num_format"
 
                             # 创建相应的目录
-                            db_dir="/mnt/level10B/${zipf_a}"
+                            db_dir="/mnt/hotdb_test/level10B/${zipf_a}"
                             if [ ! -d "$db_dir" ]; then
                                 mkdir -p "$db_dir"
                             fi

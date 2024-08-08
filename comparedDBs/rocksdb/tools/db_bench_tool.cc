@@ -29,6 +29,7 @@
 #endif
 #include <atomic>
 #include <cinttypes>
+#include <iomanip> 
 #include <condition_variable>
 #include <cstddef>
 #include <iostream>
@@ -300,8 +301,14 @@ DEFINE_int32(duration, 0,
 DEFINE_string(value_size_distribution_type, "fixed",
               "Value size distribution type: fixed, uniform, normal");
 
-DEFINE_int32(value_size, 100, "Size of each value in fixed distribution");
-static unsigned int value_size = 100;
+
+DEFINE_string(data_file_path, "", "Value size distribution type: fixed, uniform, normal");
+
+DEFINE_string(mem_log_file,"", "mem usage path");
+              
+
+DEFINE_int32(value_size, 128, "Size of each value in fixed distribution");
+static unsigned int value_size = 128;
 
 DEFINE_int32(value_size_min, 100, "Min size of random value");
 
@@ -340,6 +347,8 @@ static bool ValidateUint32Range(const char* flagname, uint64_t value) {
 }
 
 DEFINE_int32(key_size, 16, "size of each key");
+
+DEFINE_int32(value_size_, 128, "size of each value");
 
 DEFINE_int32(user_timestamp_size, 0,
              "number of bytes in a user-defined timestamp");
@@ -2178,6 +2187,7 @@ class Stats {
   uint64_t last_report_done_;
   uint64_t next_report_;
   uint64_t bytes_;
+  int call_ref;
   uint64_t last_op_finish_;
   uint64_t last_report_finish_;
   std::unordered_map<OperationType, std::shared_ptr<HistogramImpl>,
@@ -2204,6 +2214,7 @@ class Stats {
     last_report_done_ = 0;
     bytes_ = 0;
     seconds_ = 0;
+    call_ref = 0;
     start_ = clock_->NowMicros();
     sine_interval_ = clock_->NowMicros();
     finish_ = start_;
@@ -2294,6 +2305,64 @@ class Stats {
     last_op_finish_ = clock_->NowMicros();
   }
 
+  std::string getCurrentTime() {
+    char timeStr[100];
+    time_t now = time(NULL);
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    return std::string(timeStr);
+  } 
+
+  std::string format_memory(unsigned long bytes) {
+    const double GIGABYTE = 1024.0 * 1024.0 * 1024.0;
+    const double MEGABYTE = 1024.0 * 1024.0;
+    std::ostringstream oss;
+
+    if (bytes >= GIGABYTE) {
+        oss << std::fixed << std::setprecision(2) << (bytes / GIGABYTE) << " GB";
+    } else {
+        oss << std::fixed << std::setprecision(2) << (bytes / MEGABYTE) << " MB";
+    }
+
+    return oss.str();
+  }
+    
+  void print_mem_usage() {
+
+    std::ofstream log_file;
+    if (call_ref == 0) {
+      // 如果call_ref为0，清空文件并从头开始写
+      log_file.open(FLAGS_mem_log_file, std::ios::trunc);
+    } else {
+      // 如果call_ref不为0，以追加模式打开文件
+      log_file.open(FLAGS_mem_log_file, std::ios::app);
+    }
+
+    if (!log_file.is_open()) {
+      fprintf(stderr, "Failed to open the mem_log file: %s.\n",FLAGS_mem_log_file.c_str());  
+      return ;
+    }
+    
+    std::ifstream statm("/proc/self/statm");
+    if (!statm) {
+      fprintf(stderr, "Failed to open /proc/self/statm.\n");
+      return;
+    }
+    unsigned long size, resident, shr_size;
+    if (!(statm >> size >> resident >> shr_size)) {
+      fprintf(stderr, "Failed to read memory usage from /proc/self/statm.\n");
+      return;
+    }
+    long page_size = sysconf(_SC_PAGESIZE); // 页面大小，字节
+
+    // 使用ostream的插入操作符来写入信息
+    log_file << getCurrentTime() << " ... thread " << id_ << ": (" << (done_ - last_report_done_) << "," << done_ << ") ops have been finished!\n";
+    log_file << "virtual memory used: " << format_memory(size * page_size) << ", "
+             << "Resident set size: " << format_memory(resident * page_size) << ", "
+             << "Shared Memory Usage: " << format_memory(shr_size * page_size) << " \n\n";    
+    
+    call_ref++;
+  }
+
   void FinishedOps(DBWithColumnFamilies* db_with_cfh, DB* db, int64_t num_ops,
                    enum OperationType op_type = kOthers) {
     if (reporter_agent_) {
@@ -2358,7 +2427,7 @@ class Stats {
                   done_ / ((now - start_) / 1000000.0),
                   (now - last_report_finish_) / 1000000.0,
                   (now - start_) / 1000000.0);
-
+          print_mem_usage();
           if (id_ == 0 && FLAGS_stats_per_interval) {
             std::string stats;
 
@@ -3539,7 +3608,10 @@ class Benchmark {
       } else if (name == "fillrandom") {
         fresh_db = true;
         method = &Benchmark::WriteRandom;
-      } else if (name == "filluniquerandom" ||
+      } else if (name == "fillzipf") {
+        fresh_db = true;
+        method = &Benchmark::WriteZipf;
+      }else if (name == "filluniquerandom" ||
                  name == "fillanddeleteuniquerandom") {
         fresh_db = true;
         if (num_threads > 1) {
@@ -5033,6 +5105,8 @@ class Benchmark {
 
   void WriteRandom(ThreadState* thread) { DoWrite(thread, RANDOM); }
 
+  void WriteZipf(ThreadState* thread) { DoWrite_zipf(thread, RANDOM); }
+
   void WriteUniqueRandom(ThreadState* thread) {
     DoWrite(thread, UNIQUE_RANDOM);
   }
@@ -5103,7 +5177,96 @@ class Benchmark {
     return FLAGS_sine_a * sin((FLAGS_sine_b * x) + FLAGS_sine_c) + FLAGS_sine_d;
   }
 
-  void DoWrite(ThreadState* thread, WriteMode write_mode) {
+  void DoWrite_zipf(ThreadState* thread, WriteMode write_mode) {
+
+    uint64_t num_written = 0;
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%" PRIu64 " ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
+                      FLAGS_write_batch_protection_bytes_per_key,
+                      user_timestamp_size_);
+    Status s;
+    int64_t bytes = 0;
+    int id = 0;
+
+      // 打开 CSV 文件
+    std::ifstream csv_file(FLAGS_data_file_path);
+    std::string line;
+    if (!csv_file.is_open()) {
+      fprintf(stderr, "Unable to open file: %s\n", FLAGS_data_file_path.c_str());
+      return;
+    }
+    std::getline(csv_file, line); // 读取并丢弃 CSV 文件的标题行
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    fprintf(stderr, "num_: %ld entries_per_batch_:%ld\n", num_, entries_per_batch_);
+    for (int64_t i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      int64_t batch_bytes = 0;
+
+      for (int64_t j = 0; j < entries_per_batch_; j++) {
+        int64_t rand_num = 0;
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+
+        if (!std::getline(csv_file, line)) { 
+          fprintf(stderr, "Error reading key from file\n");
+          return;
+        }
+
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+
+        if (row_data.size() != 1) {
+          fprintf(stderr, "Invalid CSV row format: %s\n", line.c_str());
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[0]);
+        // fprintf(stderr, "Read key: %llu\n", (unsigned long long)k); // 输出读取的键
+
+        char key[100];
+        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+        Slice val = gen.Generate(FLAGS_value_size_);
+
+        // fprintf(stderr, "Writing key: %s, value size: %zu\n", key, val.size()); // 输出写入的键和值大小
+        batch.Put(key, val);
+          
+        batch_bytes += val.size() + key_size_ + user_timestamp_size_;
+        bytes += val.size() + key_size_ + user_timestamp_size_;
+        ++num_written;
+        thread->stats.FinishedOps(nullptr, db_.db, entries_per_batch_, kWrite);
+      }
+
+      s = db_.db->Write(write_options_, &batch);
+
+      if (!s.ok()) {
+        fprintf(stderr, "Put error: %s\n", s.ToString().c_str());
+        ErrorExit();
+      } 
+      // else {
+      //   fprintf(stderr, "Batch write successful. Bytes written: %ld\n", batch_bytes); // 输出批处理成功信息
+      // }
+    }
+
+    fprintf(stderr, "Total bytes written: %ld\n", bytes); // 输出总写入字节数
+    thread->stats.AddBytes(bytes);
+  }
+
+
+
+   void DoWrite(ThreadState* thread, WriteMode write_mode) {
     const int test_duration = write_mode == RANDOM ? FLAGS_duration : 0;
     const int64_t num_ops = writes_ == 0 ? num_ : writes_;
 
