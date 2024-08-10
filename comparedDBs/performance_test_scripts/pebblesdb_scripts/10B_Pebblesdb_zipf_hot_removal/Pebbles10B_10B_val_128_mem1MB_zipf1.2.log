@@ -1,0 +1,1012 @@
+PebblesDB:    version 1.17
+Date:       Sat Aug 10 10:25:56 2024
+CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
+CPUCache:   39424 KB
+../../../pebblesdb/release/db_bench --db=/mnt/hotdb_test/pebbles10B/1.2 --num=10000000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_usage_10B_key16_val128_zipf1.2.log --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    10000000000
+RawSize:    1373291.0 MB (estimated)
+FileSize:   762939.5 MB (estimated)
+WARNING: Snappy compression is not enabled
+------------------------------------------------
+Recover Time : 18446744073709475287
+InitializeFileLevelBloomFilter Time: 2
+InitializeTableCacheFileMetaData Time: 2
+PebblesDB Open Time: 157908
+Write buffer: 1024.00 KB
+Recover Time : 18446744073709547799
+InitializeFileLevelBloomFilter Time: 1
+InitializeTableCacheFileMetaData Time: 2
+PebblesDB Open Time: 13378
+start benchmarking num_ = 10000000000 entries(batches:1) in DoWrite_zipf()
+2024/08/10-10:27:43  ... thread 0: (10000000,10000000) ops and (93899.2,93899.2) ops/second in (106.497167,106.497167) seconds
+10000000 operations have been finished (1373.301 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        1        1        54        0      1380
+  1        3        1        31     1378       394
+  2        1        1        11      393       327
+  3        0        0         7      326       272
+  4        9       21         4      272       226
+  5        4       11         4      222       187
+  6       53      122         8      280       241
+WriteAmplification: 2.1944
+
+2024/08/10-10:29:16  ... thread 0: (10000000,20000000) ops and (107052.2,100045.3) ops/second in (93.412347,199.909514) seconds
+20000000 operations have been finished (2746.603 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        1        1        96        0      2760
+  1        0        0        56     2759       790
+  2        1        1        19      790       658
+  3        2        6        12      657       547
+  4        0        0         8      541       451
+  5        7       17         9      473       398
+  6      115      230        26      922       794
+WriteAmplification: 2.3175
+
+2024/08/10-10:30:44  ... thread 0: (10000000,30000000) ops and (113811.6,104248.5) ops/second in (87.864470,287.773984) seconds
+30000000 operations have been finished (4119.904 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       131        0      4140
+  1        2        1        78     4139      1185
+  2        0        0        26     1184       986
+  3        1        3        18      986       821
+  4        3        7        14      818       682
+  5       10       11        14      701       588
+  6      124      321        38     1665      1435
+WriteAmplification: 2.3761
+
+2024/08/10-10:32:18  ... thread 0: (10000000,40000000) ops and (106596.7,104825.8) ops/second in (93.811538,381.585522) seconds
+40000000 operations have been finished (5493.205 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       167        0      5521
+  1        0        0        98     5520      1581
+  2        3        3        34     1580      1316
+  3        0        0        23     1313      1094
+  4        6       13        17     1094       911
+  5       16       21        20      933       782
+  6      156      403        51     2411      2087
+WriteAmplification: 2.4078
+
+2024/08/10-10:35:05  ... thread 0: (10000000,50000000) ops and (59844.0,91126.7) ops/second in (167.101105,548.686627) seconds
+50000000 operations have been finished (6866.507 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        1        1       224        0      6902
+  1        3        1       128     6900      1977
+  2        1        1        45     1976      1645
+  3        0        0        30     1644      1370
+  4        9       20        24     1370      1141
+  5       23       26        28     1182       991
+  6      191      477        89     3230      2800
+WriteAmplification: 2.4379
+
+2024/08/10-10:38:42  ... thread 0: (10000000,60000000) ops and (46129.7,78383.5) ops/second in (216.780201,765.466828) seconds
+60000000 operations have been finished (8239.809 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       286        0      8282
+  1        0        0       162     8281      2373
+  2        1        1        58     2373      1976
+  3        0        0        38     1975      1645
+  4        3        7        30     1645      1370
+  5       22       20        37     1405      1177
+  6      229      568       136     4216      3668
+WriteAmplification: 2.4743
+
+2024/08/10-10:41:21  ... thread 0: (10000000,70000000) ops and (62914.8,75723.8) ops/second in (158.945098,924.411926) seconds
+70000000 operations have been finished (9613.110 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       332        0      9662
+  1        1        0       188     9661      2769
+  2        1        1        67     2769      2306
+  3        0        0        45     2305      1920
+  4        6       14        34     1920      1599
+  5        8        6        42     1634      1368
+  6      267      650       172     5215      4551
+WriteAmplification: 2.5021
+
+2024/08/10-10:44:59  ... thread 0: (10000000,80000000) ops and (45737.2,69988.1) ops/second in (218.640220,1143.052146) seconds
+80000000 operations have been finished (10986.411 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       383        0     11043
+  1        0        0       218    11042      3166
+  2        1        1        78     3165      2636
+  3        0        0        52     2635      2195
+  4        9       20        40     2195      1828
+  5       30       24        50     1857      1554
+  6      281      736       202     6128      5382
+WriteAmplification: 2.5179
+
+2024/08/10-10:49:26  ... thread 0: (10000000,90000000) ops and (37446.9,63825.4) ops/second in (267.044447,1410.096593) seconds
+90000000 operations have been finished (12359.713 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       439        0     12423
+  1        0        0       249    12422      3562
+  2        1        1        89     3562      2966
+  3        2        3        62     2971      2474
+  4        3        2        48     2476      2064
+  5       24       10        58     2142      1790
+  6      354      828       239     7112      6251
+WriteAmplification: 2.5380
+
+2024/08/10-10:52:56  ... thread 0: (10000000,100000000) ops and (47759.0,61748.2) ops/second in (209.384784,1619.481377) seconds
+100000000 operations have been finished (13733.014 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       481        0     13803
+  1        1        0       274    13801      3958
+  2        1        1        97     3958      3296
+  3        3        3        73     3300      2749
+  4       11        9        58     2751      2293
+  5        5        3        66     2433      2035
+  6      349      883       278     8210      7219
+WriteAmplification: 2.5613
+
+2024/08/10-10:56:56  ... thread 0: (10000000,110000000) ops and (41672.9,59157.4) ops/second in (239.964187,1859.445564) seconds
+110000000 operations have been finished (15106.316 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       527        0     15183
+  1        1        0       302    15182      4354
+  2        1        1       106     4354      3626
+  3        3        3        83     3630      3023
+  4       14       11        70     3027      2523
+  5       13        6        83     2715      2272
+  6      377      959       307     9170      8078
+WriteAmplification: 2.5726
+
+2024/08/10-11:01:06  ... thread 0: (10000000,120000000) ops and (39957.2,56879.8) ops/second in (250.267795,2109.713359) seconds
+120000000 operations have been finished (16479.617 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       568        0     16564
+  1        1        0       326    16563      4751
+  2        1        1       115     4750      3956
+  3        3        3        93     3960      3298
+  4        6        2        80     3302      2752
+  5        6        4        98     3014      2530
+  6      523     1053       347    10082      8885
+WriteAmplification: 2.5801
+
+2024/08/10-11:04:26  ... thread 0: (10000000,130000000) ops and (49928.3,56277.0) ops/second in (200.287275,2310.000634) seconds
+130000000 operations have been finished (17852.919 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       603        0     17945
+  1        2        1       348    17943      5147
+  2        1        1       123     5146      4286
+  3        3        3       102     4290      3573
+  4       10        7        88     3577      2981
+  5       63       42       108     3293      2771
+  6      498     1090       378    11060      9751
+WriteAmplification: 2.5887
+
+2024/08/10-11:08:40  ... thread 0: (10000000,140000000) ops and (39387.9,54604.6) ops/second in (253.885086,2563.885720) seconds
+140000000 operations have been finished (19226.220 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       642        0     19326
+  1        2        1       371    19323      5543
+  2        1        1       130     5543      4616
+  3        3        3       113     4620      3848
+  4       14       11        97     3852      3210
+  5       74       49       119     3627      3059
+  6      442     1166       415    12040     10635
+WriteAmplification: 2.5995
+
+2024/08/10-11:13:14  ... thread 0: (10000000,150000000) ops and (36592.6,52869.7) ops/second in (273.279534,2837.165254) seconds
+150000000 operations have been finished (20599.522 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       683        0     20705
+  1        2        1       396    20705      5940
+  2        1        1       139     5939      4946
+  3        3        3       121     4950      4123
+  4        6        2       105     4127      3439
+  5       89       50       131     3955      3346
+  6      481     1233       437    13114     11582
+WriteAmplification: 2.6119
+
+2024/08/10-11:17:40  ... thread 0: (10000000,160000000) ops and (37576.7,51558.2) ops/second in (266.122078,3103.287332) seconds
+160000000 operations have been finished (21972.823 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       718        0     22086
+  1        3        1       417    22084      6336
+  2        1        1       147     6336      5277
+  3        3        3       129     5280      4398
+  4       11        7       111     4401      3668
+  5       80       48       150     4297      3641
+  6      503     1299       474    14182     12536
+WriteAmplification: 2.6235
+
+2024/08/10-11:23:25  ... thread 0: (10000000,170000000) ops and (28930.4,49290.4) ops/second in (345.657447,3448.944779) seconds
+170000000 operations have been finished (23346.125 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       759        0     23466
+  1        0        0       441    23466      6733
+  2        2        2       156     6732      5607
+  3        3        3       140     5610      4672
+  4       16       11       120     4676      3897
+  5      102       55       163     4634      3932
+  6      520     1356       509    15184     13423
+WriteAmplification: 2.6305
+
+2024/08/10-11:27:50  ... thread 0: (10000000,180000000) ops and (37758.3,48468.0) ops/second in (264.842134,3713.786913) seconds
+180000000 operations have been finished (24719.427 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       792        0     24847
+  1        0        0       462    24845      7128
+  2        2        2       163     7128      5936
+  3        3        3       148     5939      4947
+  4        6        2       129     4951      4126
+  5      102       60       175     4981      4238
+  6      560     1436       533    16170     14298
+WriteAmplification: 2.6369
+
+2024/08/10-11:32:38  ... thread 0: (10000000,190000000) ops and (34747.9,47481.3) ops/second in (287.787335,4001.574248) seconds
+190000000 operations have been finished (26092.728 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       826        0     26227
+  1        1        0       484    26225      7525
+  2        2        2       169     7524      6266
+  3        3        3       156     6269      5222
+  4       11        7       139     5225      4355
+  5       82       54       190     5358      4568
+  6      596     1500       574    17321     15331
+WriteAmplification: 2.6497
+
+2024/08/10-11:36:51  ... thread 0: (10000000,200000000) ops and (39490.5,47005.7) ops/second in (253.225444,4254.799692) seconds
+200000000 operations have been finished (27466.030 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       856        0     27607
+  1        1        0       501    27606      7921
+  2        2        2       176     7920      6596
+  3        3        3       163     6599      5496
+  4       16       11       144     5500      4583
+  5      114       62       198     5710      4874
+  6      614     1559       599    18381     16278
+WriteAmplification: 2.6571
+
+2024/08/10-11:41:41  ... thread 0: (10000000,210000000) ops and (34486.9,46207.0) ops/second in (289.964755,4544.764447) seconds
+210000000 operations have been finished (28839.331 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       889        0     28988
+  1        2        1       522    28986      8317
+  2        2        2       182     8317      6926
+  3        3        3       171     6929      5771
+  4        6        2       151     5775      4812
+  5       79       41       213     6112      5218
+  6      654     1642       619    19428     17206
+WriteAmplification: 2.6645
+
+2024/08/10-11:46:12  ... thread 0: (10000000,220000000) ops and (36881.0,45681.9) ops/second in (271.142414,4815.906861) seconds
+220000000 operations have been finished (30212.633 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       920        0     30369
+  1        2        1       540    30367      8714
+  2        2        2       188     8713      7256
+  3        3        3       178     7259      6046
+  4       13        7       156     6050      5041
+  5       91       50       230     6498      5557
+  6      671     1696       636    20349     18013
+WriteAmplification: 2.6671
+
+2024/08/10-11:51:36  ... thread 0: (10000000,230000000) ops and (30847.0,44746.3) ops/second in (324.180217,5140.087078) seconds
+230000000 operations have been finished (31585.934 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       952        0     31749
+  1        3        1       560    31747      9110
+  2        2        2       195     9110      7587
+  3        3        3       186     7589      6321
+  4       16       11       165     6325      5270
+  5       47       26       243     6946      5939
+  6      711     1778       655    21452     19014
+WriteAmplification: 2.6769
+
+2024/08/10-11:56:04  ... thread 0: (10000000,240000000) ops and (37339.7,44379.5) ops/second in (267.811386,5407.898464) seconds
+240000000 operations have been finished (32959.236 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       978        0     33129
+  1        0        0       577    33128      9507
+  2        3        3       201     9507      7917
+  3        3        3       193     7919      6596
+  4        7        2       172     6600      5499
+  5      144       75       254     7369      6304
+  6      743     1824       672    22178     19657
+WriteAmplification: 2.6747
+
+2024/08/10-12:01:51  ... thread 0: (10000000,250000000) ops and (28813.2,43440.8) ops/second in (347.063012,5754.961476) seconds
+250000000 operations have been finished (34332.537 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1008        0     34510
+  1        1        0       595    34508      9903
+  2        0        0       207     9902      8247
+  3        6        5       200     8252      6873
+  4       13        7       177     6874      5728
+  5       91       54       267     7819      6688
+  6      757     1892       693    23273     20640
+WriteAmplification: 2.6830
+
+2024/08/10-12:06:18  ... thread 0: (10000000,260000000) ops and (37512.1,43178.3) ops/second in (266.580441,6021.541917) seconds
+260000000 operations have been finished (35705.839 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1034        0     35890
+  1        1        0       612    35889     10299
+  2        0        0       213    10298      8576
+  3        4        5       207     8582      7148
+  4       26       13       183     7150      5958
+  5      136       68       281     8268      7079
+  6      779     1950       708    24165     21439
+WriteAmplification: 2.6857
+
+2024/08/10-12:12:22  ... thread 0: (10000000,270000000) ops and (27438.8,42280.1) ops/second in (364.447229,6385.989146) seconds
+270000000 operations have been finished (37079.140 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1064        0     37270
+  1        1        0       631    37269     10696
+  2        0        0       220    10695      8907
+  3       10        6       215     8912      7423
+  4        7        2       189     7425      6187
+  5       87       57       300     8726      7479
+  6      810     2013       728    25340     22485
+WriteAmplification: 2.6951
+
+2024/08/10-12:16:21  ... thread 0: (10000000,280000000) ops and (41824.0,42263.6) ops/second in (239.097402,6625.086548) seconds
+280000000 operations have been finished (38452.442 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1088        0     38651
+  1        2        1       646    38650     11092
+  2        0        0       225    11091      9237
+  3        4        5       222     9242      7698
+  4       21        8       195     7700      6416
+  5      146       68       310     9158      7854
+  6      825     2075       744    26161     23213
+WriteAmplification: 2.6949
+
+2024/08/10-12:20:12  ... thread 0: (10000000,290000000) ops and (43383.9,42301.3) ops/second in (230.500227,6855.586775) seconds
+290000000 operations have been finished (39825.743 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1111        0     40032
+  1        2        1       662    40030     11489
+  2        0        0       230    11487      9566
+  3        4        5       229     9572      7973
+  4       16       11       201     7975      6645
+  5      158       80       325     9603      8252
+  6      847     2122       764    27192     24123
+WriteAmplification: 2.6998
+
+2024/08/10-12:24:19  ... thread 0: (10000000,300000000) ops and (40537.2,42240.0) ops/second in (246.687066,7102.273841) seconds
+300000000 operations have been finished (41199.045 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1135        0     41411
+  1        3        1       678    41410     11884
+  2        0        0       235    11884      9897
+  3        4        5       236     9902      8247
+  4       10        2       207     8249      6874
+  5      102       46       337    10089      8679
+  6      860     2194       786    28401     25192
+WriteAmplification: 2.7090
+
+2024/08/10-12:29:29  ... thread 0: (10000000,310000000) ops and (32177.7,41818.2) ops/second in (310.773817,7413.047658) seconds
+310000000 operations have been finished (42572.346 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1162        0     42793
+  1        0        0       696    42791     12281
+  2        1        1       241    12281     10227
+  3        4        5       244    10232      8522
+  4       21        8       214     8524      7102
+  5       80       38       353    10595      9116
+  6      895     2250       804    29330     26016
+WriteAmplification: 2.7121
+
+2024/08/10-12:33:39  ... thread 0: (10000000,320000000) ops and (40018.5,41759.5) ops/second in (249.884410,7662.932068) seconds
+320000000 operations have been finished (43945.648 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1184        0     44172
+  1        1        0       711    44171     12677
+  2        1        1       246    12677     10557
+  3        4        5       251    10562      8797
+  4       18       11       219     8799      7332
+  5       70       68       365    11076      9549
+  6      916     2316       820    30268     26870
+WriteAmplification: 2.7156
+
+2024/08/10-12:38:04  ... thread 0: (10000000,330000000) ops and (37849.9,41629.2) ops/second in (264.201618,7927.133686) seconds
+330000000 operations have been finished (45318.949 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1207        0     45553
+  1        1        0       726    45552     13073
+  2        1        1       251    13072     10886
+  3        4        5       257    10891      9071
+  4       14        2       226     9074      7560
+  5      172       72       382    11523      9936
+  6      934     2388       843    31274     27776
+WriteAmplification: 2.7189
+
+2024/08/10-12:43:44  ... thread 0: (10000000,340000000) ops and (29337.1,41122.4) ops/second in (340.865582,8267.999268) seconds
+340000000 operations have been finished (46692.251 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1233        0     46933
+  1        2        1       743    46932     13469
+  2        1        1       257    13468     11216
+  3        4        5       264    11221      9346
+  4       20        8       233     9348      7789
+  5      192       96       404    12080     10416
+  6      968     2427       870    32121     28540
+WriteAmplification: 2.7211
+
+2024/08/10-12:48:21  ... thread 0: (10000000,350000000) ops and (36181.5,40962.6) ops/second in (276.384438,8544.383706) seconds
+350000000 operations have been finished (48065.552 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1257        0     48314
+  1        2        1       758    48313     13866
+  2        1        1       262    13865     11546
+  3        4        5       271    11551      9621
+  4       22       11       239     9623      8019
+  5      169       90       419    12671     10923
+  6      979     2510       883    33018     29371
+WriteAmplification: 2.7251
+
+2024/08/10-12:54:06  ... thread 0: (10000000,360000000) ops and (28988.9,40497.9) ops/second in (344.959825,8889.343531) seconds
+360000000 operations have been finished (49438.854 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1282        0     49694
+  1        2        1       774    49693     14262
+  2        1        1       268    14261     11876
+  3        8        5       280    11881      9896
+  4        9        1       245     9898      8247
+  5      189       76       434    13219     11409
+  6     1003     2553       895    33907     30113
+WriteAmplification: 2.7266
+
+2024/08/10-12:59:07  ... thread 0: (10000000,370000000) ops and (33235.3,40260.2) ops/second in (300.885272,9190.228803) seconds
+370000000 operations have been finished (50812.155 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1306        0     51075
+  1        3        1       790    51073     14658
+  2        1        1       273    14658     12207
+  3       10        5       289    12211     10171
+  4       21        7       252    10174      8477
+  5      131       84       453    13776     11908
+  6     1030     2609       909    34857     30962
+WriteAmplification: 2.7305
+
+2024/08/10-13:05:07  ... thread 0: (10000000,380000000) ops and (27740.2,39787.6) ops/second in (360.487487,9550.716290) seconds
+380000000 operations have been finished (52185.457 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1330        0     52455
+  1        0        0       805    52454     15055
+  2        2        2       279    15054     12537
+  3       10        5       298    12541     10445
+  4       33       11       259    10448      8706
+  5      127       73       471    14339     12413
+  6     1088     2686       924    35805     31808
+WriteAmplification: 2.7341
+
+2024/08/10-13:11:16  ... thread 0: (10000000,390000000) ops and (27141.2,39317.8) ops/second in (368.443771,9919.160061) seconds
+390000000 operations have been finished (53558.758 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1354        0     53835
+  1        1        0       821    53834     15451
+  2        2        2       284    15450     12867
+  3       10        5       307    12871     10720
+  4       22        3       265    10723      8935
+  5      166       92       489    14894     12907
+  6     1110     2707       934    36549     32416
+WriteAmplification: 2.7330
+
+2024/08/10-13:17:35  ... thread 0: (10000000,400000000) ops and (26359.3,38840.5) ops/second in (379.373008,10298.533069) seconds
+400000000 operations have been finished (54932.060 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1378        0     55216
+  1        1        0       836    55215     15847
+  2        2        2       289    15847     13197
+  3       11        5       316    13201     10995
+  4       21        7       275    10998      9164
+  5      162       85       511    15435     13393
+  6     1126     2765       948    37459     33208
+WriteAmplification: 2.7351
+
+2024/08/10-13:23:03  ... thread 0: (10000000,410000000) ops and (30476.6,38582.2) ops/second in (328.120160,10626.653229) seconds
+410000000 operations have been finished (56305.361 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1400        0     56596
+  1        2        1       851    56595     16243
+  2        2        2       294    16243     13526
+  3       11        5       326    13530     11270
+  4       35       11       281    11273      9392
+  5      182      102       525    16034     13920
+  6     1127     2859       958    38202     33910
+WriteAmplification: 2.7362
+
+2024/08/10-13:29:46  ... thread 0: (10000000,420000000) ops and (24833.0,38080.2) ops/second in (402.690329,11029.343558) seconds
+420000000 operations have been finished (57678.662 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1423        0     57977
+  1        2        1       867    57976     16640
+  2        2        2       299    16639     13856
+  3       11        5       336    13860     11545
+  4       21        2       289    11548      9622
+  5      201       67       541    16534     14377
+  6     1171     2915       976    39569     35102
+WriteAmplification: 2.7445
+
+2024/08/10-13:36:38  ... thread 0: (10000000,430000000) ops and (24262.2,37582.5) ops/second in (412.164437,11441.507995) seconds
+430000000 operations have been finished (59051.964 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1447        0     59357
+  1        3        1       882    59356     17036
+  2        2        2       304    17036     14187
+  3       11        5       344    14190     11820
+  4       21        7       298    11823      9851
+  5      206      112       560    17133     14906
+  6     1204     2943       985    40244     35696
+WriteAmplification: 2.7436
+
+2024/08/10-13:43:47  ... thread 0: (10000000,440000000) ops and (23302.4,37066.2) ops/second in (429.141191,11870.649186) seconds
+440000000 operations have been finished (60425.265 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1470        0     60738
+  1        3        1       897    60735     17433
+  2        2        2       309    17433     14517
+  3       11        5       353    14520     12094
+  4       39       11       306    12098     10080
+  5      244      109       581    17675     15393
+  6     1210     3026       999    41200     36563
+WriteAmplification: 2.7465
+
+2024/08/10-13:50:55  ... thread 0: (10000000,450000000) ops and (23384.2,36590.5) ops/second in (427.639470,12298.288656) seconds
+450000000 operations have been finished (61798.567 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1493        0     62118
+  1        0        0       912    62117     17830
+  2        2        1       317    17831     14849
+  3       13        5       362    14852     12371
+  4       20        2       315    12375     10311
+  5      199      115       605    18279     15934
+  6     1230     3063      1012    42128     37358
+WriteAmplification: 2.7491
+
+2024/08/10-13:59:16  ... thread 0: (10000000,460000000) ops and (19936.4,35937.8) ops/second in (501.595877,12799.884533) seconds
+460000000 operations have been finished (63171.869 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1517        0     63499
+  1        1        0       928    63498     18226
+  2        2        1       324    18228     15179
+  3       13        5       373    15182     12646
+  4       22        7       323    12650     10540
+  5      189       86       628    18818     16414
+  6     1254     3126      1074    43358     38456
+WriteAmplification: 2.7553
+
+2024/08/10-14:07:12  ... thread 0: (10000000,470000000) ops and (21036.9,35404.3) ops/second in (475.354877,13275.239410) seconds
+470000000 operations have been finished (64545.170 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1541        0     64879
+  1        1        0       943    64878     18623
+  2        2        1       331    18624     15509
+  3       13        5       383    15512     12921
+  4       45       11       333    12925     10769
+  5      149       88       649    19377     16918
+  6     1295     3173      1088    44221     39199
+WriteAmplification: 2.7562
+
+2024/08/10-14:15:10  ... thread 0: (10000000,480000000) ops and (20892.0,34899.2) ops/second in (478.653225,13753.892635) seconds
+480000000 operations have been finished (65918.472 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1565        0     66260
+  1        2        1       959    66258     19019
+  2        2        1       340    19020     15839
+  3       13        5       393    15842     13196
+  4       20        2       343    13199     10998
+  5      216      121       669    19971     17453
+  6     1294     3217      1101    45072     39947
+WriteAmplification: 2.7575
+
+2024/08/10-14:23:11  ... thread 0: (10000000,490000000) ops and (20792.6,34422.6) ops/second in (480.940435,14234.833070) seconds
+490000000 operations have been finished (67291.773 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1589        0     67640
+  1        2        1       974    67639     19415
+  2        2        1       347    19416     16169
+  3       13        5       404    16172     13470
+  4       22        7       351    13474     11227
+  5      241      117       692    20584     17983
+  6     1338     3297      1131    45913     40724
+WriteAmplification: 2.7591
+
+2024/08/10-14:32:16  ... thread 0: (10000000,500000000) ops and (18360.0,33830.7) ops/second in (544.663043,14779.496113) seconds
+500000000 operations have been finished (68665.074 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1614        0     69020
+  1        3        1       990    69019     19811
+  2        2        1       355    19814     16500
+  3       16        5       415    16502     13746
+  4       46       11       361    13749     11455
+  5      237      121       711    21140     18490
+  6     1339     3339      1143    46852     41531
+WriteAmplification: 2.7608
+
+2024/08/10-14:40:36  ... thread 0: (10000000,510000000) ops and (20001.8,33378.2) ops/second in (499.955515,15279.451628) seconds
+510000000 operations have been finished (70038.376 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1637        0     70401
+  1        0        0      1005    70400     20208
+  2        4        2       362    20209     16830
+  3       20        5       426    16832     14020
+  4       30        3       372    14024     11684
+  5      261      124       735    21745     19034
+  6     1342     3391      1162    48030     42590
+WriteAmplification: 2.7665
+
+2024/08/10-14:50:18  ... thread 0: (10000000,520000000) ops and (17163.5,32782.6) ops/second in (582.631926,15862.083554) seconds
+520000000 operations have been finished (71411.677 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1662        0     71781
+  1        2        0      1022    71780     20604
+  2        4        2       369    20605     17159
+  3       22        5       438    17162     14295
+  4       22        6       387    14299     11913
+  5      171      117       773    22361     19572
+  6     1439     3496      1187    49176     43687
+WriteAmplification: 2.7725
+
+2024/08/10-15:00:42  ... thread 0: (10000000,530000000) ops and (16046.8,32149.9) ops/second in (623.176090,16485.259644) seconds
+530000000 operations have been finished (72784.979 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1686        0     73162
+  1        2        0      1043    73161     21000
+  2        4        2       379    21001     17489
+  3       22        5       454    17491     14570
+  4       51       11       398    14574     12142
+  5      287      108       793    22966     20111
+  6     1421     3532      1196    49887     44266
+WriteAmplification: 2.7711
+
+2024/08/10-15:11:06  ... thread 0: (10000000,540000000) ops and (16023.9,31561.7) ops/second in (624.066197,17109.325841) seconds
+540000000 operations have been finished (74158.281 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1710        0     74542
+  1        2        0      1064    74541     21396
+  2        4        2       388    21398     17819
+  3       22        5       467    17821     14845
+  4       34        3       408    14849     12371
+  5      302      127       829    23607     20692
+  6     1427     3558      1203    50600     44846
+WriteAmplification: 2.7704
+
+2024/08/10-15:21:45  ... thread 0: (10000000,550000000) ops and (15635.3,30987.8) ops/second in (639.580334,17748.906175) seconds
+550000000 operations have been finished (75531.582 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1733        0     75923
+  1        4        1      1085    75920     21792
+  2        4        2       397    21794     18149
+  3       22        5       480    18151     15119
+  4       26        7       418    15123     12600
+  5      196      123       863    24275     21281
+  6     1423     3639      1255    51717     45895
+WriteAmplification: 2.7760
+
+2024/08/10-15:32:50  ... thread 0: (10000000,560000000) ops and (15042.1,30412.1) ops/second in (664.800333,18413.706508) seconds
+560000000 operations have been finished (76904.884 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1757        0     77303
+  1        4        1      1106    77302     22189
+  2        7        2       407    22190     18479
+  3       13        5       494    18481     15394
+  4       45       10       431    15399     12830
+  5      287      130       890    24912     21859
+  6     1451     3654      1264    52486     46519
+WriteAmplification: 2.7757
+
+2024/08/10-15:44:10  ... thread 0: (10000000,570000000) ops and (14712.5,29853.2) ops/second in (679.695541,19093.402049) seconds
+570000000 operations have been finished (78278.185 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1780        0     78684
+  1        6        1      1127    78681     22585
+  2        7        2       418    22588     18810
+  3       13        5       508    18811     15669
+  4       44        3       441    15674     13059
+  5      247      114       912    25493     22371
+  6     1495     3750      1285    53669     47615
+WriteAmplification: 2.7807
+
+2024/08/10-15:55:40  ... thread 0: (10000000,580000000) ops and (14484.2,29316.9) ops/second in (690.409439,19783.811488) seconds
+580000000 operations have been finished (79651.487 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1803        0     80064
+  1        0        0      1146    80063     22982
+  2       11        3       429    22984     19140
+  3       13        5       521    19145     15947
+  4       24        6       452    15949     13288
+  5      325      143       950    26165     22992
+  6     1502     3761      1291    54289     48102
+WriteAmplification: 2.7792
+
+2024/08/10-16:08:23  ... thread 0: (10000000,590000000) ops and (13104.5,28714.8) ops/second in (763.095070,20546.906558) seconds
+590000000 operations have been finished (81024.789 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1826        0     81444
+  1        2        0      1167    81442     23378
+  2        2        0       440    23380     19470
+  3       27        7       534    19474     16222
+  4       45       10       464    16229     13521
+  5      315      130       983    26855     23603
+  6     1494     3865      1303    55210     48967
+WriteAmplification: 2.7823
+
+2024/08/10-16:20:26  ... thread 0: (10000000,600000000) ops and (13833.5,28209.0) ops/second in (722.885399,21269.791957) seconds
+600000000 operations have been finished (82398.090 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1849        0     82824
+  1        2        0      1186    82824     23774
+  2        2        0       450    23776     19800
+  3       24        1       548    19804     16496
+  4       55        8       474    16504     13750
+  5      311      133      1005    27541     24219
+  6     1512     3880      1312    56052     49660
+WriteAmplification: 2.7833
+
+2024/08/10-16:33:38  ... thread 0: (10000000,610000000) ops and (12630.2,27649.9) ops/second in (791.753522,22061.545479) seconds
+610000000 operations have been finished (83771.392 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1872        0     84205
+  1        2        0      1207    84203     24171
+  2        2        0       461    24173     20130
+  3       24        1       562    20134     16771
+  4       40       12       486    16779     13979
+  5      321      146      1030    28277     24856
+  6     1551     3969      1322    56754     50340
+WriteAmplification: 2.7843
+
+2024/08/10-16:46:39  ... thread 0: (10000000,620000000) ops and (12801.3,27142.1) ops/second in (781.170496,22842.715975) seconds
+620000000 operations have been finished (85144.693 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1895        0     85585
+  1        4        1      1227    85583     24567
+  2        2        0       471    24569     20460
+  3       24        1       573    20464     17046
+  4       39        2       496    17054     14208
+  5      303      144      1058    29000     25505
+  6     1602     3996      1330    57498     50945
+WriteAmplification: 2.7846
+
+2024/08/10-17:00:35  ... thread 0: (10000000,630000000) ops and (11959.1,26606.0) ops/second in (836.181587,23678.897562) seconds
+630000000 operations have been finished (86517.995 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1919        0     86966
+  1        4        1      1247    86964     24964
+  2        2        0       481    24965     20790
+  3       24        1       586    20794     17321
+  4       56        8       508    17329     14437
+  5      347      130      1091    29663     26100
+  6     1568     4058      1342    58504     51842
+WriteAmplification: 2.7875
+
+2024/08/10-17:14:50  ... thread 0: (10000000,640000000) ops and (11694.3,26086.2) ops/second in (855.119376,24534.016938) seconds
+640000000 operations have been finished (87891.296 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1942        0     88346
+  1        6        1      1267    88344     25360
+  2        2        0       492    25363     21121
+  3       24        1       603    21124     17596
+  4       41       10       519    17604     14666
+  5      270      117      1118    30344     26710
+  6     1604     4098      1356    59380     52588
+WriteAmplification: 2.7889
+
+2024/08/10-17:29:22  ... thread 0: (10000000,650000000) ops and (11479.4,25585.4) ops/second in (871.125290,25405.142228) seconds
+650000000 operations have been finished (89264.598 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1964        0     89727
+  1        0        0      1286    89725     25757
+  2        6        1       503    25759     21451
+  3       24        1       618    21454     17871
+  4       40        2       529    17879     14895
+  5      353      147      1146    31091     27370
+  6     1650     4173      1365    60036     53199
+WriteAmplification: 2.7892
+
+2024/08/10-17:45:15  ... thread 0: (10000000,660000000) ops and (10491.6,25039.6) ops/second in (953.141620,26358.283848) seconds
+660000000 operations have been finished (90637.899 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1989        0     91107
+  1        2        0      1308    91105     26153
+  2        3        1       514    26155     21781
+  3       25        1       631    21784     18145
+  4       56        8       542    18154     15125
+  5      269      122      1178    31835     28028
+  6     1674     4263      1382    61097     54190
+WriteAmplification: 2.7937
+

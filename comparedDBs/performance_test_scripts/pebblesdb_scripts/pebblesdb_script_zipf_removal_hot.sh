@@ -37,12 +37,12 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.5; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.1; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem1MB_zipf${zipf_a}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_usage_${num_format}_key16_val${value_size}.log"
+                memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_usage_${num_format}_key16_val${value_size}_zipf${zipf_a}.log"
 
                 # 如果日志文件存在，则跳过当前迭代
                 if [ -f "$log_file" ]; then
@@ -67,7 +67,7 @@ for i in {10..10}; do
                     rm -rf "${db_dir:?}/"*
                 fi
 
-                iostat -d 100 -x $DEVICE_NAME > Pebblesdb_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}_IOstats.log &
+                iostat -d 100 -x $DEVICE_NAME > Pebblesdb_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
                 PID_IOSTAT=$!
                     
                 ../../../pebblesdb/release/db_bench \
@@ -97,7 +97,7 @@ for i in {10..10}; do
                 DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
                 echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
-                perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &
+                perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}.txt" &
                 PERF_PID=$!
 
                 wait $DB_BENCH_PID

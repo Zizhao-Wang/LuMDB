@@ -517,7 +517,7 @@ class Stats {
       double now = Env::Default()->NowMicros();
       double micros = now - last_op_finish_;
       hist_.Add(micros);
-      if (micros > 2000000) {
+      if (micros > 200000000) {
         fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
         // fflush(stderr);
       }
@@ -2022,11 +2022,8 @@ random_double(void)
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
         batch.Put(key, gen.Generate(value_size_));
         bytes = value_size_ + strlen(key);
-        if(thread->stats.done_ % FLAGS_stats_interval == 0 ){
-          // fprintf(stderr,"real_ops : %lu\n",thread->stats.real_ops);
-          thread->stats.AddBytes(bytes);
-          bytes = 0;
-        }
+        // fprintf(stderr,"real_ops : %lu\n",thread->stats.real_ops);
+        thread->stats.AddBytes(bytes);
         thread->stats.FinishedSingleOp(db_);
       }
       s = db_->Write(write_options_, &batch);

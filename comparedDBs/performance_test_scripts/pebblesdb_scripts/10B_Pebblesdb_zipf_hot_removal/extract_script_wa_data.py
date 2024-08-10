@@ -68,6 +68,6 @@ for index, data in extracted_data:
 print(f"Extracted data: {len(extracted_data)} records\n\n")
 
 # 使用示例
-output_file_path = f'/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_1.5output.txt'  # 替换为您想保存结果的文件路径
+output_file_path = f'/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_1.5waoutput.txt'  # 替换为您想保存结果的文件路径
 process_data_and_save_to_file(extracted_data, output_file_path)
 
