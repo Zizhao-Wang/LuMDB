@@ -517,7 +517,7 @@ class Stats {
       double now = Env::Default()->NowMicros();
       double micros = now - last_op_finish_;
       hist_.Add(micros);
-      if (micros > 200000000) {
+      if (micros > 2000000000) {
         fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
         // fflush(stderr);
       }
