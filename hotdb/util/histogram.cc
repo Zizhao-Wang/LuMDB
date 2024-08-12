@@ -179,6 +179,34 @@ void Histogram::Clear() {
   }
 }
 
+
+double Histogram::Percentile(double p) const {
+  double threshold = num_ * (p / 100.0);
+  double cumulative_sum = 0;
+  for (int b = 0; b < kNumBuckets; b++) {
+    double bucket_value = buckets_[b];
+    cumulative_sum += bucket_value;
+    if (cumulative_sum >= threshold) {
+      // Scale linearly within this bucket
+      double left_point = (b == 0) ? 0.0 : kBucketLimit[b - 1];
+      double right_point = kBucketLimit[b];
+      double left_sum = cumulative_sum - bucket_value;
+      double right_sum = cumulative_sum;
+      double pos = 0.0;
+      double right_left_diff = right_sum - left_sum;
+      if (right_left_diff != 0.0) {
+        pos = (threshold - left_sum) / right_left_diff;
+      }
+      double r = left_point + (right_point - left_point) * pos;
+      if (r < min_) r = min_;
+      if (r > max_) r = max_;
+      return r;
+    }
+  }
+  return max_;
+}
+
+
 void Histogram::Add(double value) {
   // Linear search is fast enough for our usage in db_bench
   int b = 0;
@@ -206,27 +234,6 @@ void Histogram::Merge(const Histogram& other) {
 
 double Histogram::Median() const { return Percentile(50.0); }
 
-double Histogram::Percentile(double p) const {
-  double threshold = num_ * (p / 100.0);
-  double sum = 0;
-  for (int b = 0; b < kNumBuckets; b++) {
-    sum += buckets_[b];
-    if (sum >= threshold) {
-      // Scale linearly within this bucket
-      double left_point = (b == 0) ? 0 : kBucketLimit[b - 1];
-      double right_point = kBucketLimit[b];
-      double left_sum = sum - buckets_[b];
-      double right_sum = sum;
-      double pos = (threshold - left_sum) / (right_sum - left_sum);
-      double r = left_point + (right_point - left_point) * pos;
-      if (r < min_) r = min_;
-      if (r > max_) r = max_;
-      return r;
-    }
-  }
-  return max_;
-}
-
 double Histogram::Average() const {
   if (num_ == 0.0) return 0;
   return sum_ / num_;
@@ -246,6 +253,11 @@ std::string Histogram::ToString() const {
   r.append(buf);
   std::snprintf(buf, sizeof(buf), "Min: %.4f  Median: %.4f  Max: %.4f\n",
                 (num_ == 0.0 ? 0.0 : min_), Median(), max_);
+  std::snprintf(buf, sizeof(buf),
+           "Percentiles: "
+           "P50: %.2f P75: %.2f P99: %.2f P99.9: %.2f P99.99: %.2f\n",
+           Percentile(50), Percentile(75), Percentile(99), Percentile(99.9),
+           Percentile(99.99));
   r.append(buf);
   r.append("------------------------------------------------------\n");
   const double mult = 100.0 / num_;
