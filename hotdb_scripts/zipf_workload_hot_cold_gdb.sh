@@ -9,7 +9,7 @@ sudo bash -c 'ulimit -n 800000'
 
 
 BASE_VALUE_SIZE=128
-billion=1000000000
+billion=1000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
@@ -39,7 +39,7 @@ for i in {10..10}; do
     fi
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 10))
 
             num_format=$(convert_to_billion_format $num_entries)
 
@@ -49,6 +49,7 @@ for i in {10..10}; do
 
                     log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                    read_data_file="/home/jeff-wang/workloads/uniform_read_keys16_value128_1M.csv" 
                     
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
@@ -112,6 +113,7 @@ for i in {10..10}; do
                     --logpath=/mnt/logs \
                     --bloom_bits=10 \
                     --log=1  \
+                    --Read_data_file=$read_data_file  \
                     --cache_size=8388608 \
                     --open_files=40000 \
                     --compression=0 \

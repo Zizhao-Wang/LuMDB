@@ -3016,7 +3016,7 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
   }
   VersionSet::LevelSummaryStorage tmp;
   Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  config::kInitialPartitionLevelingCompactionTrigger = 68;
+  config::kInitialPartitionLevelingCompactionTrigger = 24;
 
   return status;
 }
@@ -3388,7 +3388,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
   }
   VersionSet::LevelSummaryStorage tmp;
   Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  config::kInitialPartitionLevelingCompactionTrigger = 68;
+  config::kInitialPartitionLevelingCompactionTrigger = 24;
 
   return status;
 }
@@ -3720,21 +3720,57 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
 
 Status DBImpl::Get(const ReadOptions& options, const Slice& key,
                    std::string* value) {
+  PrintPartitions(mem_partitions_);
+  fprintf(stdout, "Current key: %s \n", key.data());
   Status s;
   MutexLock l(&mutex_);
   SequenceNumber snapshot;
+  bool is_hot = false;
+
+  hot_range temp_hot_range(key.ToString(),key.ToString());
+  auto it = HotRanges->hot_ranges_.upper_bound(temp_hot_range);
+  if(it == HotRanges->hot_ranges_.begin()){
+    is_hot = false;
+  }
+  it--;
+
+  // check if the key is in the hot range
+  if(it->is_key_contains(key.data(), key.size())){
+    is_hot = true;
+  }else{
+    is_hot = false;
+  }
+
+  if (is_hot) {
+    fprintf(stdout, "Key is hot. Using hot_mem_ and hot_imm_.\n");
+  } else {
+    fprintf(stdout, "Key is cold. Using mem_ and imm_.\n");
+  }
+  
   if (options.snapshot != nullptr) {
-    snapshot =
-        static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number();
+    snapshot = static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number();
   } else {
     snapshot = versions_->LastSequence();
   }
 
-  MemTable* mem = mem_;
-  MemTable* imm = imm_;
+  MemTable* mem = nullptr;
+  MemTable* imm = nullptr;
+  MemTable* hot_mem = nullptr;
+  MemTable* hot_imm = nullptr;
+
+  if (is_hot) {
+    hot_mem = hot_mem_;
+    hot_imm = hot_imm_;
+    hot_mem->Ref();  // Reference hot_mem if is_hot is true
+    if(hot_imm != nullptr) hot_imm->Ref();
+  }else{
+    mem = mem_;
+    imm = imm_;
+    mem->Ref();
+    if (imm != nullptr) imm->Ref();
+  }
+
   Version* current = versions_->current();
-  mem->Ref();
-  if (imm != nullptr) imm->Ref();
   current->Ref();
 
   bool have_stat_update = false;
@@ -3742,39 +3778,95 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
 
   Get_Time_Stats local_stats; // Local instance to store stats for this Get call
   int64_t start_time = env_->NowMicros();
+  
+  LookupKey lkey(key, snapshot);
+  int64_t memtable_time = 0;
+  int64_t immtable_time = 0;
+  int64_t disk_time = 0;
+  bool found_in_memtable = false;
+  bool found_in_imm = false;
+
   // Unlock while reading from files and memtables
-  {
+  if(!is_hot){
     mutex_.Unlock();
     // First look in the memtable, then in the immutable memtable (if any).
-    LookupKey lkey(key, snapshot);
     int64_t mem_start_time = env_->NowMicros();
     if (mem->Get(lkey, value, &s)) {
       local_stats.memtable_time = env_->NowMicros() - mem_start_time;
+      found_in_memtable = true;
       // Done
     } else {
       local_stats.memtable_time = env_->NowMicros() - mem_start_time;
       int64_t imm_start_time = env_->NowMicros();
       if (imm != nullptr && imm->Get(lkey, value, &s)) {
         local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+        found_in_imm = true;
       } else {
         local_stats.immtable_time = env_->NowMicros() - imm_start_time;
-        int64_t disk_start_time = env_->NowMicros();
-        s = current->Get(options, lkey, value, &stats);
-        local_stats.disk_time = env_->NowMicros() - disk_start_time;
-        have_stat_update = true;
       }
     } 
     mutex_.Lock();
+  }else{
+    int64_t hot_mem_start_time = env_->NowMicros();
+    if (hot_mem_->Get(lkey, value, &s)) {
+      local_stats.memtable_time = env_->NowMicros() - hot_mem_start_time;
+      found_in_memtable = true;
+      // Done for hot memtable
+    } else {
+      local_stats.memtable_time = env_->NowMicros() - hot_mem_start_time;
+      int64_t imm_start_time = env_->NowMicros();
+      if (hot_imm != nullptr && hot_imm->Get(lkey, value, &s)) {
+        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+        found_in_imm = true;
+      } else {
+        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+      }
+    }
   }
+
+  if (!found_in_memtable && !found_in_imm) {
+
+    if(!is_hot){
+      std::string current_key_str(key.data(), key.size());
+      mem_partition_guard temp_partition(current_key_str, current_key_str);
+      auto it = mem_partitions_.upper_bound(&temp_partition);
+      assert(it != mem_partitions_.begin());
+      it--;
+
+      PrintPartition(*it);
+      
+      auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
+      it2--;
+      PrintPartition(*it2);
+
+      fprintf(stdout, "searched partition is: %lu sub-partition is: %lu \n", (*it)->partition_num, (*it2)->partition_num);
+
+      int64_t disk_start_time = env_->NowMicros();
+      s = current->Get(options, lkey, value, &stats, (*it)->partition_num, (*it2)->partition_num);
+      disk_time = env_->NowMicros() - disk_start_time;
+
+    }else{
+      int64_t disk_start_time = env_->NowMicros();
+      s = current->Get_Hot(options, lkey, value, &stats);
+      disk_time = env_->NowMicros() - disk_start_time;
+    }
+    have_stat_update = true;
+  }
+  
 
   local_stats.total_time = env_->NowMicros() - start_time;
   get_time_stats.Add(local_stats);  // Accumulate stats in the class-level instance
-
-  // 
   
-  mem->Unref();
-  if (imm != nullptr) imm->Unref();
+  if (is_hot) {
+    hot_mem->Unref();
+    if (hot_imm != nullptr) hot_imm->Unref();
+  }else{
+    mem->Unref();
+    if (imm != nullptr) imm->Unref();
+  }
+  
   current->Unref();
+  exit(0);
   return s;
 }
 

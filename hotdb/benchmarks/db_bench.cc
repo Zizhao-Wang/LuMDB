@@ -107,6 +107,8 @@ DEFINE_int32(key_prefix,0, "Common key prefix length.");
 // static const char* FLAGS_data_file = nullptr;
 DEFINE_string(data_file, "", "Use the db with the following name.");
 
+DEFINE_string(Read_data_file, "", "Use the db with the following name.");
+
 DEFINE_string(mem_log_file,"", "log path");
 
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
@@ -1773,6 +1775,8 @@ class Benchmark {
       }
     }
     thread->stats.AddBytes(bytes);
+
+    point_query_read(thread);
   }
 
   void ReadSequential(ThreadState* thread) {
@@ -1820,34 +1824,43 @@ class Benchmark {
   }
 
 
-    void point_query_read(ThreadState* thread) {
+  void point_query_read(ThreadState* thread) {
     ReadOptions options;
     std::string value;
     int found = 0;
     variable_Buffer Key;
     int64_t bytes1 = 0;
 
-    std::ifstream k_file(FLAGS_data_file);  // 打开存储k值的文本文件
-    if (!k_file.is_open()) {
-        std::cerr << "Unable to open file" << std::endl;
+    std::ifstream csv_file(FLAGS_Read_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in zipf2\n");
         return;
     }
-    std::string line;
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
 
-    if (!getline(k_file, line)) {
-      fprintf(stderr,"Unable to read the first line from the file\n");
-      return;  
-    }
-    const uint64_t total_entries = std::stoull(line);
-
-    assert(total_entries == reads_);
-
-    for (int i = 0; i < reads_; i++) {
-      if (!getline(k_file, line)) {
-        std::cerr << "Reached end of file or error reading from file" << std::endl;
-        continue;  
+    for (int i = 0; i < 100; i++) {
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
       }
-      const uint64_t k = std::stoll(line);  
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
+      const uint64_t k = std::stoull(row_data[0]); 
+
       Key.Set(k);
       if (db_->Get(options, Key.slice(), &value).ok()) {
         found++;

@@ -85,7 +85,10 @@ class Version {
   // return OK.  Else return a non-OK status.  Fills *stats.
   // REQUIRES: lock is not held
   Status Get(const ReadOptions&, const LookupKey& key, std::string* val,
-             GetStats* stats);
+             GetStats* stats, uint64_t partition_num, uint64_t sub_partition_num);
+
+  Status Get_Hot(const ReadOptions&, const LookupKey& key, std::string* val,
+             GetStats* stats);           
 
   // Adds "stats" into the current state.  Returns true if a new
   // compaction may need to be triggered, false otherwise.
@@ -183,13 +186,23 @@ class Version {
 
   Iterator* NewConcatenatingIterator(const ReadOptions&, int level) const;
 
+
+  // Call func(arg, level, f) for every file that overlaps user_key in
+  // order from newest to oldest.  If an invocation of func returns
+  // false, makes no more calls.
+  //
+  // REQUIRES: user portion of internal_key == user_key.
+  void ForEachOverlappingTiering(Slice user_key, Slice internal_key, void* arg,
+                          bool (*func)(void*, int, FileMetaData*));
+
+
   // Call func(arg, level, f) for every file that overlaps user_key in
   // order from newest to oldest.  If an invocation of func returns
   // false, makes no more calls.
   //
   // REQUIRES: user portion of internal_key == user_key.
   void ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
-                          bool (*func)(void*, int, FileMetaData*));
+                          bool (*func)(void*, int, FileMetaData*), uint64_t partition_num = 0, uint64_t sub_partition_num = 0);
 
   VersionSet* vset_;  // VersionSet to which this Version belongs
   Version* next_;     // Next version in linked list

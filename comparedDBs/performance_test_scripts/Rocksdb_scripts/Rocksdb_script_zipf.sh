@@ -38,7 +38,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="RocksDB_${num_format}_val${value_size}_mem1MB_zipf${zipf_a}.log"

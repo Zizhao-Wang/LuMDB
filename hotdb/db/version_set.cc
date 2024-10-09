@@ -455,7 +455,8 @@ static bool NewestFirst(FileMetaData* a, FileMetaData* b) {
   return a->number > b->number;
 }
 
-void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
+
+void Version::ForEachOverlappingTiering(Slice user_key, Slice internal_key, void* arg,
                                  bool (*func)(void*, int, FileMetaData*)) {
 
   int64_t start_time = vset_->env_->NowMicros(); // 开始查找metadata的时间                                  
@@ -463,9 +464,9 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
 
   // Search level-0 in order from newest to oldest.
   std::vector<FileMetaData*> tmp;
-  tmp.reserve(leveling_files_[0].size());
-  for (uint32_t i = 0; i < leveling_files_[0].size(); i++) {
-    FileMetaData* f = leveling_files_[0][i];
+  tmp.reserve(tiering_runs_[0][0].size());
+  for (uint32_t i = 0; i < tiering_runs_[0][0].size(); i++) {
+    FileMetaData* f = tiering_runs_[0][0][i];
     if (ucmp->Compare(user_key, f->smallest.user_key()) >= 0 &&
         ucmp->Compare(user_key, f->largest.user_key()) <= 0) {
       tmp.push_back(f);
@@ -489,6 +490,10 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
     end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
     vset_->search_stats.level0_search_time += (end_time - start_time);  // 记录时间
   }
+
+  // check the level_0 files in the first runs, because there is only one run in tiering
+
+
 
   // Search other levels.
   for (int level = 1; level < config::kNumLevels; level++) {
@@ -515,8 +520,82 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
   }
 }
 
+void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
+                                 bool (*func)(void*, int, FileMetaData*), uint64_t partition_num, uint64_t sub_partition_num ) {
+
+  int64_t start_time = vset_->env_->NowMicros(); // 开始查找metadata的时间                                  
+  const Comparator* ucmp = vset_->icmp_.user_comparator();
+
+  // Search level-0 in order from newest to oldest.
+  std::vector<FileMetaData*> tmp;
+  tmp.reserve(partitioning_leveling_files_[partition_num][0].size());
+  for(int l = 0; l<2; l++){
+    uint64_t check_partition_num = l==0?partition_num:sub_partition_num;
+    for (uint32_t i = 0; i < partitioning_leveling_files_[l][check_partition_num].size(); i++) {
+      FileMetaData* f = partitioning_leveling_files_[l][check_partition_num][i];
+          fprintf(stdout, "Checking file %u: smallest = %s, largest = %s\n",
+            i,
+            f->smallest.user_key().ToString().c_str(),
+            f->largest.user_key().ToString().c_str());
+      if (ucmp->Compare(user_key, f->smallest.user_key()) >= 0 &&
+          ucmp->Compare(user_key, f->largest.user_key()) <= 0) {
+        fprintf(stdout, "File %u matches with user_key: %s\n Checking file %lu: smallest = %s, largest = %s\n",
+              i, user_key.ToString().c_str(),f->number,f->smallest.user_key().ToString().c_str(), f->largest.user_key().ToString().c_str() );
+        tmp.push_back(f);
+      }
+    }
+  }
+
+  fprintf(stdout, "There is %lu files need to be checked!\n", tmp.size());
+  
+  int64_t end_time ; 
+  if (!tmp.empty()) {
+    std::sort(tmp.begin(), tmp.end(), NewestFirst);
+    end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+    vset_->search_stats.level0_search_time += (end_time - start_time);  // 记录时间
+    for (uint32_t i = 0; i < tmp.size(); i++) {
+      if (!(*func)(arg, 0, tmp[i])) {
+        end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+        vset_->search_stats.total_time += (end_time - start_time);
+        return;
+      }
+    }
+  }else{
+    end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+    vset_->search_stats.level0_search_time += (end_time - start_time);  // 记录时间
+  }
+
+  // Search other levels.
+  for (int level = 2; level < config::kNumLevels; level++) {
+    size_t num_files = partitioning_leveling_files_[level][sub_partition_num].size();
+    if (num_files == 0) continue;
+
+    start_time = vset_->env_->NowMicros(); // 开始查找metadata的时间
+
+    // Binary search to find earliest index whose largest key >= internal_key.
+    uint32_t index = FindFile(vset_->icmp_, partitioning_leveling_files_[level][sub_partition_num], internal_key);
+
+    end_time = vset_->env_->NowMicros(); // 结束查找metadata的时间
+    vset_->search_stats.other_levels_search_time += (end_time - start_time);
+
+    if (index < num_files) {
+      FileMetaData* f = partitioning_leveling_files_[level][sub_partition_num][index];
+      if (ucmp->Compare(user_key, f->smallest.user_key()) < 0) {
+        // All of "f" is past any data for user_key
+      } else {
+        if (!(*func)(arg, level, f)) {
+          end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+          vset_->search_stats.total_time += (end_time - start_time);
+          return;
+        }
+      }
+    }
+  }
+}
+
 Status Version::Get(const ReadOptions& options, const LookupKey& k,
-                    std::string* value, GetStats* stats) {
+                    std::string* value, GetStats* stats, uint64_t partition_num, uint64_t sub_partition_num) {
+
   stats->seek_file = nullptr;
   stats->seek_file_level = -1;
 
@@ -588,7 +667,88 @@ Status Version::Get(const ReadOptions& options, const LookupKey& k,
   state.saver.user_key = k.user_key();
   state.saver.value = value;
 
-  ForEachOverlapping(state.saver.user_key, state.ikey, &state, &State::Match);
+  ForEachOverlapping(state.saver.user_key, state.ikey, &state, &State::Match, partition_num, sub_partition_num);
+
+  return state.found ? state.s : Status::NotFound(Slice());
+}
+
+
+
+Status Version::Get_Hot(const ReadOptions& options, const LookupKey& k,
+                    std::string* value, GetStats* stats) {
+
+  stats->seek_file = nullptr;
+  stats->seek_file_level = -1;
+
+  struct State_Hot {
+    Saver saver;
+    GetStats* stats;
+    const ReadOptions* options;
+    Slice ikey;
+    FileMetaData* last_file_read;
+    int last_file_read_level;
+
+    VersionSet* vset;
+    Status s;
+    bool found;
+
+    static bool Match(void* arg, int level, FileMetaData* f) {
+      State_Hot* state = reinterpret_cast<State_Hot*>(arg);
+
+      if (state->stats->seek_file == nullptr &&
+          state->last_file_read != nullptr) {
+        // We have had more than one seek for this read.  Charge the 1st file.
+        state->stats->seek_file = state->last_file_read;
+        state->stats->seek_file_level = state->last_file_read_level;
+      }
+
+      state->last_file_read = f;
+      state->last_file_read_level = level;
+
+      state->s = state->vset->table_cache_->Get(*state->options, f->number,
+                                                f->file_size, state->ikey,
+                                                &state->saver, SaveValue);
+      if (!state->s.ok()) {
+        state->found = true;
+        return false;
+      }
+      switch (state->saver.state) {
+        case kNotFound:
+          return true;  // Keep searching in other files
+        case kFound:
+          state->found = true;
+          return false;
+        case kDeleted:
+          return false;
+        case kCorrupt:
+          state->s =
+              Status::Corruption("corrupted key for ", state->saver.user_key);
+          state->found = true;
+          return false;
+      }
+
+      // Not reached. Added to avoid false compilation warnings of
+      // "control reaches end of non-void function".
+      return false;
+    }
+  };
+
+  State_Hot state;
+  state.found = false;
+  state.stats = stats;
+  state.last_file_read = nullptr;
+  state.last_file_read_level = -1;
+
+  state.options = &options;
+  state.ikey = k.internal_key();
+  state.vset = vset_;
+
+  state.saver.state = kNotFound;
+  state.saver.ucmp = vset_->icmp_.user_comparator();
+  state.saver.user_key = k.user_key();
+  state.saver.value = value;
+
+  ForEachOverlappingTiering(state.saver.user_key, state.ikey, &state, &State_Hot::Match);
 
   return state.found ? state.s : Status::NotFound(Slice());
 }
