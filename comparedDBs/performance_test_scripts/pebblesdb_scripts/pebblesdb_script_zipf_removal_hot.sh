@@ -37,7 +37,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.3; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.5; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem8MB_zipf${zipf_a}.log"
@@ -67,7 +67,7 @@ for i in {10..10}; do
                     rm -rf "${db_dir:?}/"*
                 fi
 
-                iostat -d 100 -x $DEVICE_NAME > Pebblesdb_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
+                iostat -d 100 -x $DEVICE_NAME > Pebblesdb_memory_8MiB_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
                 PID_IOSTAT=$!
                     
                 ../../../pebblesdb/release/db_bench \
@@ -97,7 +97,7 @@ for i in {10..10}; do
                 DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
                 echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
-                perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}.txt" &
+                perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_memory_8MiB.txt" &
                 PERF_PID=$!
 
                 wait $DB_BENCH_PID
