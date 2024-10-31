@@ -1,13 +1,11 @@
 
 ./config.sh
 
-rm -rf /mnt/hotdb_test*
-rm  /mnt/logs/*.log
+# rm -rf /mnt/hotdb_test*
+# rm  /mnt/logs/*.log
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
 sudo bash -c 'ulimit -n 800000'
-
-
 
 BASE_VALUE_SIZE=128
 billion=1000000000
@@ -34,7 +32,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_hotdb_zipf_hc"
+    dir1="${i}B_hotdb_zipf_hotkeydefinition"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -45,7 +43,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
@@ -120,8 +118,6 @@ for i in {10..10}; do
                     --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
-                    --write_buffer_size=1048576 \
-                    --max_file_size=2097152   \
                     --print_wa=true \
                     &> >( tee $log_file) &  
 
