@@ -30,7 +30,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_hotdb_zipf_hc"
+    dir1="${i}B_hotdb_key_definition"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -45,7 +45,7 @@ for i in {10..10}; do
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
-                    log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
+                    log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}_mem1MiB_hotdefinition4.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
 
                     # 如果日志文件存在，则跳过当前迭代
@@ -87,7 +87,7 @@ for i in {10..10}; do
                     PID_IOSTAT=$!
                     
                      ../../hotdb/release/db_bench \
-                    --db=/mnt/hotdb_test \
+                    --db=$db_directory \
                     --num=$num_entries \
                     --value_size=$value_size \
                     --batch_size=1000 \
