@@ -48,20 +48,20 @@ for i in {10..10}; do
 
                 # 创建相应的目录
                 db_dir="/mnt/hotdb_test/rocks10B/${zipf_a}"
-                        if [ ! -d "$db_dir" ]; then
-                            mkdir -p "$db_dir"
-                        fi
+                if [ ! -d "$db_dir" ]; then
+                    mkdir -p "$db_dir"
+                fi
 
-                        # 检查目录是否为空，如果不为空则删除所有内容
-                        if [ "$(ls -A $db_dir)" ]; then
-                            rm -rf "${db_dir:?}/"*
-                        fi
+                # 检查目录是否为空，如果不为空则删除所有内容
+                if [ "$(ls -A $db_dir)" ]; then
+                    rm -rf "${db_dir:?}/"*
+                fi
 
-                        # 如果日志文件存在，则跳过当前迭代
-                        if [ -f "$log_file" ]; then
-                            echo "Log file $log_file already exists. Skipping this iteration."
-                            continue
-                        fi
+                # 如果日志文件存在，则跳过当前迭代
+                if [ -f "$log_file" ]; then
+                    echo "Log file $log_file already exists. Skipping this iteration."
+                    continue
+                fi
 
                         echo "base_num: $base_num"
                         echo "num_entries: $num_entries"
