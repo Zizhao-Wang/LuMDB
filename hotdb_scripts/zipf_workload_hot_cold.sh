@@ -34,7 +34,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_hotdb_zipf_hc"
+    dir1="${i}B_hotdb_zipf_hotkeydefinition"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -44,8 +44,9 @@ for i in {10..10}; do
             stats_interva=$((num_entries / 1000))
 
             num_format=$(convert_to_billion_format $num_entries)
+            num_format=100000000
 
-            for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
@@ -64,29 +65,34 @@ for i in {10..10}; do
                     echo "stats_interval: $stats_interva"
                     echo "$num_format"
 
-                    pids=$(pgrep -af 'db_bench --db=/mnt/hotdb_test')
-                    if [ -n "$pids" ]; then
-                        echo "Killing the following processes:"
-                        echo "$pids"
-                        # 使用 kill 命令终止进程
-                        kill -9  $pids
-                        echo "Processes killed."
-                    else
-                        echo "No matching processes found."
+
+                    db_directory="/mnt/hotdb_test/hotdb10B/${zipf_a}"
+                    if [ ! -d "$db_directory" ]; then
+                            mkdir -p "$db_directory"
                     fi
+
+                    # 检查目录是否为空，如果不为空则删除所有内容
+                    if [ "$(ls -A $db_directory)" ]; then
+                            rm -rf "${db_directory:?}/"*
+                    fi
+
+                    # 如果日志文件存在，则跳过当前迭代
+                    if [ -f "$log_file" ]; then
+                        echo "Log file $log_file already exists. Skipping this iteration."
+                        continue
+                    fi
+
 
                     iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
                     PID_IOSTAT=$!
                     
                      ../../hotdb/release/db_bench \
-                    --db=/mnt/hotdb_test \
+                    --db=$db_directory \
                     --num=$num_entries \
                     --value_size=$value_size \
                     --batch_size=1000 \
                     --benchmarks=fillzipf,stats \
-                    --hot_file=$hot_files \
                     --data_file=$data_file  \
-                    --percentages=$percentages_str \
                     --logpath=/mnt/logs \
                     --bloom_bits=10 \
                     --log=1  \
@@ -103,7 +109,7 @@ for i in {10..10}; do
                     # 保存 db_bench 的 PID 供监控使用
                     sleep 1
 
-                    DB_BENCH_PID=$(pgrep -af 'db_bench --db=/mnt/hotdb_test' | grep -v 'sudo' | awk '{print $1}')
+                    DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_directory" | grep -v 'sudo' | awk '{print $1}')
                     echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
                     perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &
