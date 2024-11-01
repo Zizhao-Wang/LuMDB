@@ -51,31 +51,6 @@ for i in {10..10}; do
 
                     log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                    # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
-                    # hot_files=${hot_files%?} # 移除最后一个逗号
-                      
-                    hot_files=""
-                    for percent in "${percentages1[@]}"; do
-                        if [[ -z "$hot_files" ]]; then
-                            # 第一次迭代时，直接赋值
-                            hot_files="/home/jeff-wang/workloads/zipf${zipf_a}_top${percent}_keys10.0B.csv"
-                        else
-                            # 后续迭代时，在现有字符串后面添加
-                            hot_files="$hot_files,/home/jeff-wang/workloads/zipf${zipf_a}_top${percent}_keys10.0B.csv"
-                        fi
-                    done
-
-                    echo "hot_files: $hot_files"
-                    percentages_str="" #,5,10,15,20,25,30
-                    for percent in "${percentages1[@]}"; do
-                        if [[ -z "$percentages_str" ]]; then
-                            # 第一次迭代时，直接赋值
-                            percentages_str="${percent}"
-                        else
-                            # 后续迭代时，在现有字符串后面添加
-                            percentages_str="$percentages_str,${percent}"
-                            fi
-                    done
 
                     # 如果日志文件存在，则跳过当前迭代
                     # if [ -f "$log_file" ]; then
