@@ -45,7 +45,7 @@ for i in {10..10}; do
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
-                    log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}_mem1MiB_hotdefinition4.log"
+                    log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}_mem1MiB_hotdefinition2.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
 
                     # 如果日志文件存在，则跳过当前迭代
@@ -60,7 +60,7 @@ for i in {10..10}; do
                     echo "stats_interval: $stats_interva"
                     echo "$num_format"
 
-                    db_directory="/mnt/hotdb_test/hotdb10B/${zipf_a}"
+                    db_directory="/mnt/hotdb_test/hotdb10B/2_${zipf_a}"
                     if [ ! -d "$db_directory" ]; then
                         mkdir -p "$db_directory"
                     fi
@@ -70,12 +70,6 @@ for i in {10..10}; do
                         rm -rf "${db_directory:?}/"*
                     fi
 
-
-                    # 如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
-                    fi
 
                     # 如果日志文件存在，则跳过当前迭代
                     if [ -f "$log_file" ]; then

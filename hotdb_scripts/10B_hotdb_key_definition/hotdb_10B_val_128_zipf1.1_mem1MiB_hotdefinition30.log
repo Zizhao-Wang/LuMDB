@@ -1,0 +1,292 @@
+Starting program: /home/jeff-wang/WorkloadAnalysis/hotdb/release/db_bench --db=/mnt/hotdb_test/hotdb10B/30_1.1 --num=100000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --data_file=/home/jeff-wang/workloads/zipf1.1_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=2097152 --print_wa=true
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+/home/jeff-wang/WorkloadAnalysis/hotdb/release/db_bench --db=/mnt/hotdb_test/hotdb10B/30_1.1 --num=100000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --data_file=/home/jeff-wang/workloads/zipf1.1_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=2097152 --print_wa=true
+LevelDB:    version 1.23
+Date:       Fri Nov  1 22:10:33 2024
+CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
+CPUCache:   39424 KB
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    100000000
+RawSize:    13732.9 MB (estimated)
+FileSize:   7629.4 MB (estimated)
+WARNING: Optimization is disabled: benchmarks unnecessarily slow
+WARNING: Assertions are enabled; benchmarks unnecessarily slow
+WARNING: Snappy compression is not enabled
+some command parameters have been selected:
+  threads: 1
+  duration: 0
+  print_wa: 1
+  num_entries: 100000000
+  bechmark selected fillzipf,stats
+  hot_file_path:
+  data_file_path: /home/jeff-wang/workloads/zipf1.1_keys10.0B.csv
+  percentages:
+  write_buffer_size: 1048576
+  Print Interval: 10000000
+------------------------------------------------
+open dbs:in fresh_db()
+open dbs:in Open()
+initialize 0 objects(LevelHotColdStats) within these 7 levels
+[New Thread 0x7ffff3600640 (LWP 1103402)]
+Processing 1 entries in every Batch
+[New Thread 0x7ffff2600640 (LWP 1103403)]
+found!!!!
+2024-11-01 22:15:57 ... thread 0: (10000000,10000000) ops and (30875.2,30875.2) ops/second in (323.884870,323.884870) seconds
+all identification time:0.000154
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(  18)       4      32       0       0      920      473      0     248(     20)   992(    480)     0(      0)       0(      0)      0(      0)      0(      0)   268         0        0        0
+    1    22(   4)      33     185    6785     456     6410        0      0     235(      0)   256(      0)  3639(     16)       0(      0)      0(      0)      0(      0)   235        19        0        2
+    2    89(   0)     173      84    3527       0     3424        0      0      12(      0)    12(      0)  1649(      0)       0(      0)      0(      0)      0(      0)    12       104        2        0
+    3   112(   0)     221       1      78       0       66        0      0       0(      0)     0(      0)    29(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:1391.638MB total_ios: 11293.317MB WriteAmplification: 8.1151
+10000000 operations have been finished (user has been written 0.000 MB data into db.)
+
+
+2024-11-01 22:25:02 ... thread 0: (10000000,20000000) ops and (18353.6,23021.9) ops/second in (544.851448,868.736318) seconds
+all identification time:0.000302
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(  14)       4      61       0       0     1836      955      0     498(     41)  1992(    984)     0(      0)       0(      0)      0(      0)      0(      0)   539         0        0        0
+    1    56(   4)      86     593   22888     942    22083        0      0     454(      0)   492(      0) 13088(     37)       0(      0)      0(      0)      0(      0)   454        24        0        2
+    2   216(   0)     429     163    6992       0     6806        0      0      59(      0)    59(      0)  3260(      0)       0(      0)      0(      0)      0(      0)    59       104        2        0
+    3   147(   0)     294       7     312       0      279        0      0       0(      0)     0(      0)   123(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:2788.945MB total_ios: 31959.734MB WriteAmplification: 11.4594
+20000000 operations have been finished (user has been written 1373.600 MB data into db.)
+
+
+2024-11-01 22:39:51 ... thread 0: (10000000,30000000) ops and (11244.9,17064.6) ops/second in (889.293765,1758.030083) seconds
+all identification time:0.000512
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(  11)       4      94       0       0     2749     1440      0     749(     62)  2996(   1488)     0(      0)       0(      0)      0(      0)      0(      0)   811         0        0        0
+    1    76(   4)     122    1328   50061    1429    48793        0      0     663(      0)   715(      0) 29470(     58)       0(      0)      0(      0)      0(      0)   663        26        0        2
+    2   309(   0)     609     242   10279       0    10010        0      0     132(      0)   132(      0)  4816(      0)       0(      0)      0(      0)      0(      0)   132       104        2        0
+    3   220(   0)     443      15     653       0      618        0      0       0(      0)     0(      0)   239(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:4187.200MB total_ios: 63611.182MB WriteAmplification: 15.1918
+30000000 operations have been finished (user has been written 2747.201 MB data into db.)
+
+
+2024-11-01 22:58:46 ... thread 0: (10000000,40000000) ops and (8807.8,13824.6) ops/second in (1135.358379,2893.388462) seconds
+all identification time:0.000735
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(   6)       4     127       0       0     3661     1924      0     998(     83)  3992(   1992)     0(      0)       0(      0)      0(      0)      0(      0)  1081         0        0        0
+    1   100(   4)     161    2301   86144    1919    84386        0      0     873(      0)   938(      0) 51275(     79)       0(      0)      0(      0)      0(      0)   873        27        0        2
+    2   398(   0)     793     324   13685       0    13359        0      0     203(      0)   203(      0)  6445(      0)       0(      0)      0(      0)      0(      0)   203       104        2        0
+    3   289(   0)     585      22     975       0      940        0      0       0(      0)     0(      0)   339(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:5583.520MB total_ios: 104271.022MB WriteAmplification: 18.6748
+40000000 operations have been finished (user has been written 4120.801 MB data into db.)
+
+
+2024-11-01 23:21:07 ... thread 0: (10000000,50000000) ops and (7460.5,11809.8) ops/second in (1340.387409,4233.775871) seconds
+all identification time:0.000948
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(   2)       4     160       0       0     4571     2412      0    1248(    104)  4992(   2496)     0(      0)       0(      0)      0(      0)      0(      0)  1352         0        0        0
+    1   115(   4)     183    3473  129441    2410   127188        1      0    1073(      0)  1156(      0) 77720(    100)       0(      0)      0(      0)      0(      0)  1073        30        0        2
+    2   460(   0)     904     406   16876       0    16476        0      0     305(      0)   305(      0)  7957(      0)       0(      0)      0(      0)      0(      0)   305       104        2        0
+    3   391(   0)     793      33    1415       0     1379        0      0       0(      0)     0(      0)   477(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:6980.786MB total_ios: 152027.546MB WriteAmplification: 21.7780
+50000000 operations have been finished (user has been written 5494.399 MB data into db.)
+
+
+2024-11-01 23:45:46 ... thread 0: (10000000,60000000) ops and (6760.0,10502.2) ops/second in (1479.292686,5713.068557) seconds
+all identification time:0.001101
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(  22)       4     191       0       0     5479     2901      0    1498(    124)  5992(   2976)     0(      0)       0(      0)      0(      0)      0(      0)  1622         0        0        0
+    1   134(   4)     209    4790  178748    2880   176004        1      0    1277(      0)  1380(      0) 107801(    120)       0(      0)      0(      0)      0(      0)  1277        32        0        0
+    2   523(   0)    1029     481   20051       0    19562        0      0     392(      0)   392(      0)  9486(      0)       0(      0)      0(      0)      0(      0)   392       104        0        0
+    3   478(   0)     970      41    1769       0     1734        0      0       0(      0)     0(      0)   589(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:8378.109MB total_ios: 205681.502MB WriteAmplification: 24.5499
+60000000 operations have been finished (user has been written 6867.998 MB data into db.)
+
+
+2024-11-02 00:12:28 ... thread 0: (10000000,70000000) ops and (6243.1,9569.6) ops/second in (1601.759065,7314.827622) seconds
+all identification time:0.001230
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(  18)       4     220       0       0     6388     3390      0    1748(    145)  6992(   3480)     0(      0)       0(      0)      0(      0)      0(      0)  1893         0        0        0
+    1   138(   4)     224    6234  233524    3373   230279        1      0    1474(      0)  1593(      0) 141166(    141)       0(      0)      0(      0)      0(      0)  1474        33        0        2
+    2   569(   0)    1123     553   23174       0    22609        0      0     502(      0)   502(      0) 10974(      0)       0(      0)      0(      0)      0(      0)   502       104        2        0
+    3   586(   0)    1190      50    2195       0     2159        0      0       0(      0)     0(      0)   730(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:9775.424MB total_ios: 264824.660MB WriteAmplification: 27.0909
+70000000 operations have been finished (user has been written 8241.598 MB data into db.)
+
+
+2024-11-02 00:41:10 ... thread 0: (10000000,80000000) ops and (5806.3,8852.4) ops/second in (1722.280478,9037.108100) seconds
+all identification time:0.001379
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(  14)       4     250       0       0     7296     3879      0    1998(    166)  7992(   3984)     0(      0)       0(      0)      0(      0)      0(      0)  2164         0        0        0
+    1   153(   4)     249    7788  293199    3866   289458        1      0    1685(      0)  1821(      0) 177627(    162)       0(      0)      0(      0)      0(      0)  1685        33        0        2
+    2   622(   0)    1243     634   26673       0    26003        0      0     581(      0)   581(      0) 12638(      0)       0(      0)      0(      0)      0(      0)   581       107        2        0
+    3   658(   0)    1333      57    2528       0     2472        0      0       0(      0)     0(      0)   839(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:11172.716MB total_ios: 329109.386MB WriteAmplification: 29.4565
+80000000 operations have been finished (user has been written 9615.199 MB data into db.)
+
+
+2024-11-02 01:11:09 ... thread 0: (10000000,90000000) ops and (5558.1,8305.4) ops/second in (1799.176552,10836.284652) seconds
+all identification time:0.001501
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(  10)       4     277       0       0     8204     4368      0    2248(    187)  8992(   4488)     0(      0)       0(      0)      0(      0)      0(      0)  2435         0        0        0
+    1   175(   4)     276    9431  358504    4359   354266        1      0    1881(      0)  2029(      0) 217694(    183)       0(      0)      0(      0)      0(      0)  1881        39        0        2
+    2   694(   0)    1375     703   29780       0    29071        0      0     686(      0)   686(      0) 14106(      0)       0(      0)      0(      0)      0(      0)   686       107        2        0
+    3   724(   0)    1467      67    3029       0     2894        0      0       0(      0)     0(      0)  1030(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:12570.016MB total_ios: 398803.723MB WriteAmplification: 31.7266
+90000000 operations have been finished (user has been written 10988.798 MB data into db.)
+
+
+2024-11-02 01:43:46 ... thread 0: (10000000,100000000) ops and (5110.9,7816.8) ops/second in (1956.609156,12792.893808) seconds
+all identification time:0.001633
+                               Compactions
+Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
+--------------------------------------------------
+    0     4(   6)       4     304       0       0     9112     4857      0    2498(    208)  9992(   4992)     0(      0)       0(      0)      0(      0)      0(      0)  2706         0        0        0
+    1   177(   4)     295   11230  430705    4853   425955        1      0    2067(      0)  2236(      0) 261821(    204)       0(      0)      0(      0)      0(      0)  2067        39        0        2
+    2   733(   0)    1470     769   32687       0    31907        0      0     791(      0)   791(      0) 15502(      0)       0(      0)      0(      0)      0(      0)   791       107        2        0
+    3   817(   0)    1658      78    3518       0     3363        0      0       0(      0)     0(      0)  1208(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
+user_io:13967.361MB total_ios: 475195.632MB WriteAmplification: 34.0219
+100000000 operations have been finished (user has been written 12362.398 MB data into db.)
+
+
+100000000 operations have been finished (13735.996 MB data have been written into db)
+fillzipf     :     127.929 micros/op 7816 ops/sec;    1.1 MB/s
+[Thread 0x7ffff3600640 (LWP 1103402) exited]
+Microseconds per op:
+Count: 100000000  Average: 127.9289  StdDev: 25765.44
+Min: 1.0000  Median: 2.7353  Max: 16766472.0000
+------------------------------------------------------
+[       1,       2 ) 11440468  11.440%  11.440% ##
+[       2,       3 ) 52441044  52.441%  63.882% ##########
+[       3,       4 ) 32939762  32.940%  96.821% #######
+[       4,       5 ) 2290784   2.291%  99.112%
+[       5,       6 )  290536   0.291%  99.403%
+[       6,       7 )  163569   0.164%  99.566%
+[       7,       8 )  126572   0.127%  99.693%
+[       8,       9 )   77194   0.077%  99.770%
+[       9,      10 )   27529   0.028%  99.797%
+[      10,      12 )   20784   0.021%  99.818%
+[      12,      14 )   51749   0.052%  99.870%
+[      14,      16 )   24706   0.025%  99.895%
+[      16,      18 )    8259   0.008%  99.903%
+[      18,      20 )   55961   0.056%  99.959%
+[      20,      25 )   13274   0.013%  99.972%
+[      25,      30 )    3033   0.003%  99.975%
+[      30,      35 )    1141   0.001%  99.976%
+[      35,      40 )     529   0.001%  99.977%
+[      40,      45 )     135   0.000%  99.977%
+[      45,      50 )      94   0.000%  99.977%
+[      50,      60 )      75   0.000%  99.977%
+[      60,      70 )      28   0.000%  99.977%
+[      70,      80 )      12   0.000%  99.977%
+[      80,      90 )       6   0.000%  99.977%
+[      90,     100 )      10   0.000%  99.977%
+[     100,     120 )      55   0.000%  99.977%
+[     120,     140 )      19   0.000%  99.977%
+[     140,     160 )       8   0.000%  99.977%
+[     160,     180 )      16   0.000%  99.977%
+[     180,     200 )      17   0.000%  99.977%
+[     200,     250 )     227   0.000%  99.978%
+[     250,     300 )     209   0.000%  99.978%
+[     300,     350 )      60   0.000%  99.978%
+[     350,     400 )     120   0.000%  99.978%
+[     400,     450 )      94   0.000%  99.978%
+[     450,     500 )      85   0.000%  99.978%
+[     500,     600 )     260   0.000%  99.978%
+[     600,     700 )     117   0.000%  99.979%
+[     700,     800 )      83   0.000%  99.979%
+[     800,     900 )      98   0.000%  99.979%
+[     900,    1000 )     136   0.000%  99.979%
+[    1000,    1200 )     189   0.000%  99.979%
+[    1200,    1400 )     128   0.000%  99.979%
+[    1400,    1600 )      37   0.000%  99.979%
+[    1600,    1800 )      14   0.000%  99.979%
+[    1800,    2000 )       3   0.000%  99.979%
+[    2000,    2500 )      12   0.000%  99.979%
+[    2500,    3000 )       3   0.000%  99.979%
+[    3000,    3500 )      34   0.000%  99.979%
+[    3500,    4000 )      41   0.000%  99.979%
+[    4000,    4500 )      12   0.000%  99.979%
+[    4500,    5000 )      10   0.000%  99.979%
+[    5000,    6000 )      20   0.000%  99.979%
+[    6000,    7000 )      45   0.000%  99.979%
+[    7000,    8000 )      37   0.000%  99.979%
+[    8000,    9000 )      49   0.000%  99.979%
+[    9000,   10000 )      24   0.000%  99.980%
+[   10000,   12000 )      59   0.000%  99.980%
+[   12000,   14000 )      73   0.000%  99.980%
+[   14000,   16000 )     133   0.000%  99.980%
+[   16000,   18000 )    2047   0.002%  99.982%
+[   18000,   20000 )    6596   0.007%  99.988%
+[   20000,   25000 )    1259   0.001%  99.990%
+[   25000,   30000 )     132   0.000%  99.990%
+[   30000,   35000 )     101   0.000%  99.990%
+[   35000,   40000 )      50   0.000%  99.990%
+[   40000,   45000 )      11   0.000%  99.990%
+[   45000,   50000 )      10   0.000%  99.990%
+[   50000,   60000 )       4   0.000%  99.990%
+[   60000,   70000 )     167   0.000%  99.990%
+[   70000,   80000 )    4585   0.005%  99.995%
+[   80000,   90000 )     607   0.001%  99.995%
+[   90000,  100000 )      89   0.000%  99.995%
+[  100000,  120000 )     117   0.000%  99.996%
+[  120000,  140000 )      98   0.000%  99.996%
+[  140000,  160000 )     112   0.000%  99.996%
+[  160000,  180000 )     129   0.000%  99.996%
+[  180000,  200000 )     111   0.000%  99.996%
+[  200000,  250000 )     230   0.000%  99.996%
+[  250000,  300000 )     187   0.000%  99.996%
+[  300000,  350000 )     233   0.000%  99.997%
+[  350000,  400000 )     316   0.000%  99.997%
+[  400000,  450000 )     297   0.000%  99.997%
+[  450000,  500000 )     130   0.000%  99.997%
+[  500000,  600000 )      88   0.000%  99.997%
+[  600000,  700000 )      51   0.000%  99.998%
+[  700000,  800000 )      65   0.000%  99.998%
+[  800000,  900000 )      41   0.000%  99.998%
+[  900000, 1000000 )      37   0.000%  99.998%
+[ 1000000, 1200000 )      77   0.000%  99.998%
+[ 1200000, 1400000 )      67   0.000%  99.998%
+[ 1400000, 1600000 )      47   0.000%  99.998%
+[ 1600000, 1800000 )      39   0.000%  99.998%
+[ 1800000, 2000000 )      55   0.000%  99.998%
+[ 2000000, 2500000 )     115   0.000%  99.998%
+[ 2500000, 3000000 )     142   0.000%  99.998%
+[ 3000000, 3500000 )     129   0.000%  99.998%
+[ 3500000, 4000000 )     136   0.000%  99.998%
+[ 4000000, 4500000 )     172   0.000%  99.999%
+[ 4500000, 5000000 )     205   0.000%  99.999%
+[ 5000000, 6000000 )     494   0.000%  99.999%
+[ 6000000, 7000000 )     448   0.000% 100.000%
+[ 7000000, 8000000 )      66   0.000% 100.000%
+[ 8000000, 9000000 )      28   0.000% 100.000%
+[ 9000000, 10000000 )      25   0.000% 100.000%
+[ 10000000, 12000000 )      42   0.000% 100.000%
+[ 12000000, 14000000 )      24   0.000% 100.000%
+[ 14000000, 16000000 )       7   0.000% 100.000%
+[ 16000000, 18000000 )       1   0.000% 100.000%
+
+entering io_statistics1
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0       10        4       304        0     13967
+  1      181      295     11230   435558    425957
+  2      733     1470       769    32687     31908
+  3      817     1658        78     3518      3363
+user_io:13967.361MB total_ios: 475195.632MB WriteAmplification: 34.0219

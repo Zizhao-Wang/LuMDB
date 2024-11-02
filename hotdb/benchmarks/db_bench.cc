@@ -1763,10 +1763,6 @@ class Benchmark {
             bytes = 0;
           }
           thread->stats.FinishedSingleOp(db_);
-
-          if(thread->stats.done_ >= 31000000){
-            exit(0);
-          }
       }
     }
     thread->stats.AddBytes(bytes);

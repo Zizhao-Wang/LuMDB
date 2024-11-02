@@ -292,7 +292,7 @@ private:
   double bathc_hot_definition;
 
 public:
-  range_identifier(int init_length, int batch_length, double test_hot_denfinition=2);
+  range_identifier(int init_length, int batch_length, double test_hot_denfinition=10);
 
 
 
