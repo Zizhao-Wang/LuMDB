@@ -39,7 +39,7 @@ class WriteBatchInternal {
 
   static Status InsertInto(const WriteBatch* batch, MemTable* memtable, MemTable* hot_memtable=nullptr, range_identifier* hot_key_idetiifer=nullptr, Logger* info_loger=nullptr, std::unordered_map<std::string, int>* batch_data=nullptr);
 
-  static Status InsertInto(const WriteBatch* batch, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger=nullptr, std::unordered_map<std::string, int>* batch_data=nullptr);
+  // static Status InsertInto(const WriteBatch* batch, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger=nullptr, std::unordered_map<std::string, int>* batch_data=nullptr);
 
   static void Append(WriteBatch* dst, const WriteBatch* src);
 };

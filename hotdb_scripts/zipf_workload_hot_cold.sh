@@ -14,7 +14,8 @@ billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
-
+Mem=64
+partition=40
 
 convert_to_billion_format() {
     local num=$1
@@ -34,7 +35,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_hotdb_zipf_hotkeydefinition"
+    dir1="${i}B_LuMDB_zipf"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -46,11 +47,11 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_format=100000000
 
-            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
-                    log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
+                    log_file="hotdb_${num_format}_val_${value_size}_Mem${Mem}_Partition${partition}_zipf${zipf_a}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
 
                     # 如果日志文件存在，则跳过当前迭代
@@ -66,7 +67,7 @@ for i in {10..10}; do
                     echo "$num_format"
 
 
-                    db_directory="/mnt/hotdb_test/hotdb10B/${zipf_a}"
+                    db_directory="/mnt/hotdb_test/hotdb10B/Mem${Mem}_Partition${partition}_${zipf_a}"
                     if [ ! -d "$db_directory" ]; then
                             mkdir -p "$db_directory"
                     fi
@@ -83,7 +84,7 @@ for i in {10..10}; do
                     fi
 
 
-                    iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
+                    iostat -d 100 -x $DEVICE_NAME > LuMDB_${num_format}_val_${value_size}_zipf${zipf_a}_IOstatsMem${Mem}_Partition${partition}.log &
                     PID_IOSTAT=$!
                     
                      ../../hotdb/release/db_bench \
@@ -101,8 +102,6 @@ for i in {10..10}; do
                     --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
-                    --write_buffer_size=1048576 \
-                    --max_file_size=2097152   \
                     --print_wa=true \
                     &> >( tee $log_file) &  
 
@@ -112,7 +111,7 @@ for i in {10..10}; do
                     DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_directory" | grep -v 'sudo' | awk '{print $1}')
                     echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
-                    perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Nohot1-${no_hot}.txt" &
+                    perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_Mem${Mem}_Partition${partition}.txt" &
                     PERF_PID=$!
 
                     wait $DB_BENCH_PID

@@ -3624,8 +3624,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       allow_delay = false;  // Do not delay a single write more than once
       mutex_.Lock();
     } else if (!force &&
-               (mem_->ApproximateMemoryUsage() <= options_.write_buffer_size) && 
-               (hot_mem_ == nullptr || hot_mem_->ApproximateMemoryUsage() <= options_.write_hot_buffer_size)) {
+              mem_->ApproximateMemoryUsage() <= options_.write_buffer_size) {
       // There is room in current memtable
       break;
     } else if (imm_ != nullptr || hot_imm_ != nullptr) {

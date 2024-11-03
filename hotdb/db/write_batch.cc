@@ -136,18 +136,6 @@ class MemTableInserter : public WriteBatch::Handler {
   void Put(const Slice& key, const Slice& value) override {
     mem_->Add(sequence_, kTypeValue, key, value);
     mem_count++;
-    
-      // else{
-      //   auto it = batch_data_map->find(key.ToString());
-      //   if(it->second >= 2){
-      //     hot_mem_->Add(sequence_, kTypeValue, key, value);
-      //     hot_mem_count++;
-      //   }else{
-      //     mem_->Add(sequence_, kTypeValue, key, value);
-      //     mem_count++;
-      //   }
-      // }
-    // fprintf(stderr, "key:%s,  unordered_map:%d, hot key count: %d cold key count: %d \n", key.ToString().c_str(), (*batch_data_map)[key.ToString()],hot_mem_count, mem_count);
     sequence_++;
   }
 
@@ -246,20 +234,20 @@ Status WriteBatchInternal::InsertInto(const WriteBatch* b, MemTable* memtable, M
 }
 
 
-Status WriteBatchInternal::InsertInto(const WriteBatch* b, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger, std::unordered_map<std::string, int>* batch_data){
-  MultiMemTableInserter inserter;
-  inserter.sequence_ = WriteBatchInternal::Sequence(b);
-  inserter.mem_partitions_set = memtables;
-  inserter.hot_mem_ = hot_memtable;
-  inserter.hot_identifier = hot_key_idetiifer;
-  inserter.batch_data_map = batch_data;
-  Status s = b->Iterate(&inserter);
+// Status WriteBatchInternal::InsertInto(const WriteBatch* b, std::set<mem_partition_guard*, PartitionGuardComparator>* memtables, MemTable* hot_memtable, range_identifier* hot_key_idetiifer, Logger* info_loger, std::unordered_map<std::string, int>* batch_data){
+//   MultiMemTableInserter inserter;
+//   inserter.sequence_ = WriteBatchInternal::Sequence(b);
+//   inserter.mem_partitions_set = memtables;
+//   inserter.hot_mem_ = hot_memtable;
+//   inserter.hot_identifier = hot_key_idetiifer;
+//   inserter.batch_data_map = batch_data;
+//   Status s = b->Iterate(&inserter);
 
-  if(info_loger!= nullptr)
-    Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
+//   if(info_loger!= nullptr)
+//     Log(info_loger, "InsertInto: hot_mem_ added %d entries, mem_ added %d entries", inserter.hot_mem_count, inserter.mem_count);
 
-  return s;
-}
+//   return s;
+// }
 
 void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
   assert(contents.size() >= kHeader);
