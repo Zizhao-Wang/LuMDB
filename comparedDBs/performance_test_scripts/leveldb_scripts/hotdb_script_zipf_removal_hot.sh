@@ -28,7 +28,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_leveldb_zipf_mp400"
+    dir1="${i}B_leveldb_zipf_hot_removal"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -92,7 +92,7 @@ for i in {10..10}; do
                             echo "$num_format"
 
                             # 创建相应的目录
-                            db_dir="/mnt/hotdb_test/level10B/${zipf_a}"
+                            db_dir="/mnt/hotdb_test/level10B/mem${buffer_size_mb}_${zipf_a}"
                             if [ ! -d "$db_dir" ]; then
                                 mkdir -p "$db_dir"
                             fi

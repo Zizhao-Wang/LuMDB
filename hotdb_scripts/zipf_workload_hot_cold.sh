@@ -9,8 +9,8 @@ billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
-Mem=64
-partition=40
+Mem=8
+partition=4
 hot_identification=10
 
 convert_to_billion_format() {

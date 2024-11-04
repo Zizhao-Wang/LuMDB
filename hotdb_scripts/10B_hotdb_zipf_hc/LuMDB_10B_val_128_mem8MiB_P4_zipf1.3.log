@@ -1,399 +1,0 @@
-LevelDB:    version 1.23
-Date:       Sat Nov  2 15:34:38 2024
-CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
-CPUCache:   39424 KB
-open dbs:in fresh_db()
-open dbs:in Open()
-initialize 0 objects(LevelHotColdStats) within these 7 levels
-Processing 1 entries in every Batch
-the added key is 2639996977807355ŸN
-============================================
-Partition:    1 | Start: 0000000000000001     | End: 0000000000000012     | Total files:     1 | Written KVs:      30251 | Total file size:    4340927 bytes | Avg file size:    4340927 bytes
-Partition:    2 | Start: 0000000000000013     | End: 2639996977807355     | Total files:     1 | Written KVs:      19749 | Total file size:    2852309 bytes | Avg file size:    2852309 bytes
-============================================
-
-
-../../hotdb/release/db_bench --db=/mnt/hotdb_test/hotdb10B/P_4_8_1.3 --num=10000000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --data_file=/home/jeff-wang/workloads/zipf1.3_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --print_wa=true 
-Keys:       16 bytes each
-Values:     128 bytes each (64 bytes after compression)
-Entries:    10000000000
-RawSize:    1373291.0 MB (estimated)
-FileSize:   762939.5 MB (estimated)
-WARNING: Optimization is disabled: benchmarks unnecessarily slow
-WARNING: Assertions are enabled; benchmarks unnecessarily slow
-WARNING: Snappy compression is not enabled
-some command parameters have been selected:
-  threads: 1
-  duration: 0
-  print_wa: 1
-  num_entries: 10000000000
-  bechmark selected fillzipf,stats
-  hot_file_path: 
-  data_file_path: /home/jeff-wang/workloads/zipf1.3_keys10.0B.csv
-  percentages: 
-  write_buffer_size: 7340032
-  Hot data definition: 2
-  Print Interval: 10000000
-------------------------------------------------
-2024-11-02 15:35:10 ... thread 0: (10000000,10000000) ops and (316367.5,316367.5) ops/second in (31.608810,31.608810) seconds
-all identification time:0.000060
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0   531(   0)       0      20       0       0     1365        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:1365.191MB total_ios: 1365.191MB WriteAmplification: 1.0000
-10000000 operations have been finished (user has been written 0.000 MB data into db.)
-
-
-============================================
-Partition:    1 | Start: 0000000000000001     | End: 0000000000000012     | Total files:   256 | Written KVs:    7713135 | Total file size: 1106810146 bytes | Avg file size:    4323477 bytes
-Partition:    2 | Start: 0000000000000013     | End: 994296738822669440   | Total files:   256 | Written KVs:    5086631 | Total file size:  734660111 bytes | Avg file size:    2869766 bytes
-     Partition:    7 | Start: 0000000000013312     | End: 0000000000090687     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:    8 | Start: 0000000000090688     | End: 0000000000148138     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:    9 | Start: 0000000000148139     | End: 0000000000230443     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   10 | Start: 0000000000230444     | End: 0000000000361400     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   11 | Start: 0000000000361411     | End: 0000000000585383     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   12 | Start: 0000000000585391     | End: 0000000001008075     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   13 | Start: 0000000001008120     | End: 0000000001895221     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   14 | Start: 0000000001895310     | End: 0000000004088977     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   15 | Start: 0000000004089046     | End: 0000000011008026     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   16 | Start: 0000000011008662     | End: 0000000045125160     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   17 | Start: 0000000045126906     | End: 0000000529463950     | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-     Partition:   18 | Start: 0000000529608815     | End: 994296738822669440   | Total files:     0 | Written KVs:          0 | Total file size:          0 bytes | Avg file size:          0 bytes
-============================================
-
-
-we need do a special compaction for L0
-we have finished a special compaction for L0
-we need to continue
-long op: 207431018.0 micros                              2024-11-02 15:39:33 ... thread 0: (10000000,20000000) ops and (37909.9,67706.7) ops/second in (263.783126,295.391936) seconds
-all identification time:0.000114
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0     8(  41)       0      41       0       0     1792      946      0       3(     14)   686(    672)     0(      0)       0(      0)      0(      0)      0(      0)    17         0        0        0
-    1    13(  10)       0     230    1756     939       49       61      0       0(      0)     0(      0)     0(     28)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:2737.367MB total_ios: 2847.482MB WriteAmplification: 1.0402
-20000000 operations have been finished (user has been written 1373.291 MB data into db.)
-
-
-long op: 2019494.0 micros                              long op: 2795635.0 micros                              long op: 2143550.0 micros                              long op: 2237513.0 micros                              long op: 2272105.0 micros                              long op: 2147386.0 micros                              long op: 2426442.0 micros                              long op: 2679333.0 micros                              2024-11-02 15:41:23 ... thread 0: (10000000,30000000) ops and (91245.9,74076.7) ops/second in (109.593926,404.985862) seconds
-all identification time:0.000178
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    16(  33)       0      81       0       0     1837     2272      0       3(     35)   686(   1680)     0(      0)       0(      0)      0(      0)      0(      0)    38         0        0        0
-    1    13(  10)       0     270    1756    2427       49      213      0       0(      0)     0(      0)     0(    112)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:4109.481MB total_ios: 4370.836MB WriteAmplification: 1.0636
-30000000 operations have been finished (user has been written 2746.583 MB data into db.)
-
-
-long op: 2029050.0 micros                              2024-11-02 15:42:34 ... thread 0: (10000000,40000000) ops and (140829.9,84034.8) ops/second in (71.007645,475.993507) seconds
-all identification time:0.000225
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    28(  25)       0     102       0       0     1889     3599      0       3(     56)   686(   2688)     0(      0)       0(      0)      0(      0)      0(      0)    59         0        0        0
-    1    13(  10)       0     307    1756    3927       49      376      0       0(      0)     0(      0)     0(    196)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:5487.111MB total_ios: 5912.022MB WriteAmplification: 1.0774
-40000000 operations have been finished (user has been written 4119.874 MB data into db.)
-
-
-long op: 3265399.0 micros                              2024-11-02 15:43:47 ... thread 0: (10000000,50000000) ops and (136081.4,90995.3) ops/second in (73.485420,549.478927) seconds
-all identification time:0.000288
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    12(  17)       0     123       0       0     1934     4925      0       4(     77)   710(   3696)     0(      0)       0(      0)      0(      0)      0(      0)    81         0        0        0
-    1    25(  10)       0     347    1890    5431      145      543      0       0(      0)     0(      0)     0(    280)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:6859.224MB total_ios: 7547.434MB WriteAmplification: 1.1003
-50000000 operations have been finished (user has been written 5493.165 MB data into db.)
-
-
-long op: 2122378.0 micros                              long op: 2196433.0 micros                              long op: 2486495.0 micros                              long op: 2204868.0 micros                              long op: 2160301.0 micros                              long op: 2102835.0 micros                              long op: 2170100.0 micros                              long op: 2065948.0 micros                              long op: 2421366.0 micros                              2024-11-02 15:45:35 ... thread 0: (10000000,60000000) ops and (92660.6,91268.7) ops/second in (107.920705,657.399632) seconds
-all identification time:0.000348
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    22(   9)       0     163       0       0     1980     6251      0       4(     98)   710(   4704)     0(      0)       0(      0)      0(      0)      0(      0)   102         0        0        0
-    1    25(  10)       0     387    1890    6936      145      712      0       0(      0)     0(      0)     0(    364)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:8231.111MB total_ios: 9087.724MB WriteAmplification: 1.1041
-60000000 operations have been finished (user has been written 6866.457 MB data into db.)
-
-
-2024-11-02 15:46:46 ... thread 0: (10000000,70000000) ops and (142451.2,96206.8) ops/second in (70.199491,727.599123) seconds
-all identification time:0.000393
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    30(   1)       0     184       0       0     2026     7578      0       4(    119)   710(   5712)     0(      0)       0(      0)      0(      0)      0(      0)   123         0        0        0
-    1    25(  10)       0     424    1890    8442      145      881      0       0(      0)     0(      0)     0(    448)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:9603.197MB total_ios: 10628.961MB WriteAmplification: 1.1068
-70000000 operations have been finished (user has been written 8239.748 MB data into db.)
-
-
-long op: 3162412.0 micros                              2024-11-02 15:47:58 ... thread 0: (10000000,80000000) ops and (137888.0,99984.8) ops/second in (72.522606,800.121729) seconds
-all identification time:0.000440
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    14(  41)       0     205       0       0     2071     8904      0       5(    139)   734(   6672)     0(      0)       0(      0)      0(      0)      0(      0)   144         0        0        0
-    1    33(  10)       0     462    2027    9877      244     1042      0       1(      0)     4(      0)     0(    528)       0(      0)      0(      0)      0(      0)     1         0        0        0
-    2    11(   0)       0       0      21       0       21        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:10975.138MB total_ios: 12282.266MB WriteAmplification: 1.1191
-80000000 operations have been finished (user has been written 9613.039 MB data into db.)
-
-
-long op: 2359309.0 micros                              long op: 2117946.0 micros                              long op: 2663812.0 micros                              long op: 2198554.0 micros                              long op: 2383701.0 micros                              2024-11-02 15:49:42 ... thread 0: (10000000,90000000) ops and (95775.5,99498.9) ops/second in (104.410801,904.532530) seconds
-all identification time:0.000507
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    24(  32)       0     244       0       0     2122    10229      0       5(    160)   734(   7680)     0(      0)       0(      0)      0(      0)      0(      0)   165         0        0        0
-    1    33(  10)       0     501    2027   11384      244     1212      0       1(      0)     4(      0)     0(    612)       0(      0)      0(      0)      0(      0)     1         0        0        0
-    2    11(   0)       0       0      21       0       21        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:12351.541MB total_ios: 13828.535MB WriteAmplification: 1.1196
-90000000 operations have been finished (user has been written 10986.331 MB data into db.)
-
-
-long op: 5202044.0 micros                              long op: 3867652.0 micros                              2024-11-02 15:51:00 ... thread 0: (10000000,100000000) ops and (129433.9,101854.6) ops/second in (77.259521,981.792051) seconds
-all identification time:0.000561
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0     9(  25)       0     265       0       0     2168    11557      0       6(    181)   758(   8688)     0(      0)       0(      0)      0(      0)      0(      0)   187         0        0        0
-    1     1(  10)       0     542    2164   12891      343     1382      0      12(      0)    48(      0)     0(    696)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:13724.785MB total_ios: 15707.830MB WriteAmplification: 1.1445
-100000000 operations have been finished (user has been written 12359.622 MB data into db.)
-
-
-2024-11-02 15:52:11 ... thread 0: (10000000,110000000) ops and (140802.3,104481.9) ops/second in (71.021550,1052.813601) seconds
-all identification time:0.000630
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    18(  16)       0     287       0       0     2214    12882      0       6(    202)   758(   9696)     0(      0)       0(      0)      0(      0)      0(      0)   208         0        0        0
-    1     1(  10)       0     579    2164   14398      343     1552      0      12(      0)    48(      0)     0(    780)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:15095.410MB total_ios: 17248.656MB WriteAmplification: 1.1426
-110000000 operations have been finished (user has been written 13732.913 MB data into db.)
-
-
-long op: 2032990.0 micros                              long op: 2124665.0 micros                              long op: 2661911.0 micros                              long op: 2097001.0 micros                              long op: 2199081.0 micros                              long op: 2103409.0 micros                              long op: 2624512.0 micros                              2024-11-02 15:53:55 ... thread 0: (10000000,120000000) ops and (95644.6,103683.6) ops/second in (104.553687,1157.367288) seconds
-all identification time:0.000688
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    26(   8)       0     324       0       0     2259    14208      0       6(    223)   758(  10704)     0(      0)       0(      0)      0(      0)      0(      0)   229         0        0        0
-    1     1(  10)       0     618    2164   15905      343     1723      0      12(      0)    48(      0)     0(    864)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:16467.458MB total_ios: 18790.996MB WriteAmplification: 1.1411
-120000000 operations have been finished (user has been written 15106.204 MB data into db.)
-
-
-long op: 3249545.0 micros                              2024-11-02 15:55:07 ... thread 0: (10000000,130000000) ops and (138955.8,105748.4) ops/second in (71.965335,1229.332623) seconds
-all identification time:0.000750
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    12(  48)       0     345       0       0     2305    15535      0       7(    244)   782(  11712)     0(      0)       0(      0)      0(      0)      0(      0)   251         0        0        0
-    1    13(  10)       0     657    2301   17341      442     1885      0      12(      0)    48(      0)     0(    948)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:17839.391MB total_ios: 20424.223MB WriteAmplification: 1.1449
-130000000 operations have been finished (user has been written 16479.496 MB data into db.)
-
-
-long op: 2093508.0 micros                              2024-11-02 15:56:18 ... thread 0: (10000000,140000000) ops and (140354.4,107644.2) ops/second in (71.248202,1300.580825) seconds
-all identification time:0.000809
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    20(  40)       0     366       0       0     2350    16861      0       7(    264)   782(  12672)     0(      0)       0(      0)      0(      0)      0(      0)   271         0        0        0
-    1    13(  10)       0     695    2301   18848      442     2055      0      12(      0)    48(      0)     0(   1028)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:19211.294MB total_ios: 21966.507MB WriteAmplification: 1.1434
-140000000 operations have been finished (user has been written 17852.787 MB data into db.)
-
-
-long op: 2080533.0 micros                              long op: 2476247.0 micros                              long op: 2136804.0 micros                              long op: 2726794.0 micros                              long op: 2059906.0 micros                              2024-11-02 15:58:05 ... thread 0: (10000000,150000000) ops and (94184.2,106628.3) ops/second in (106.174956,1406.755781) seconds
-all identification time:0.000873
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    29(  32)       0     405       0       0     2402    18187      0       7(    285)   782(  13680)     0(      0)       0(      0)      0(      0)      0(      0)   292         0        0        0
-    1    13(  10)       0     733    2301   20355      442     2226      0      12(      0)    48(      0)     0(   1112)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:20589.053MB total_ios: 23514.681MB WriteAmplification: 1.1421
-150000000 operations have been finished (user has been written 19226.078 MB data into db.)
-
-
-long op: 2069021.0 micros                              long op: 3397180.0 micros                              2024-11-02 15:59:20 ... thread 0: (10000000,160000000) ops and (133547.1,107988.8) ops/second in (74.879941,1481.635722) seconds
-all identification time:0.000942
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    14(  24)       0     427       0       0     2447    19514      0       8(    306)   806(  14688)     0(      0)       0(      0)      0(      0)      0(      0)   314         0        0        0
-    1    25(  10)       0     774    2438   21863      541     2396      0      12(      0)    48(      0)     0(   1196)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:21961.014MB total_ios: 25156.218MB WriteAmplification: 1.1455
-160000000 operations have been finished (user has been written 20599.370 MB data into db.)
-
-
-long op: 2191404.0 micros                              long op: 2212302.0 micros                              long op: 2944190.0 micros                              long op: 2201622.0 micros                              long op: 2218581.0 micros                              2024-11-02 16:00:48 ... thread 0: (10000000,170000000) ops and (112561.3,108247.4) ops/second in (88.840489,1570.476211) seconds
-all identification time:0.001019
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    22(  15)       0     458       0       0     2493    20840      0       8(    327)   806(  15696)     0(      0)       0(      0)      0(      0)      0(      0)   335         0        0        0
-    1    25(  10)       0     813    2438   23370      541     2567      0      12(      0)    48(      0)     0(   1280)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:23332.957MB total_ios: 26698.607MB WriteAmplification: 1.1442
-170000000 operations have been finished (user has been written 21972.661 MB data into db.)
-
-
-long op: 2549924.0 micros                              2024-11-02 16:02:08 ... thread 0: (10000000,180000000) ops and (126016.2,109102.1) ops/second in (79.354886,1649.831097) seconds
-all identification time:0.001080
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    31(   8)       0     484       0       0     2539    22166      0       8(    348)   806(  16704)     0(      0)       0(      0)      0(      0)      0(      0)   356         0        0        0
-    1    25(  10)       0     851    2438   24878      541     2737      0      12(      0)    48(      0)     0(   1364)       0(      0)      0(      0)      0(      0)    12         0        0        0
-    2   133(   0)       0       4     334       0      258        0      0       0(      0)     0(      0)     0(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:24704.855MB total_ios: 28240.966MB WriteAmplification: 1.1431
-180000000 operations have been finished (user has been written 23345.952 MB data into db.)
-
-
-long op: 2188058.0 micros                              long op: 2187185.0 micros                              long op: 2239456.0 micros                              long op: 2256504.0 micros                              long op: 2178535.0 micros                              long op: 2317026.0 micros                              long op: 2113881.0 micros                              long op: 2011448.0 micros                              long op: 3274516.0 micros                              2024-11-02 16:04:01 ... thread 0: (10000000,190000000) ops and (88344.3,107769.3) ops/second in (113.193479,1763.024576) seconds
-all identification time:0.001136
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    16(  47)       0     526       0       0     2584    23493      0       9(    368)   830(  17664)     0(      0)       0(      0)      0(      0)      0(      0)   377         0        0        0
-    1    33(  10)       0     891    2574   26313      640     2899      0      13(      0)    52(      0)     0(   1444)       0(      0)      0(      0)      0(      0)    13         0        0        0
-    2   150(   0)       0       5     390       0      313        0      0       0(      0)     0(      0)    11(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:26076.845MB total_ios: 29929.687MB WriteAmplification: 1.1477
-190000000 operations have been finished (user has been written 24719.244 MB data into db.)
-
-
-2024-11-02 16:05:12 ... thread 0: (10000000,200000000) ops and (140553.7,109041.0) ops/second in (71.147172,1834.171748) seconds
-all identification time:0.001198
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    24(  40)       0     548       0       0     2630    24819      0       9(    389)   830(  18672)     0(      0)       0(      0)      0(      0)      0(      0)   398         0        0        0
-    1    33(  10)       0     928    2574   27821      640     3070      0      13(      0)    52(      0)     0(   1528)       0(      0)      0(      0)      0(      0)    13         0        0        0
-    2   150(   0)       0       5     390       0      313        0      0       0(      0)     0(      0)    11(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:27448.938MB total_ios: 31472.281MB WriteAmplification: 1.1466
-200000000 operations have been finished (user has been written 26092.535 MB data into db.)
-
-
-long op: 2219702.0 micros                              long op: 2781552.0 micros                              long op: 2190507.0 micros                              long op: 2223601.0 micros                              long op: 2030567.0 micros                              long op: 2194468.0 micros                              2024-11-02 16:06:58 ... thread 0: (10000000,210000000) ops and (93993.7,108216.1) ops/second in (106.390063,1940.561811) seconds
-all identification time:0.001250
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    33(  30)       0     587       0       0     2681    26143      0       9(    410)   830(  19680)     0(      0)       0(      0)      0(      0)      0(      0)   419         0        0        0
-    1    33(  10)       0     967    2574   29329      640     3240      0      13(      0)    52(      0)     0(   1612)       0(      0)      0(      0)      0(      0)    13         0        0        0
-    2   150(   0)       0       5     390       0      313        0      0       0(      0)     0(      0)    11(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:28824.245MB total_ios: 33018.096MB WriteAmplification: 1.1455
-210000000 operations have been finished (user has been written 27465.826 MB data into db.)
-
-
-long op: 2734864.0 micros                              long op: 3377588.0 micros                              long op: 7368490.0 micros                              2024-11-02 16:08:24 ... thread 0: (10000000,220000000) ops and (117422.3,108603.1) ops/second in (85.162704,2025.724515) seconds
-all identification time:0.001309
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    17(  23)       0     610       0       0     2727    27471      0      10(    431)   854(  20688)     0(      0)       0(      0)      0(      0)      0(      0)   441         0        0        0
-    1     1(  10)       0    1008    2711   30836      740     3411      0      24(      0)    96(      0)     0(   1696)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:30197.457MB total_ios: 35088.523MB WriteAmplification: 1.1620
-220000000 operations have been finished (user has been written 28839.117 MB data into db.)
-
-
-long op: 2044412.0 micros                              long op: 2280998.0 micros                              long op: 2774460.0 micros                              2024-11-02 16:09:48 ... thread 0: (10000000,230000000) ops and (119028.1,109018.3) ops/second in (84.013808,2109.738323) seconds
-all identification time:0.001364
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    27(  15)       0     638       0       0     2772    28797      0      10(    452)   854(  21696)     0(      0)       0(      0)      0(      0)      0(      0)   462         0        0        0
-    1     1(  10)       0    1047    2711   32343      740     3581      0      24(      0)    96(      0)     0(   1780)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:31569.278MB total_ios: 36630.870MB WriteAmplification: 1.1603
-230000000 operations have been finished (user has been written 30212.409 MB data into db.)
-
-
-long op: 2084564.0 micros                              long op: 2172877.0 micros                              long op: 2143051.0 micros                              long op: 2391556.0 micros                              long op: 2249428.0 micros                              2024-11-02 16:11:25 ... thread 0: (10000000,240000000) ops and (103061.2,108756.3) ops/second in (97.029682,2206.768005) seconds
-all identification time:0.001426
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    35(   7)       0     672       0       0     2818    30123      0      10(    473)   854(  22704)     0(      0)       0(      0)      0(      0)      0(      0)   483         0        0        0
-    1     1(  10)       0    1086    2711   33851      740     3752      0      24(      0)    96(      0)     0(   1864)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:32941.330MB total_ios: 38173.456MB WriteAmplification: 1.1588
-240000000 operations have been finished (user has been written 31585.700 MB data into db.)
-
-
-long op: 3507523.0 micros                              2024-11-02 16:12:38 ... thread 0: (10000000,250000000) ops and (136380.2,109644.7) ops/second in (73.324440,2280.092445) seconds
-all identification time:0.001474
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    20(  47)       0     694       0       0     2864    31450      0      11(    493)   878(  23664)     0(      0)       0(      0)      0(      0)      0(      0)   504         0        0        0
-    1    13(  10)       0    1125    2848   35287      839     3914      0      24(      0)    96(      0)     0(   1944)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:34313.308MB total_ios: 39806.936MB WriteAmplification: 1.1601
-250000000 operations have been finished (user has been written 32958.991 MB data into db.)
-
-
-long op: 2135894.0 micros                              long op: 2793929.0 micros                              long op: 2238195.0 micros                              long op: 2177392.0 micros                              long op: 2318786.0 micros                              long op: 2851632.0 micros                              2024-11-02 16:14:27 ... thread 0: (10000000,260000000) ops and (91345.2,108806.3) ops/second in (109.474783,2389.567228) seconds
-all identification time:0.001533
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    29(  38)       0     735       0       0     2909    32775      0      11(    514)   878(  24672)     0(      0)       0(      0)      0(      0)      0(      0)   525         0        0        0
-    1    13(  10)       0    1164    2848   36794      839     4085      0      24(      0)    96(      0)     0(   2028)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:35684.086MB total_ios: 41348.260MB WriteAmplification: 1.1587
-260000000 operations have been finished (user has been written 34332.283 MB data into db.)
-
-
-long op: 2014105.0 micros                              2024-11-02 16:15:40 ... thread 0: (10000000,270000000) ops and (136968.2,109641.2) ops/second in (73.009635,2462.576863) seconds
-all identification time:0.001599
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    38(  30)       0     758       0       0     2961    34101      0      11(    535)   878(  25680)     0(      0)       0(      0)      0(      0)      0(      0)   546         0        0        0
-    1    13(  10)       0    1202    2848   38302      839     4256      0      24(      0)    96(      0)     0(   2112)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:37061.892MB total_ios: 42896.617MB WriteAmplification: 1.1574
-270000000 operations have been finished (user has been written 35705.574 MB data into db.)
-
-
-long op: 2081008.0 micros                              long op: 2178281.0 micros                              long op: 2052308.0 micros                              long op: 2154283.0 micros                              long op: 2008726.0 micros                              long op: 2779813.0 micros                              long op: 5373587.0 micros                              2024-11-02 16:17:22 ... thread 0: (10000000,280000000) ops and (98255.5,109189.4) ops/second in (101.775506,2564.352369) seconds
-all identification time:0.001655
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    24(  23)       0     795       0       0     3006    35429      0      12(    556)   902(  26688)     0(      0)       0(      0)      0(      0)      0(      0)   568         0        0        0
-    1    25(  10)       0    1245    2985   39810      938     4426      0      24(      0)    96(      0)     0(   2196)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:38435.373MB total_ios: 44539.715MB WriteAmplification: 1.1588
-280000000 operations have been finished (user has been written 37078.865 MB data into db.)
-
-
-long op: 2126742.0 micros                              long op: 2175865.0 micros                              long op: 2246738.0 micros                              long op: 2322962.0 micros                              2024-11-02 16:19:03 ... thread 0: (10000000,290000000) ops and (98913.4,108799.6) ops/second in (101.098518,2665.450887) seconds
-all identification time:0.001721
-                               Compactions
-Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b
---------------------------------------------------
-    0    32(  15)       0     831       0       0     3052    36755      0      12(    577)   902(  27696)     0(      0)       0(      0)      0(      0)      0(      0)   589         0        0        0
-    1    25(  10)       0    1284    2985   41317      938     4597      0      24(      0)    96(      0)     0(   2280)       0(      0)      0(      0)      0(      0)    24         0        0        0
-    2   242(   0)       0      12     989       0      741        0      0       0(      0)     0(      0)   133(      0)       0(      0)      0(      0)      0(      0)     0         0        0        0
-user_io:39807.432MB total_ios: 46082.334MB WriteAmplification: 1.1576
-290000000 operations have been finished (user has been written 38452.156 MB data into db.)
-
-
-long op: 2117731.0 micros                              long op: 2455295.0 micros                              
