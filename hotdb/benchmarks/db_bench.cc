@@ -1757,9 +1757,6 @@ class Benchmark {
           const uint64_t k = std::stoull(row_data[0]);
           // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
           char key[100];
-          if(k == 999853043712678784){
-            fprintf(stderr,"found!!!!\n");
-          }
           snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
           s = db_->Batch_Put(write_options_, key, gen.Generate(value_size_));
           if (!s.ok()) {
@@ -1834,7 +1831,7 @@ class Benchmark {
     std::ifstream csv_file(FLAGS_Read_data_file);
     std::string line;
     if (!csv_file.is_open()) {
-        fprintf(stderr,"Unable to open CSV file in zipf2\n");
+        fprintf(stderr,"Unable to open CSV file in point_query_read\n");
         return;
     }
     std::getline(csv_file, line);
@@ -1842,7 +1839,7 @@ class Benchmark {
     std::string cell;
     std::vector<std::string> row_data;
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < FLAGS_reads; i++) {
       line_stream.clear();
       line_stream.str("");
       row_data.clear();
@@ -1860,11 +1857,13 @@ class Benchmark {
         continue;
       }
       const uint64_t k = std::stoull(row_data[0]); 
+      fprintf(stdout,"The key is %lu!\n",k);
 
       Key.Set(k);
       if (db_->Get(options, Key.slice(), &value).ok()) {
         found++;
       }
+
       thread->stats.FinishedSingleOp3(db_);
       bytes1 = (16 + FLAGS_value_size);
       thread->stats.AddBytes(bytes1);

@@ -80,7 +80,7 @@ def process_data_and_save_to_file(extracted_data, output_file_path):
             file.write(f"{record_index+1} {ratios[0]} {ratios[1]} {ratios[2]}\n")
 
 # 使用示例
-log_file_path = '/home/jeff-wang/WorkloadAnalysis/hotdb_scripts/10B_LuMDB_write_performance/1.1LuMDB_10B_val_128_mem8MiB_P4_zipf1.1.log'  # 替换为您的日志文件路径
+log_file_path = '/home/jeff-wang/WorkloadAnalysis/hotdb_scripts/10B_LuMDB_write_performance/1.1LuMDB_10B_val_128_mem64MiB_P40_zipf1.1.log'  # 替换为您的日志文件路径
 
 extracted_data = extract_percent_data(log_file_path)
 for index, data in extracted_data:
@@ -89,6 +89,6 @@ for index, data in extracted_data:
 print(f"Extracted data: {len(extracted_data)} records\n\n")
 
 # 使用示例
-output_file_path = f'/home/jeff-wang/WorkloadAnalysis/hotdb_scripts/10B_LuMDB_write_performance/mem8MiB_1.1waoutput.txt'  # 替换为您想保存结果的文件路径
+output_file_path = f'/home/jeff-wang/WorkloadAnalysis/hotdb_scripts/10B_LuMDB_write_performance/mem64MiB_1.1waoutput.txt'  # 替换为您想保存结果的文件路径
 process_data_and_save_to_file(extracted_data, output_file_path)
 

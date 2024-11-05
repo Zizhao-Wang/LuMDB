@@ -3727,20 +3727,24 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   SequenceNumber snapshot;
   bool is_hot = false;
 
-  hot_range temp_hot_range(key.ToString(),key.ToString());
-  auto it = HotRanges->hot_ranges_.upper_bound(temp_hot_range);
-  if(it == HotRanges->hot_ranges_.begin()){
-    is_hot = false;
+  if(HotRanges->hot_ranges_.size()!=0){
+    hot_range temp_hot_range(key.ToString(),key.ToString());
+    auto it = HotRanges->hot_ranges_.upper_bound(temp_hot_range);
+    if(it == HotRanges->hot_ranges_.begin() || it == HotRanges->hot_ranges_.end()){
+      is_hot = false;
+    }else{
+      fprintf(stdout,"There are %lu hot ranges!\n",HotRanges->hot_ranges_.size());
+      it--;
+      it->printRange();
+      // check if the key is in the hot range
+      if(it->is_key_contains(key.data(), key.size())){
+        is_hot = true;
+      }else{
+        is_hot = false;
+      }
+    }
   }
-  it--;
-
-  // check if the key is in the hot range
-  if(it->is_key_contains(key.data(), key.size())){
-    is_hot = true;
-  }else{
-    is_hot = false;
-  }
-
+  
   if (is_hot) {
     fprintf(stdout, "Key is hot. Using hot_mem_ and hot_imm_.\n");
   } else {

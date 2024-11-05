@@ -34,7 +34,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_hotdb_zipf_hc"
+    dir1="${i}B_LuMDB_Read_performance"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi

@@ -61,6 +61,10 @@ namespace leveldb {
       return std::string(end_ptr, end_size);
     }
 
+    void printRange() const {
+      fprintf(stdout, "Range Start: %s, Range End: %s\n", start_ptr, end_ptr);
+    }
+
     const char* start_ptr; 
     const char* end_ptr;
     const size_t start_size, end_size;

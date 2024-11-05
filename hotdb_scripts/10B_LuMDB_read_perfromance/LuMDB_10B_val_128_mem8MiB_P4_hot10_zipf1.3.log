@@ -1,0 +1,91 @@
+LevelDB:    version 1.23
+Date:       Tue Nov  5 19:50:06 2024
+CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
+CPUCache:   39424 KB
+open dbs:in fresh_db()
+open dbs:in Open()
+initialize 0 objects(LevelHotColdStats) within these 7 levels
+Processing 1 entries in every Batch
+the added key is 2639996977807355ŸN
+============================================
+Partition:    1 | Start: 0000000000000001     | End: 0000000000000012     | Total files:     1 | Written KVs:      30251 | Total file size:    4340927 bytes | Avg file size:    4340927 bytes
+Partition:    2 | Start: 0000000000000013     | End: 2639996977807355     | Total files:     1 | Written KVs:      19749 | Total file size:    2852309 bytes | Avg file size:    2852309 bytes
+============================================
+
+
+Unable to open CSV file in zipf2
+../../hotdb/release/db_bench --db=/mnt/hotdb_test/hotdb10B/hot_10_P4_8_1.3 --num=1000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --data_file=/home/jeff-wang/workloads/zipf1.3_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    1000000
+RawSize:    137.3 MB (estimated)
+FileSize:   76.3 MB (estimated)
+WARNING: Optimization is disabled: benchmarks unnecessarily slow
+WARNING: Assertions are enabled; benchmarks unnecessarily slow
+WARNING: Snappy compression is not enabled
+some command parameters have been selected:
+  threads: 1
+  duration: 0
+  print_wa: 1
+  num_entries: 1000000
+  bechmark selected fillzipf,stats
+  hot_file_path: 
+  data_file_path: /home/jeff-wang/workloads/zipf1.3_keys10.0B.csv
+  percentages: 
+  write_buffer_size: 7340032
+  Hot data definition: 10
+  Print Interval: 10000000
+------------------------------------------------
+1000000 operations have been finished (137.329 MB data have been written into db)
+fillzipf     :       4.820 micros/op 207454 ops/sec;   28.5 MB/s
+Microseconds per op:
+Count: 1000000  Average: 4.8202  StdDev: 556.68
+Percentiles: P50: 1.09 P75: 1.55 P99: 2.01 P99.9: 4.49 P99.99: 1400.00
+------------------------------------------------------
+[       0,       1 )  452211  45.221%  45.221% #########
+[       1,       2 )  537717  53.772%  98.993% ###########
+[       2,       3 )    8618   0.862%  99.855% 
+[       3,       4 )     206   0.021%  99.875% 
+[       4,       5 )     503   0.050%  99.925% 
+[       5,       6 )     388   0.039%  99.964% 
+[       6,       7 )      98   0.010%  99.974% 
+[       7,       8 )      42   0.004%  99.978% 
+[       8,       9 )      26   0.003%  99.981% 
+[       9,      10 )      10   0.001%  99.982% 
+[      10,      12 )      29   0.003%  99.985% 
+[      12,      14 )       7   0.001%  99.986% 
+[      14,      16 )       9   0.001%  99.986% 
+[      16,      18 )      21   0.002%  99.989% 
+[      18,      20 )       7   0.001%  99.989% 
+[      30,      35 )       2   0.000%  99.989% 
+[      45,      50 )       1   0.000%  99.990% 
+[     140,     160 )       1   0.000%  99.990% 
+[     350,     400 )       1   0.000%  99.990% 
+[     800,     900 )       2   0.000%  99.990% 
+[    1200,    1400 )       1   0.000%  99.990% 
+[   18000,   20000 )       1   0.000%  99.990% 
+[   20000,   25000 )       8   0.001%  99.991% 
+[   25000,   30000 )      65   0.007%  99.997% 
+[   30000,   35000 )       6   0.001%  99.998% 
+[   35000,   40000 )       1   0.000%  99.998% 
+[   40000,   45000 )       1   0.000%  99.998% 
+[   50000,   60000 )       2   0.000%  99.998% 
+[   60000,   70000 )       1   0.000%  99.999% 
+[   70000,   80000 )       1   0.000%  99.999% 
+[   80000,   90000 )       2   0.000%  99.999% 
+[   90000,  100000 )       3   0.000%  99.999% 
+[  100000,  120000 )       1   0.000%  99.999% 
+[  120000,  140000 )       4   0.000% 100.000% 
+[  140000,  160000 )       2   0.000% 100.000% 
+[  160000,  180000 )       1   0.000% 100.000% 
+[  180000,  200000 )       1   0.000% 100.000% 
+
+entering io_statistics1
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0       50        0         4        0       123
+user_io:123.484MB total_ios: 123.484MB WriteAmplification: 1.0000
+
+There 0 ranges was released in hot ranges!
