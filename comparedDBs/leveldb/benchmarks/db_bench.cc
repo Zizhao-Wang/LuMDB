@@ -105,6 +105,9 @@ DEFINE_int32(key_prefix,0, "Common key prefix length.");
 // Use the data_file with the following name.
 // static const char* FLAGS_data_file = nullptr;
 DEFINE_string(data_file, "", "Use the db with the following name.");
+
+DEFINE_string(Read_data_file, "", "Use the db with the following name.");
+
 DEFINE_int64(No_hot_percentage, 0, "");
 
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
@@ -339,7 +342,7 @@ class variable_Buffer{
   variable_Buffer& operator=(variable_Buffer& other) = delete;
   variable_Buffer(variable_Buffer& other) = delete;
 
-  void Set(uint64_t k,int key_size) {
+  void Set(uint64_t k,int key_size=16) {
     // std::snprintf(buffer_ + FLAGS_key_prefix, sizeof(buffer_) - FLAGS_key_prefix, "%016d", k);
     assert(key_size <= sizeof(buffer_) - FLAGS_key_prefix);
     char format[20];
@@ -1062,7 +1065,7 @@ class Benchmark {
     PrintHeader();
     // std::fprintf(stderr,"open dbs in Run()\n");
     // fflush(stderr);
-    // Open();
+    Open();
 
     const char* benchmarks = FLAGS_benchmarks.c_str();
     while (benchmarks != nullptr) {
@@ -1640,9 +1643,37 @@ class Benchmark {
     ReadOptions options;
     std::string value;
     int found = 0;
-    KeyBuffer key;
-    for (int i = 0; i < reads_; i++) {
-      const int k = thread->rand.Uniform(FLAGS_num);
+    variable_Buffer key;
+
+    std::ifstream csv_file(FLAGS_Read_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in point_query_read\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    for (int i = 0; i < FLAGS_reads; i++) {
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
+      }
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
+      const uint64_t k = std::stoull(row_data[0]);
       key.Set(k);
       if (db_->Get(options, key.slice(), &value).ok()) {
         found++;

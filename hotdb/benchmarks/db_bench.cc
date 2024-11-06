@@ -1217,6 +1217,9 @@ class Benchmark {
 
       if (method != nullptr) {
         RunBenchmark(num_threads, name, method);
+        if(method == &Benchmark::WriteZipf){
+          RunBenchmark(num_threads, Slice("pointread"), &Benchmark::point_query_read);
+        }
       }
     }
   }
@@ -1857,7 +1860,7 @@ class Benchmark {
         continue;
       }
       const uint64_t k = std::stoull(row_data[0]); 
-      fprintf(stdout,"The key is %lu!\n",k);
+      // fprintf(stdout,"The key is %lu!\n",k);
 
       Key.Set(k);
       if (db_->Get(options, Key.slice(), &value).ok()) {

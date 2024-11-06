@@ -1,0 +1,101 @@
+LevelDB:    version 1.23
+Date:       Thu Nov  7 01:38:57 2024
+CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
+CPUCache:   39424 KB
+open dbs:in Open()
+entering db_impl.cc:/mnt/hotdb_test/level10B/read_mem1_1.2
+initialize 0 objects(LevelHotColdStats) for 7 levels
+../../../leveldb/release/db_bench --db=/mnt/hotdb_test/level10B/read_mem1_1.2 --num=10000000 --value_size=128 --batch_size=1000 --benchmarks=readrandom,stats --Read_data_file=/home/jeff-wang/workloads/zipf1.2_random_select_1000_read_keys.csv --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --use_existing_db=true --log=1 --reads=1000 --cache_size=8388608 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_10B_key16_val128.log --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    10000000
+RawSize:    1373.3 MB (estimated)
+FileSize:   762.9 MB (estimated)
+WARNING: Optimization is disabled: benchmarks unnecessarily slow
+WARNING: Assertions are enabled; benchmarks unnecessarily slow
+WARNING: Snappy compression is not enabled
+some command parameters have been selected:
+  threads: 1
+  duration: 0
+  print_wa: 1
+  num_entries: 10000000
+  bechmark selected readrandom,stats
+  hot_file_path: 
+  data_file_path: /home/jeff-wang/workloads/zipf1.2_keys10.0B.csv
+  percentages: 
+------------------------------------------------
+1000 operations have been finished (0.000 MB data have been written into db)
+readrandom   :    3480.814 micros/op 287 ops/sec; (994 of 10000000 found)
+Microseconds per op:
+Count: 1000  Average: 3480.7830  StdDev: 8619.09
+Percentiles: P50: 900.00 P75: 2102.94 P99: 50000.00 P99.9: 70000.00 P99.99: 72877.00
+------------------------------------------------------
+[      12,      14 )       9   0.900%   0.900% 
+[      14,      16 )       7   0.700%   1.600% 
+[      16,      18 )       7   0.700%   2.300% 
+[      18,      20 )       6   0.600%   2.900% 
+[      20,      25 )      31   3.100%   6.000% #
+[      25,      30 )      22   2.200%   8.200% 
+[      30,      35 )       9   0.900%   9.100% 
+[      35,      40 )       6   0.600%   9.700% 
+[      40,      45 )       2   0.200%   9.900% 
+[      45,      50 )       2   0.200%  10.100% 
+[      50,      60 )       6   0.600%  10.700% 
+[      60,      70 )       4   0.400%  11.100% 
+[      70,      80 )       5   0.500%  11.600% 
+[      80,      90 )       3   0.300%  11.900% 
+[      90,     100 )       1   0.100%  12.000% 
+[     100,     120 )       1   0.100%  12.100% 
+[     120,     140 )       2   0.200%  12.300% 
+[     200,     250 )       1   0.100%  12.400% 
+[     250,     300 )       5   0.500%  12.900% 
+[     300,     350 )      46   4.600%  17.500% #
+[     350,     400 )      53   5.300%  22.800% #
+[     400,     450 )      39   3.900%  26.700% #
+[     450,     500 )      49   4.900%  31.600% #
+[     500,     600 )      50   5.000%  36.600% #
+[     600,     700 )      42   4.200%  40.800% #
+[     700,     800 )      47   4.700%  45.500% #
+[     800,     900 )      45   4.500%  50.000% #
+[     900,    1000 )      39   3.900%  53.900% #
+[    1000,    1200 )      81   8.100%  62.000% ##
+[    1200,    1400 )      37   3.700%  65.700% #
+[    1400,    1600 )      40   4.000%  69.700% #
+[    1600,    1800 )      28   2.800%  72.500% #
+[    1800,    2000 )      18   1.800%  74.300% 
+[    2000,    2500 )      34   3.400%  77.700% #
+[    2500,    3000 )      45   4.500%  82.200% #
+[    3000,    3500 )      36   3.600%  85.800% #
+[    3500,    4000 )      15   1.500%  87.300% 
+[    4000,    4500 )      13   1.300%  88.600% 
+[    4500,    5000 )       7   0.700%  89.300% 
+[    5000,    6000 )       9   0.900%  90.200% 
+[    6000,    7000 )       5   0.500%  90.700% 
+[    7000,    8000 )       2   0.200%  90.900% 
+[    8000,    9000 )       4   0.400%  91.300% 
+[    9000,   10000 )       3   0.300%  91.600% 
+[   10000,   12000 )       3   0.300%  91.900% 
+[   12000,   14000 )       2   0.200%  92.100% 
+[   14000,   16000 )      11   1.100%  93.200% 
+[   16000,   18000 )      15   1.500%  94.700% 
+[   18000,   20000 )       7   0.700%  95.400% 
+[   20000,   25000 )      11   1.100%  96.500% 
+[   25000,   30000 )       5   0.500%  97.000% 
+[   30000,   35000 )       8   0.800%  97.800% 
+[   35000,   40000 )       7   0.700%  98.500% 
+[   40000,   45000 )       1   0.100%  98.600% 
+[   45000,   50000 )       4   0.400%  99.000% 
+[   50000,   60000 )       7   0.700%  99.700% 
+[   60000,   70000 )       2   0.200%  99.900% 
+[   70000,   80000 )       1   0.100% 100.000% 
+
+entering io_statistics1
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  1       24       14         2       19        15
+  2      180      145         1       10        10
+  3      762      756         1       12        11
+user_io:0.000MB total_ios: 35.732MB WriteAmplification: inf
+

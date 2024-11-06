@@ -9,9 +9,9 @@ billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
-Mem=8
-partition=4
-hot_identification=10
+Mem=1
+partition=1
+hot_identification=2
 
 convert_to_billion_format() {
     local num=$1
@@ -40,14 +40,14 @@ for i in {10..10}; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
             stats_interva=$((num_entries / 1000))
             num_format=$(convert_to_billion_format $num_entries)
-            num_entries=1000000
+            num_entries=100000000
 
-            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.5; do  # 1.2 1.3 1.4 1.5
 
-                log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_P${partition}_hot${hot_identification}_zipf${zipf_a}.log"
-                Read_data_file="/home/jeff-wang/workloads/uniform_read_keys16_value128_1Thousand_noexists.csv"
+                log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_P${partition}_hot${hot_identification}_zipf${zipf_a}_NOT_EXIST.log"
+                reads_data_file="/home/jeff-wang/workloads/uniform_read_keys16_value128_1Thousand_noexists.csv"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}"
+                db_directory="/mnt/hotdb_test/hotdb10B/read_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}"
 
                 if [ ! -d "$db_directory" ]; then
                     mkdir -p "$db_directory"
@@ -58,12 +58,11 @@ for i in {10..10}; do
                     rm -rf "${db_directory:?}/"*
                 fi
 
-
                 # 如果日志文件存在，则跳过当前迭代
-                if [ -f "$log_file" ]; then
-                    echo "Log file $log_file already exists. Skipping this iteration."
-                    continue
-                fi
+                # if [ -f "$log_file" ]; then
+                #     echo "Log file $log_file already exists. Skipping this iteration."
+                #     continue
+                # fi
 
                 echo "base_num: $base_num"
                 echo "num_entries: $num_entries"
@@ -84,12 +83,14 @@ for i in {10..10}; do
                 --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \
+                --Read_data_file=$reads_data_file \
                 --cache_size=8388608 \
                 --open_files=40000 \
+                --reads=1000 \
                 --compression=0 \
                 --stats_interval=$stats_interva \
                 --histogram=1 \
-                --print_wa=true \
+                --print_wa=true \ 
                 &> >( tee $log_file) &  
 
                 # 保存 db_bench 的 PID 供监控使用

@@ -533,20 +533,18 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
     uint64_t check_partition_num = l==0?partition_num:sub_partition_num;
     for (uint32_t i = 0; i < partitioning_leveling_files_[l][check_partition_num].size(); i++) {
       FileMetaData* f = partitioning_leveling_files_[l][check_partition_num][i];
-          fprintf(stdout, "Checking file %u: smallest = %s, largest = %s\n",
-            i,
-            f->smallest.user_key().ToString().c_str(),
-            f->largest.user_key().ToString().c_str());
+          // fprintf(stdout, "Checking file %u: smallest = %s, largest = %s\n",
+          //   i,f->smallest.user_key().ToString().c_str(),f->largest.user_key().ToString().c_str());
       if (ucmp->Compare(user_key, f->smallest.user_key()) >= 0 &&
           ucmp->Compare(user_key, f->largest.user_key()) <= 0) {
-        fprintf(stdout, "File %u matches with user_key: %s\n Checking file %lu: smallest = %s, largest = %s\n",
-              i, user_key.ToString().c_str(),f->number,f->smallest.user_key().ToString().c_str(), f->largest.user_key().ToString().c_str() );
+        // fprintf(stdout, "File %u matches with user_key: %s\n Checking file %lu: smallest = %s, largest = %s\n",
+        //       i, user_key.ToString().c_str(),f->number,f->smallest.user_key().ToString().c_str(), f->largest.user_key().ToString().c_str() );
         tmp.push_back(f);
       }
     }
   }
 
-  fprintf(stdout, "There is %lu files need to be checked!\n", tmp.size());
+  // fprintf(stdout, "There is %lu files need to be checked!\n", tmp.size());
   
   int64_t end_time ; 
   if (!tmp.empty()) {

@@ -3720,8 +3720,8 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
 
 Status DBImpl::Get(const ReadOptions& options, const Slice& key,
                    std::string* value) {
-  PrintPartitions(mem_partitions_);
-  fprintf(stdout, "Current key: %s \n", key.data());
+  // PrintPartitions(mem_partitions_);
+  // fprintf(stdout, "Current key: %s \n", key.data());
   Status s;
   MutexLock l(&mutex_);
   SequenceNumber snapshot;
@@ -3730,12 +3730,12 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   if(HotRanges->hot_ranges_.size()!=0){
     hot_range temp_hot_range(key.ToString(),key.ToString());
     auto it = HotRanges->hot_ranges_.upper_bound(temp_hot_range);
-    if(it == HotRanges->hot_ranges_.begin() || it == HotRanges->hot_ranges_.end()){
+    if(it == HotRanges->hot_ranges_.begin() ){
       is_hot = false;
     }else{
-      fprintf(stdout,"There are %lu hot ranges!\n",HotRanges->hot_ranges_.size());
+      // fprintf(stdout,"There are %lu hot ranges!\n",HotRanges->hot_ranges_.size());
       it--;
-      it->printRange();
+      // it->printRange();
       // check if the key is in the hot range
       if(it->is_key_contains(key.data(), key.size())){
         is_hot = true;
@@ -3745,11 +3745,11 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     }
   }
   
-  if (is_hot) {
-    fprintf(stdout, "Key is hot. Using hot_mem_ and hot_imm_.\n");
-  } else {
-    fprintf(stdout, "Key is cold. Using mem_ and imm_.\n");
-  }
+  // if (is_hot) {
+  //   fprintf(stdout, "Key is hot. Using hot_mem_ and hot_imm_.\n");
+  // } else {
+  //   fprintf(stdout, "Key is cold. Using mem_ and imm_.\n");
+  // }
   
   if (options.snapshot != nullptr) {
     snapshot = static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number();
@@ -3789,77 +3789,83 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   int64_t disk_time = 0;
   bool found_in_memtable = false;
   bool found_in_imm = false;
+  bool found_result = true;
 
   // Unlock while reading from files and memtables
   if(!is_hot){
     mutex_.Unlock();
     // First look in the memtable, then in the immutable memtable (if any).
-    int64_t mem_start_time = env_->NowMicros();
+    // int64_t mem_start_time = env_->NowMicros();
     if (mem->Get(lkey, value, &s)) {
-      local_stats.memtable_time = env_->NowMicros() - mem_start_time;
+      // local_stats.memtable_time = env_->NowMicros() - mem_start_time;
       found_in_memtable = true;
       // Done
     } else {
-      local_stats.memtable_time = env_->NowMicros() - mem_start_time;
-      int64_t imm_start_time = env_->NowMicros();
+      // local_stats.memtable_time = env_->NowMicros() - mem_start_time;
+      // int64_t imm_start_time = env_->NowMicros();
       if (imm != nullptr && imm->Get(lkey, value, &s)) {
-        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+        // local_stats.immtable_time = env_->NowMicros() - imm_start_time;
         found_in_imm = true;
       } else {
-        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+        // local_stats.immtable_time = env_->NowMicros() - imm_start_time;
       }
     } 
     mutex_.Lock();
   }else{
-    int64_t hot_mem_start_time = env_->NowMicros();
+    // int64_t hot_mem_start_time = env_->NowMicros();
     if (hot_mem_->Get(lkey, value, &s)) {
-      local_stats.memtable_time = env_->NowMicros() - hot_mem_start_time;
+      // local_stats.memtable_time = env_->NowMicros() - hot_mem_start_time;
       found_in_memtable = true;
       // Done for hot memtable
     } else {
-      local_stats.memtable_time = env_->NowMicros() - hot_mem_start_time;
-      int64_t imm_start_time = env_->NowMicros();
+      // local_stats.memtable_time = env_->NowMicros() - hot_mem_start_time;
+      // int64_t imm_start_time = env_->NowMicros();
       if (hot_imm != nullptr && hot_imm->Get(lkey, value, &s)) {
-        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+        // local_stats.immtable_time = env_->NowMicros() - imm_start_time;
         found_in_imm = true;
       } else {
-        local_stats.immtable_time = env_->NowMicros() - imm_start_time;
+        // local_stats.immtable_time = env_->NowMicros() - imm_start_time;
       }
     }
   }
 
+  // PrintPartitions(mem_partitions_);
   if (!found_in_memtable && !found_in_imm) {
-
     if(!is_hot){
+      // searching cold data
       std::string current_key_str(key.data(), key.size());
+      // fprintf(stdout, "Current Key String: %s\n", current_key_str.c_str());
       mem_partition_guard temp_partition(current_key_str, current_key_str);
       auto it = mem_partitions_.upper_bound(&temp_partition);
-      assert(it != mem_partitions_.begin());
-      it--;
-
-      PrintPartition(*it);
-      
-      auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
-      it2--;
-      PrintPartition(*it2);
-
-      fprintf(stdout, "searched partition is: %lu sub-partition is: %lu \n", (*it)->partition_num, (*it2)->partition_num);
-
-      int64_t disk_start_time = env_->NowMicros();
-      s = current->Get(options, lkey, value, &stats, (*it)->partition_num, (*it2)->partition_num);
-      disk_time = env_->NowMicros() - disk_start_time;
-
+      if(it==mem_partitions_.begin()){
+        found_result = false;
+      }else{
+        it--;
+        if((*it)->is_key_contains(current_key_str.c_str(),current_key_str.size())){
+          // PrintPartition(*it);
+          auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
+          if(it2==(*it)->sub_partitions_.begin()){
+            found_result = false;
+          }else{
+            it2--;
+            // PrintPartition(*it2);
+            // fprintf(stdout, "searched partition is: %lu sub-partition is: %lu \n", (*it)->partition_num, (*it2)->partition_num);
+            // int64_t disk_start_time = env_->NowMicros();
+            s = current->Get(options, lkey, value, &stats, (*it)->partition_num, (*it2)->partition_num);
+            // disk_time = env_->NowMicros() - disk_start_time;
+          }
+        }
+      }
     }else{
-      int64_t disk_start_time = env_->NowMicros();
+      // int64_t disk_start_time = env_->NowMicros();
       s = current->Get_Hot(options, lkey, value, &stats);
-      disk_time = env_->NowMicros() - disk_start_time;
+      // disk_time = env_->NowMicros() - disk_start_time;
     }
     have_stat_update = true;
   }
-  
 
-  local_stats.total_time = env_->NowMicros() - start_time;
-  get_time_stats.Add(local_stats);  // Accumulate stats in the class-level instance
+  // local_stats.total_time = env_->NowMicros() - start_time;
+  // get_time_stats.Add(local_stats);  // Accumulate stats in the class-level instance
   
   if (is_hot) {
     hot_mem->Unref();
@@ -3870,7 +3876,12 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   }
   
   current->Unref();
-  exit(0);
+  // fprintf(stdout,"End!\n\n\n");
+
+  if(found_result == false){
+    return Status::NotFound(Slice());
+  }
+
   return s;
 }
 
