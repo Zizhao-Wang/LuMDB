@@ -304,6 +304,8 @@ DEFINE_string(value_size_distribution_type, "fixed",
 
 DEFINE_string(data_file_path, "", "Value size distribution type: fixed, uniform, normal");
 
+DEFINE_string(Read_data_file, "", "Value size distribution type: fixed, uniform, normal");
+
 DEFINE_string(mem_log_file,"", "mem usage path");
               
 
@@ -6227,61 +6229,49 @@ class Benchmark {
     int num_keys = 0;
     int64_t key_rand = 0;
     ReadOptions options = read_options_;
-    std::unique_ptr<const char[]> key_guard;
-    Slice key = AllocateKey(&key_guard);
-    PinnableSlice pinnable_val;
-    std::vector<PinnableSlice> pinnable_vals;
-    if (read_operands_) {
-      // Start off with a small-ish value that'll be increased later if
-      // `GetMergeOperands()` tells us it is not large enough.
-      pinnable_vals.resize(8);
-    }
-    std::unique_ptr<char[]> ts_guard;
-    Slice ts;
-    if (user_timestamp_size_ > 0) {
-      ts_guard.reset(new char[user_timestamp_size_]);
-    }
 
-    Duration duration(FLAGS_duration, reads_);
-    while (!duration.Done(1)) {
-      DBWithColumnFamilies* db_with_cfh = SelectDBWithCfh(thread);
-      // We use same key_rand as seed for key and column family so that we can
-      // deterministically find the cfh corresponding to a particular key, as it
-      // is done in DoWrite method.
-      if (entries_per_batch_ > 1 && FLAGS_multiread_stride) {
-        if (++num_keys == entries_per_batch_) {
-          num_keys = 0;
-          key_rand = GetRandomKey(&thread->rand);
-          if ((key_rand + (entries_per_batch_ - 1) * FLAGS_multiread_stride) >=
-              FLAGS_num) {
-            key_rand = FLAGS_num - entries_per_batch_ * FLAGS_multiread_stride;
-          }
-        } else {
-          key_rand += FLAGS_multiread_stride;
-        }
-      } else {
-        key_rand = GetRandomKey(&thread->rand);
+
+    std::ifstream csv_file(FLAGS_Read_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+      fprintf(stderr,"Unable to open CSV file in point_query_read\n");
+      return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    for (int i = 0; i < FLAGS_reads; i++) {
+
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
       }
-      GenerateKeyFromInt(key_rand, FLAGS_num, &key);
-      read++;
-      std::string ts_ret;
-      std::string* ts_ptr = nullptr;
-      if (user_timestamp_size_ > 0) {
-        ts = mock_app_clock_->GetTimestampForRead(thread->rand, ts_guard.get());
-        options.timestamp = &ts;
-        ts_ptr = &ts_ret;
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
       }
-      Status s;
-      pinnable_val.Reset();
-      for (size_t i = 0; i < pinnable_vals.size(); ++i) {
-        pinnable_vals[i].Reset();
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
       }
+      const uint64_t k = std::stoull(row_data[0]);
+      char key1[100];
+      snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)k);
+      slice key(key1);
+
       ColumnFamilyHandle* cfh;
       if (FLAGS_num_column_families > 1) {
         cfh = db_with_cfh->GetCfh(key_rand);
       } else {
         cfh = db_with_cfh->db->DefaultColumnFamily();
       }
+
       if (read_operands_) {
         GetMergeOperandsOptions get_merge_operands_options;
         get_merge_operands_options.expected_max_number_of_operands =
@@ -6327,12 +6317,14 @@ class Benchmark {
       thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kRead);
     }
 
+
     char msg[100];
     snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)\n", found,
              read);
 
     thread->stats.AddBytes(bytes);
     thread->stats.AddMessage(msg);
+
   }
 
   // Calls MultiGet over a list of keys from a random distribution.

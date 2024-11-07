@@ -1,11 +1,16 @@
+base_num: 10000000000
+num_entries: 10000000
+value_size:128
+stats_interval: 10000000
+10B
 LevelDB:    version 1.23
-Date:       Thu Nov  7 01:56:47 2024
+Date:       Thu Nov  7 01:56:22 2024
 CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
 CPUCache:   39424 KB
 open dbs:in Open()
 entering db_impl.cc:/mnt/hotdb_test/level10B/read_mem1_1.3
 initialize 0 objects(LevelHotColdStats) for 7 levels
-../../../leveldb/release/db_bench --db=/mnt/hotdb_test/level10B/read_mem1_1.3 --num=10000000 --value_size=128 --batch_size=1000 --benchmarks=readrandom,stats --Read_data_file=/home/jeff-wang/workloads/zipf1.3_random_select_1000_read_keys.csv --data_file=/home/jeff-wang/workloads/zipf1.3_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --use_existing_db=true --log=1 --reads=1000 --cache_size=8388608 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_10B_key16_val128.log --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true 
+../../../leveldb/release/db_bench --db=/mnt/hotdb_test/level10B/read_mem1_1.3 --num=10000000 --value_size=128 --batch_size=1000 --benchmarks=readrandom,stats --Read_data_file=/home/jeff-wang/workloads/zipf1.3_random_select_1000_read_keys.csv --data_file=/home/jeff-wang/workloads/zipf1.3_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --use_existing_db=true --log=1 --reads=1000 --cache_size=8388608 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_10B_key16_val128.log --open_files=40000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true
 Keys:       16 bytes each
 Values:     128 bytes each (64 bytes after compression)
 Entries:    10000000
@@ -20,52 +25,63 @@ some command parameters have been selected:
   print_wa: 1
   num_entries: 10000000
   bechmark selected readrandom,stats
-  hot_file_path: 
+  hot_file_path:
   data_file_path: /home/jeff-wang/workloads/zipf1.3_keys10.0B.csv
-  percentages: 
+  percentages:
 ------------------------------------------------
 1000 operations have been finished (0.000 MB data have been written into db)
-readrandom   :     115.936 micros/op 8625 ops/sec; (998 of 10000000 found)
+readrandom   :     982.817 micros/op 1017 ops/sec; (998 of 10000000 found)
 Microseconds per op:
-Count: 1000  Average: 115.9180  StdDev: 2125.97
-Percentiles: P50: 33.17 P75: 58.31 P99: 177.14 P99.9: 60000.00 P99.99: 67298.00
+Count: 1000  Average: 982.7990  StdDev: 5662.84
+Percentiles: P50: 375.44 P75: 626.79 P99: 3000.00 P99.9: 66953.00 P99.99: 66953.00
 ------------------------------------------------------
-[       7,       8 )       1   0.100%   0.100% 
-[       8,       9 )       2   0.200%   0.300% 
-[       9,      10 )       2   0.200%   0.500% 
-[      10,      12 )       8   0.800%   1.300% 
-[      12,      14 )      19   1.900%   3.200% 
-[      14,      16 )      21   2.100%   5.300% 
-[      16,      18 )      44   4.400%   9.700% #
-[      18,      20 )      61   6.100%  15.800% #
-[      20,      25 )     155  15.500%  31.300% ###
-[      25,      30 )     128  12.800%  44.100% ###
-[      30,      35 )      93   9.300%  53.400% ##
-[      35,      40 )      67   6.700%  60.100% #
-[      40,      45 )      54   5.400%  65.500% #
-[      45,      50 )      31   3.100%  68.600% #
-[      50,      60 )      77   7.700%  76.300% ##
-[      60,      70 )      33   3.300%  79.600% #
-[      70,      80 )      16   1.600%  81.200% 
-[      80,      90 )      17   1.700%  82.900% 
-[      90,     100 )      42   4.200%  87.100% #
-[     100,     120 )      65   6.500%  93.600% #
-[     120,     140 )      13   1.300%  94.900% 
-[     140,     160 )      35   3.500%  98.400% #
-[     160,     180 )       7   0.700%  99.100% 
-[     180,     200 )       4   0.400%  99.500% 
-[     200,     250 )       2   0.200%  99.700% 
-[     400,     450 )       1   0.100%  99.800% 
-[     500,     600 )       1   0.100%  99.900% 
-[   60000,   70000 )       1   0.100% 100.000% 
+[       7,       8 )       3   0.300%   0.300%
+[       8,       9 )       3   0.300%   0.600%
+[       9,      10 )       7   0.700%   1.300%
+[      10,      12 )      27   2.700%   4.000% #
+[      12,      14 )      29   2.900%   6.900% #
+[      14,      16 )      41   4.100%  11.000% #
+[      16,      18 )      14   1.400%  12.400%
+[      18,      20 )      18   1.800%  14.200%
+[      20,      25 )      19   1.900%  16.100%
+[      25,      30 )      24   2.400%  18.500%
+[      30,      35 )      27   2.700%  21.200% #
+[      35,      40 )      10   1.000%  22.200%
+[      40,      45 )       4   0.400%  22.600%
+[      45,      50 )       1   0.100%  22.700%
+[      50,      60 )       2   0.200%  22.900%
+[      90,     100 )       2   0.200%  23.100%
+[     120,     140 )       1   0.100%  23.200%
+[     180,     200 )       1   0.100%  23.300%
+[     200,     250 )       5   0.500%  23.800%
+[     250,     300 )      52   5.200%  29.000% #
+[     300,     350 )     152  15.200%  44.200% ###
+[     350,     400 )     114  11.400%  55.600% ##
+[     400,     450 )      48   4.800%  60.400% #
+[     450,     500 )      85   8.500%  68.900% ##
+[     500,     600 )      46   4.600%  73.500% #
+[     600,     700 )      56   5.600%  79.100% #
+[     700,     800 )      36   3.600%  82.700% #
+[     800,     900 )      44   4.400%  87.100% #
+[     900,    1000 )      40   4.000%  91.100% #
+[    1000,    1200 )      34   3.400%  94.500% #
+[    1200,    1400 )      21   2.100%  96.600%
+[    1400,    1600 )      13   1.300%  97.900%
+[    1600,    1800 )       3   0.300%  98.200%
+[    1800,    2000 )       3   0.300%  98.500%
+[    2000,    2500 )       3   0.300%  98.800%
+[    2500,    3000 )       2   0.200%  99.000%
+[    4500,    5000 )       1   0.100%  99.100%
+[   30000,   35000 )       1   0.100%  99.200%
+[   50000,   60000 )       2   0.200%  99.400%
+[   60000,   70000 )       6   0.600% 100.000%
 
 entering io_statistics1
 
                                Compactions
 Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
 --------------------------------------------------
-  1       14       10         0        0         0
+  1       14       10         1       17        10
   2      106       99         0        0         0
   3      200      200         0        0         0
-user_io:0.000MB total_ios: 0.000MB WriteAmplification: -nan
-
+user_io:0.000MB total_ios: 9.806MB WriteAmplification: inf

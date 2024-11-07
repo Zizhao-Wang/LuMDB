@@ -133,6 +133,8 @@ DEFINE_int32(value_size, 300, "Size of each value");
 
 DEFINE_string(data_file, "", "Use the db with the following name.");
 
+DEFINE_string(Read_data_file, "", "Use the db with the following name.");
+
 DEFINE_int32(base_key, 0, "Base key which gets added to the randodm key generated");
 
 DEFINE_int32(num_next, 100, "Number of next operations to do in a ScanRandom workload");
@@ -2092,15 +2094,43 @@ random_double(void)
   }
 
   void ReadRandom(ThreadState* thread) {
-	uint64_t a, b, start, end;
+	  uint64_t a, b, start, end;
     ReadOptions options;
     std::string value;
     int64_t found = 0;
     micros(start);
-    thread->trace = new TraceUniform(random());
-    for (int64_t i = 0; i < reads_; i++) {
+
+
+    std::ifstream csv_file(FLAGS_Read_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in point_query_read\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    for (int i = 0; i < FLAGS_reads; i++) {
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
+      }
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
       char key[100];
-      const int64_t k = thread->trace->Next() % FLAGS_range + FLAGS_base_key;
+      const int64_t k = std::stoull(row_data[0]);
       snprintf(key, sizeof(key), "%016d", k);
       if (db_->Get(options, key, &value).ok()) {
         found++;
