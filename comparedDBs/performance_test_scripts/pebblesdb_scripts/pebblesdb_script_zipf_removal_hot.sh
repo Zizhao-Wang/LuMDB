@@ -7,6 +7,8 @@ billion=1000000000
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
 Mem=64
+Mem_size_bytes=$((Mem * 1048576))
+
 
 convert_to_billion_format() {
     local num=$1
@@ -37,7 +39,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.3 1.1; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.4; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem${Mem}MB_zipf${zipf_a}.log"
@@ -57,7 +59,7 @@ for i in {10..10}; do
                 echo "$num_format"
 
                 # 创建相应的目录
-                db_dir="/mnt/hotdb_test/pebbles10B/mem64_${zipf_a}"
+                db_dir="/mnt/hotdb_test/pebbles10B/mem${Mem}_${zipf_a}"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
                 fi
@@ -86,8 +88,8 @@ for i in {10..10}; do
                 --compression=0 \
                 --stats_interval=$stats_interva \
                 --histogram=1 \
-                --write_buffer_size=67108864 \
-                --max_file_size=67108864   \
+                --write_buffer_size=$Mem_size_bytes \
+                --max_file_size=$Mem_size_bytes   \
                 --print_wa=true \
                 &> >( tee $log_file) &  
 

@@ -109,6 +109,8 @@ DEFINE_string(data_file, "", "Use the db with the following name.");
 
 DEFINE_string(Read_data_file, "", "Use the db with the following name.");
 
+DEFINE_string(RangeRead_data_file, "", "Use the db with the following name.");
+
 DEFINE_string(mem_log_file,"", "log path");
 
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
@@ -1877,37 +1879,46 @@ class Benchmark {
   }
 
   void range_query_read(ThreadState* thread) {
+
     ReadOptions options;
     std::string value;
     int found = 0;
     variable_Buffer Key;
-    Iterator* iter = db_->NewIterator(options);
 
-    std::ifstream k_file(FLAGS_data_file);  
-    if (!k_file.is_open()) {
-      fprintf(stderr, "Unable to open file\n");
-      return;
-    }
+    std::ifstream csv_file(FLAGS_RangeRead_data_file);
     std::string line;
-
-    if (!getline(k_file, line)) {
-      fprintf(stderr,"Unable to read the first line from the file\n");
-      return;  
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in point_query_read\n");
+        return;
     }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
 
-    const uint64_t total_entries = std::stoull(line);
-    assert(total_entries == reads_);
     uint64_t seek_length = FLAGS_range_query_length;
 
     for (int i = 0; i < reads_; i++) {
-
-      if (!getline(k_file, line)) {
-        fprintf(stderr, "Reached end of file or error reading from file\n");
-        return ;  
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
       }
-      const uint64_t k = std::stoll(line);
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
+      const uint64_t k = std::stoull(row_data[0]);
       Key.Set(k);
 
+      Iterator* iter = db_->NewIterator(options, Key.slice());
       iter->Seek(Key.slice());
       while (seek_length--){
         iter->Next();

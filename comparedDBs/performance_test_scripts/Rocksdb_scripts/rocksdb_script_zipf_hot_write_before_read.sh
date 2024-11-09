@@ -87,9 +87,9 @@ for i in {10..10}; do
                 --stats_interval=$stats_interva \
                 --stats_per_interval=$stats_interva \
                 --histogram=1 \
-                --write_buffer_size=8388608 \
+                --write_buffer_size=1048576 \
                 --mem_log_file=$memory_log_file \
-                --target_file_size_base=8388608   \
+                --target_file_size_base=1048576   \
                 --compression_type=none \
                 &> >( tee $log_file) &  
 

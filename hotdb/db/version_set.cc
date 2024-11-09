@@ -403,6 +403,14 @@ Iterator* Version::NewConcatenatingIterator(const ReadOptions& options,
       vset_->table_cache_, options);
 }
 
+
+Iterator* Version::NewPartitionConcatenatingIterator(uint64_t partition_number, const ReadOptions& options,
+                                            int level) const {
+  return NewTwoLevelIterator(
+      new LevelFileNumIterator(vset_->icmp_, &partitioning_leveling_files_[level].at(partition_number)), &GetFileIterator,
+      vset_->table_cache_, options);
+}
+
 void Version::AddIterators(const ReadOptions& options,
                            std::vector<Iterator*>* iters) {
   // Merge all level zero files together since they may overlap
@@ -417,6 +425,30 @@ void Version::AddIterators(const ReadOptions& options,
   for (int level = 1; level < config::kNumLevels; level++) {
     if (!leveling_files_[level].empty()) {
       iters->push_back(NewConcatenatingIterator(options, level));
+    }
+  }
+}
+
+void Version::AddIterators(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions& options,
+                           std::vector<Iterator*>* iters) {
+
+  // Merge all level zero files together since they may overlap
+  uint64_t partition_number;
+  for(int level=0; level <2; level++){
+    partition_number = (level==0?parent_partition:sub_partition);
+    for (size_t i = 0; i < partitioning_leveling_files_[level][partition_number].size(); i++) {
+      iters->push_back(vset_->table_cache_->NewIterator(
+          options, partitioning_leveling_files_[level][partition_number][i]->number, partitioning_leveling_files_[level][partition_number][i]->file_size));
+    }
+  }
+  
+
+  // For levels > 0, we can use a concatenating iterator that sequentially
+  // walks through the non-overlapping files in the level, opening them
+  // lazily.
+  for (int level = 2; level < config::kNumLevels; level++) {
+    if (!partitioning_leveling_files_[level][partition_number].empty()) {
+      iters->push_back(NewPartitionConcatenatingIterator(partition_number, options, level));
     }
   }
 }

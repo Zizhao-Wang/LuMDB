@@ -54,6 +54,9 @@ class DBImpl : public DB {
   Status Get(const ReadOptions& options, const Slice& key,
              std::string* value) override;
   Iterator* NewIterator(const ReadOptions&) override;
+
+  Iterator* NewIterator(const ReadOptions&, const Slice&) override;
+
   const Snapshot* GetSnapshot() override;
   void ReleaseSnapshot(const Snapshot* snapshot) override;
   bool GetProperty(const Slice& property, std::string* value) override;
@@ -79,6 +82,8 @@ class DBImpl : public DB {
   bool GetProperty_with_whole_lsm(const Slice& property, std::string* value);
 
   bool GetProperty_with_read(const Slice& property, std::string* value);
+
+  int Is_Overlap_HotRanges(const Slice& key);
 
   // Force current memtable contents to be compacted.
   Status TEST_CompactMemTable();
@@ -257,6 +262,10 @@ class DBImpl : public DB {
   };
 
   Iterator* NewInternalIterator(const ReadOptions&,
+                                SequenceNumber* latest_snapshot,
+                                uint32_t* seed);
+  
+    Iterator* SinglePartitionNewInternalIterator(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions&,
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
 

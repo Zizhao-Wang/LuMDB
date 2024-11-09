@@ -3707,6 +3707,36 @@ Iterator* DBImpl::NewInternalIterator(const ReadOptions& options,
   return internal_iter;
 }
 
+Iterator* DBImpl::SinglePartitionNewInternalIterator(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions& options,
+                                      SequenceNumber* latest_snapshot,
+                                      uint32_t* seed) {
+  mutex_.Lock();
+  *latest_snapshot = versions_->LastSequence();
+
+  // Collect together all needed child iterators
+  std::vector<Iterator*> list;
+
+  list.push_back(mem_->NewIterator());
+  mem_->Ref();
+  if (imm_ != nullptr) {
+    list.push_back(imm_->NewIterator());
+    imm_->Ref();
+  }
+
+  versions_->current()->AddIterators(options, &list);
+
+  Iterator* internal_iter =
+      NewMergingIterator(&internal_comparator_, &list[0], list.size());
+  versions_->current()->Ref();
+
+  IterState* cleanup = new IterState(&mutex_, mem_, imm_, versions_->current());
+  internal_iter->RegisterCleanup(CleanupIteratorState, cleanup, nullptr);
+
+  *seed = ++seed_;
+  mutex_.Unlock();
+  return internal_iter;
+}
+
 Iterator* DBImpl::TEST_NewInternalIterator() {
   SequenceNumber ignored;
   uint32_t ignored_seed;
@@ -3888,7 +3918,105 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
 Iterator* DBImpl::NewIterator(const ReadOptions& options) {
   SequenceNumber latest_snapshot;
   uint32_t seed;
+
+
   Iterator* iter = NewInternalIterator(options, &latest_snapshot, &seed);
+
+  return NewDBIterator(this, user_comparator(), iter,
+                       (options.snapshot != nullptr
+                            ? static_cast<const SnapshotImpl*>(options.snapshot)
+                                  ->sequence_number()
+                            : latest_snapshot),
+                       seed);
+}
+
+// |--------------------|------------------|-------------------|
+//     Hot Range 1         Hot Range 2           Key Range
+//   (Start, End)      (Start, End)        (Key)
+  
+//     ^------>        ^------------------^
+//     (smallest)       ^----> Key Point <------> (Largest)
+//       Key               Hot Ranges                    Key > Largest Hot Range
+
+int DBImpl::Is_Overlap_HotRanges(const Slice& key){
+
+  if(HotRanges->hot_ranges_.size()!=0){
+    hot_range temp_hot_range(key.ToString(),key.ToString());
+    auto it = HotRanges->hot_ranges_.upper_bound(temp_hot_range);
+
+    if(it == HotRanges->hot_ranges_.end()){
+      it--;
+      if(it->is_key_contains(key.data(), key.size())){
+        return  0;
+      }else{
+        return 1;
+      }
+    }else{
+      return  0;
+    }
+  }
+  return 1;
+}
+
+Iterator* DBImpl::NewIterator(const ReadOptions& options, const Slice& start_key) {
+
+  SequenceNumber latest_snapshot;
+  uint32_t seed;
+  
+  int key_situation=Is_Overlap_HotRanges(start_key);
+  fprintf(stdout, "Key: %s\n situation:%d", start_key.data(), key_situation);
+
+  uint64_t start_parent_partiton, start_sub_partition;
+  if(key_situation==1){
+    std::string current_key_str(start_key.data(), start_key.size());
+    // fprintf(stdout, "Current Key String: %s\n", current_key_str.c_str());
+    mem_partition_guard temp_partition(current_key_str, current_key_str);
+    auto it = mem_partitions_.upper_bound(&temp_partition);
+
+    if(it==mem_partitions_.begin()){
+      start_parent_partiton = (*it)->partition_num;
+      auto it2 = (*it)->sub_partitions_.begin();
+      start_sub_partition = (*it2)->partition_num;
+      fprintf(stdout, "Key: %s, start_parent_partiton: %lu (upper_bound begin) start_sub_partition %lu\n", 
+                current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+    }else if(it==mem_partitions_.end()){
+      it--;
+      if((*it)->is_key_contains(current_key_str.c_str(),current_key_str.size())){
+        // PrintPartition(*it);
+        start_parent_partiton = (*it)->partition_num;
+        auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
+        it2--;
+        start_sub_partition = (*it2)->partition_num;
+        fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound end)\n", 
+                    current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+      }else{
+        fprintf(stdout, "Key: %s not in any partition.\n", current_key_str.c_str());
+        return nullptr;
+      }
+    }else{
+      it--;
+      if((*it)->is_key_contains(current_key_str.c_str(),current_key_str.size())){
+        start_parent_partiton = (*it)->partition_num;
+        auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
+        it2--;
+        start_sub_partition = (*it2)->partition_num;
+        fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (in middle partition)\n", 
+                    current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+      }else{
+        it++;
+        start_parent_partiton = (*it)->partition_num;
+        auto it2 = (*it)->sub_partitions_.begin();
+        start_sub_partition = (*it2)->partition_num;
+        fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound middle)\n", 
+                    current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+      }
+    }
+  }else{
+    fprintf(stdout, "Key: %s is not in hot ranges.\n", start_key.ToString().c_str());
+  }
+
+  Iterator* iter = SinglePartitionNewInternalIterator(start_parent_partiton, start_sub_partition, options, &latest_snapshot, &seed);
+
   return NewDBIterator(this, user_comparator(), iter,
                        (options.snapshot != nullptr
                             ? static_cast<const SnapshotImpl*>(options.snapshot)

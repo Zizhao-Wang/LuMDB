@@ -7,7 +7,7 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 
 DEVICE_NAME="nvme1n1"
-MEM=8
+MEM=1
 
 convert_to_billion_format() {
     local num=$1
@@ -47,7 +47,7 @@ for i in {10..10}; do
 
 
                 # 创建相应的目录
-                db_dir="/mnt/hotdb_test/rocks10B/mem${MEM}MB_${zipf_a}"
+                db_dir="/mnt/hotdb_test/rocks10B/write_10B_mem${MEM}MB_${zipf_a}"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
                 fi
@@ -86,9 +86,9 @@ for i in {10..10}; do
                         --stats_interval=$stats_interva \
                         --stats_per_interval=$stats_interva \
                         --histogram=1 \
-                        --write_buffer_size=8388608 \
+                        --write_buffer_size=1048576 \
                         --mem_log_file=$memory_log_file \
-                        --target_file_size_base=8388608   \
+                        --target_file_size_base=1048576   \
                         --compression_type=none \
                         &> >( tee $log_file) &  
 

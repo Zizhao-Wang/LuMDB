@@ -2130,6 +2130,7 @@ class ModelDB : public DB {
     assert(false);  // Not implemented
     return Status::NotFound(key);
   }
+
   Iterator* NewIterator(const ReadOptions& options) override {
     if (options.snapshot == nullptr) {
       KVMap* saved = new KVMap;
@@ -2141,6 +2142,20 @@ class ModelDB : public DB {
       return new ModelIter(snapshot_state, false);
     }
   }
+
+  Iterator* NewIterator(const ReadOptions& options, const Slice&) override {
+    if (options.snapshot == nullptr) {
+      KVMap* saved = new KVMap;
+      *saved = map_;
+      return new ModelIter(saved, true);
+    } else {
+      const KVMap* snapshot_state =
+          &(reinterpret_cast<const ModelSnapshot*>(options.snapshot)->map_);
+      return new ModelIter(snapshot_state, false);
+    }
+  }
+
+
   const Snapshot* GetSnapshot() override {
     ModelSnapshot* snapshot = new ModelSnapshot;
     snapshot->map_ = map_;

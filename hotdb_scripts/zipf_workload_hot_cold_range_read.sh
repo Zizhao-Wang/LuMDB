@@ -9,9 +9,9 @@ billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
-Mem=1
-partition=1
-hot_identification=2
+Mem=9
+partition=9
+hot_identification=9
 
 convert_to_billion_format() {
     local num=$1
@@ -31,7 +31,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_LuMDB_read_perfromance"
+    dir1="${i}B_LuMDB_Range_Query_perfromance"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -42,12 +42,13 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=100000000
 
-            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.4; do  # 1.2 1.3 1.4 1.5
 
-                log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_P${partition}_hot${hot_identification}_zipf${zipf_a}_EXIST.log"
+                log_file="LuMDB_Range_Query_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 reads_data_file="/home/jeff-wang/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/read_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}"
+
+                db_directory="/mnt/hotdb_test/hotdb10B/rangeread_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}"
 
                 if [ ! -d "$db_directory" ]; then
                     mkdir -p "$db_directory"
@@ -83,7 +84,7 @@ for i in {10..10}; do
                 --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \
-                --Read_data_file=$reads_data_file \
+                --RangeRead_data_file=$reads_data_file \
                 --cache_size=8388608 \
                 --open_files=40000 \
                 --reads=1000 \
