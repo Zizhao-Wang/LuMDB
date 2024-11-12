@@ -40,6 +40,7 @@
 #include "util/logging.h"
 #include "util/mutexlock.h"
 #include "global_stats.h"
+#include "leveldb/json.hpp"
 
 namespace leveldb {
 
@@ -240,6 +241,12 @@ DBImpl::~DBImpl() {
   while (background_compaction_scheduled_) {
     background_work_finished_signal_.Wait();
   }
+  
+
+
+  SaveMemPartitionsToFile();
+  SaveHotRangesToFile();
+
   mutex_.Unlock();
 
   if (db_lock_ != nullptr) {
@@ -493,6 +500,16 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     }
   }
 
+  s = RestoreMemPartitionsFromFile(dbname_);
+  if (!s.ok()) {
+    std::fprintf(stderr, "Not find Partition file: %s\n", s.ToString().c_str());
+  }
+
+  s = RestoreHotRangesFromFile(dbname_);
+  if (!s.ok()) {
+    std::fprintf(stderr, "Not find range file: %s\n", s.ToString().c_str());
+  }
+
   s = versions_->Recover(save_manifest);
   if (!s.ok()) {
     return s;
@@ -513,18 +530,24 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   if (!s.ok()) {
     return s;
   }
+  fprintf(stderr,"we got %ld files !\n", filenames.size());
   std::set<uint64_t> expected;
   versions_->AddLiveFiles(&expected, true);
+  fprintf(stderr,"we got %ld live files !\n", expected.size());
   uint64_t number;
   FileType type;
   std::vector<uint64_t> logs;
   for (size_t i = 0; i < filenames.size(); i++) {
     if (ParseFileName(filenames[i], &number, &type)) {
       expected.erase(number);
-      if (type == kLogFile && ((number >= min_log) || (number == prev_log)))
+      if (type == kLogFile && ((number >= min_log) || (number == prev_log))){
         logs.push_back(number);
+        fprintf(stderr,"find %d as a log file!\n", number);
+      }
+        
     }
   }
+
   if (!expected.empty()) {
     char buf[50];
     std::snprintf(buf, sizeof(buf), "%d missing files; e.g.",
@@ -601,6 +624,8 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   WriteBatch batch;
   int compactions = 0;
   MemTable* mem = nullptr;
+  MemTable* hot_mem = nullptr;
+
   while (reader.ReadRecord(&record, &scratch) && status.ok()) {
     if (record.size() < 12) {
       reporter.Corruption(record.size(),
@@ -613,7 +638,13 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
       mem = new MemTable(internal_comparator_);
       mem->Ref();
     }
-    status = WriteBatchInternal::InsertInto(&batch, mem);
+
+    if (hot_mem == nullptr) {
+      hot_mem = new MemTable(internal_comparator_);
+      hot_mem->Ref();
+    }
+
+    status = WriteBatchInternal::InsertInto(&batch, mem, hot_mem, options_.info_log, HotRanges);
     MaybeIgnoreError(&status);
     if (!status.ok()) {
       break;
@@ -627,7 +658,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     if (mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
       compactions++;
       *save_manifest = true;
-      status = WriteLevel0Table(mem, edit, nullptr);
+      status = WritePartitionLevelingL0Table(mem, edit, nullptr);
       mem->Unref();
       mem = nullptr;
       if (!status.ok()) {
@@ -636,6 +667,21 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
         break;
       }
     }
+
+
+    if (hot_mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
+      compactions++;
+      *save_manifest = true;
+      status = WriteLevel0Table(hot_mem, edit, nullptr);
+      hot_mem->Unref();
+      hot_mem = nullptr;
+      if (!status.ok()) {
+        // Reflect errors immediately so that conditions like full
+        // file-systems cause the DB::Open() to fail.
+        break;
+      }
+    }
+
   }
 
   delete file;
@@ -1837,7 +1883,11 @@ void DBImpl::BackgroundCompaction() {
   }
   // Log pointer address and stored address after PickCompaction
   Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
-
+  if(Partitionleveling_compactions.size() !=0){
+    fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
+      Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
+  }
+  
 
   Status status;
   if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
@@ -1855,8 +1905,9 @@ void DBImpl::BackgroundCompaction() {
       if(c->level() == 0){
         auto map_it = partition_first_L0flush_map_.find(need_partition_num);
         if (map_it == partition_first_L0flush_map_.end()) {
-          fprintf(stderr,"we need to continue\n");
-          continue;  // 如果不存在该条目，直接跳过当前循环
+          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+          delete c;
+          continue;  
         }
       }
       bool is_first_L0flush =  partition_first_L0flush_map_[need_partition_num];
@@ -3707,6 +3758,83 @@ Iterator* DBImpl::NewInternalIterator(const ReadOptions& options,
   return internal_iter;
 }
 
+
+std::map<uint64_t, Iterator*> DBImpl::NewMultiInternalIterator(const ReadOptions& options,
+                                      SequenceNumber* latest_snapshot,
+                                      uint32_t* seed) {
+  mutex_.Lock();
+  *latest_snapshot = versions_->LastSequence();
+
+  std::map<uint64_t, Iterator*> internal_iter_map;  // 存储每个分区的 internal_iter
+  // Collect together all needed child iterators
+  std::map<uint64_t, std::vector<Iterator*>> lists;
+  Iterator* mem_iterator = mem_->NewIterator();
+  Iterator* imm_iterator = nullptr;
+
+  // list.push_back(mem_iterator);
+  // mem_->Ref();
+  // if (imm_ != nullptr) {
+  //   imm_iterator = imm_->NewIterator();
+  //   list.push_back(imm_iterator);
+  //   imm_->Ref();
+  // }
+
+  // 遍历 mem_partitions_，为每个分区生成迭代器
+  Iterator* internal_iter = nullptr;
+  for (mem_partition_guard* partition : mem_partitions_) {
+    for(mem_partition_guard* sub_partition : partition->sub_partitions_){ 
+      lists[sub_partition->partition_num].push_back(mem_iterator);
+      mem_->Ref();
+      if(imm_iterator != nullptr){
+        lists[sub_partition->partition_num].push_back(imm_iterator);
+        imm_->Ref();
+      }
+      versions_->current()->AddIterators(partition->partition_num, sub_partition->partition_num, options, &lists[sub_partition->partition_num]);
+
+      // 输出当前分区的编号（可选）
+      fprintf(stdout, "Created iterator for partition number: %lu in parent %lu\n", sub_partition->partition_num, partition->partition_num);
+      internal_iter = NewMergingIterator(&internal_comparator_, &lists[sub_partition->partition_num][0], lists[sub_partition->partition_num].size());
+      versions_->current()->Ref();
+      IterState* cleanup = new IterState(&mutex_, mem_, imm_, versions_->current());
+      internal_iter->RegisterCleanup(CleanupIteratorState, cleanup, nullptr);
+      internal_iter_map[sub_partition->partition_num] = internal_iter;
+    }
+  }
+  
+  *seed = ++seed_;
+  mutex_.Unlock();
+  return internal_iter_map;
+}
+
+
+Iterator* DBImpl::NewTieringInternalIterator(const ReadOptions& options, SequenceNumber* latest_snapshot,uint32_t* seed){
+  mutex_.Lock();
+  *latest_snapshot = versions_->LastSequence();
+
+  // Collect together all needed child iterators
+  std::vector<Iterator*> list;
+  list.push_back(hot_mem_->NewIterator());
+  hot_mem_->Ref();
+  if (hot_imm_ != nullptr) {
+    list.push_back(hot_imm_->NewIterator());
+    hot_imm_->Ref();
+  }
+
+  versions_->current()->AddTieringIterators(options, &list);
+
+  Iterator* internal_iter =
+      NewMergingIterator(&internal_comparator_, &list[0], list.size());
+  versions_->current()->Ref();
+
+  IterState* cleanup = new IterState(&mutex_, hot_mem_, hot_imm_, versions_->current());
+  internal_iter->RegisterCleanup(CleanupIteratorState, cleanup, nullptr);
+
+  *seed = ++seed_;
+  mutex_.Unlock();
+  return internal_iter;
+} 
+  
+
 Iterator* DBImpl::SinglePartitionNewInternalIterator(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions& options,
                                       SequenceNumber* latest_snapshot,
                                       uint32_t* seed) {
@@ -3723,7 +3851,7 @@ Iterator* DBImpl::SinglePartitionNewInternalIterator(uint64_t parent_partition, 
     imm_->Ref();
   }
 
-  versions_->current()->AddIterators(options, &list);
+  versions_->current()->AddIterators(parent_partition, sub_partition, options, &list);
 
   Iterator* internal_iter =
       NewMergingIterator(&internal_comparator_, &list[0], list.size());
@@ -3930,6 +4058,34 @@ Iterator* DBImpl::NewIterator(const ReadOptions& options) {
                        seed);
 }
 
+std::map<uint64_t, Iterator*> DBImpl::NewMultiIterator(const ReadOptions& options) {
+  SequenceNumber latest_snapshot;
+  uint32_t seed;
+
+
+  std::map<uint64_t, Iterator*> internal_iters = NewMultiInternalIterator(options, &latest_snapshot, &seed);
+  Iterator* tiering_iters = NewTieringInternalIterator(options, &latest_snapshot, &seed);
+
+  // 创建一个 map，用于存储每个分区的 DBIterator
+  std::map<uint64_t, Iterator*> db_iter_map;
+  db_iter_map[0]=tiering_iters;
+
+  SequenceNumber seq= options.snapshot != nullptr ? static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number() : latest_snapshot;
+  for (auto& entry : internal_iters) {
+    uint64_t partition_num = entry.first;
+    Iterator* internal_iter = entry.second;
+
+    // 创建一个 DBIterator，并将其添加到 db_iter_map
+    Iterator* db_iter = NewDBIterator( this, user_comparator(), internal_iter,seq,seed);
+        
+    db_iter_map[partition_num] = db_iter;
+  }
+
+  return db_iter_map;
+}
+
+
+
 // |--------------------|------------------|-------------------|
 //     Hot Range 1         Hot Range 2           Key Range
 //   (Start, End)      (Start, End)        (Key)
@@ -3958,13 +4114,81 @@ int DBImpl::Is_Overlap_HotRanges(const Slice& key){
   return 1;
 }
 
+Iterator* DBImpl::FindIteratorByKey(const std::map<uint64_t, Iterator*>& iter_map, const Slice& start_key) {
+
+  // PrintPartitions(mem_partitions_);
+  int key_situation=Is_Overlap_HotRanges(start_key);
+
+  if(key_situation == 0){
+    Iterator * tiering_iterator = iter_map.at(0);
+  }
+
+  fprintf(stdout, "Key: %s  situation:%d \n", start_key.data(), key_situation);
+
+  uint64_t start_parent_partiton, start_sub_partition;
+  std::string current_key_str(start_key.data(), start_key.size());
+  // fprintf(stdout, "Current Key String: %s\n", current_key_str.c_str());
+  mem_partition_guard temp_partition(current_key_str, current_key_str);
+  auto it = mem_partitions_.upper_bound(&temp_partition);
+
+  if(it==mem_partitions_.begin()){
+    start_parent_partiton = (*it)->partition_num;
+    auto it2 = (*it)->sub_partitions_.begin();
+    start_sub_partition = (*it2)->partition_num;
+    // fprintf(stdout, "Key: %s, start_parent_partiton: %lu (upper_bound begin) start_sub_partition %lu\n", 
+    //           current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+  }else if(it==mem_partitions_.end()){
+    it--;
+    if((*it)->is_key_contains(current_key_str.c_str(),current_key_str.size())){
+      // PrintPartition(*it);
+      start_parent_partiton = (*it)->partition_num;
+      auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
+      it2--;
+      start_sub_partition = (*it2)->partition_num;
+      // fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound end)\n", 
+      //             current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+    }else{
+      fprintf(stdout, "Key: %s not in any partition.\n", current_key_str.c_str());
+      return nullptr;
+    }
+  }else{
+    it--;
+    if((*it)->is_key_contains(current_key_str.c_str(),current_key_str.size())){
+      start_parent_partiton = (*it)->partition_num;
+      auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
+      it2--;
+      start_sub_partition = (*it2)->partition_num;
+      // fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (in middle partition)\n", 
+      //             current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+    }else{
+      it++;
+      start_parent_partiton = (*it)->partition_num;
+      auto it2 = (*it)->sub_partitions_.begin();
+      start_sub_partition = (*it2)->partition_num;
+      // fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound middle)\n", 
+      //             current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+    }
+  }
+
+  auto it3 = iter_map.find(start_sub_partition);
+  if (it3 != iter_map.end()) {
+    // 如果找到，返回对应的 Iterator
+    return it3->second;
+  } else {
+    // 如果未找到，返回 nullptr
+    fprintf(stdout, "Key: %s not foud in iter_map.\n", start_key.ToString().c_str());
+    return nullptr;
+  }
+}
+
+
 Iterator* DBImpl::NewIterator(const ReadOptions& options, const Slice& start_key) {
 
   SequenceNumber latest_snapshot;
   uint32_t seed;
-  
+  // PrintPartitions(mem_partitions_);
   int key_situation=Is_Overlap_HotRanges(start_key);
-  fprintf(stdout, "Key: %s\n situation:%d", start_key.data(), key_situation);
+  // fprintf(stdout, "Key: %s  situation:%d \n", start_key.data(), key_situation);
 
   uint64_t start_parent_partiton, start_sub_partition;
   if(key_situation==1){
@@ -3977,8 +4201,8 @@ Iterator* DBImpl::NewIterator(const ReadOptions& options, const Slice& start_key
       start_parent_partiton = (*it)->partition_num;
       auto it2 = (*it)->sub_partitions_.begin();
       start_sub_partition = (*it2)->partition_num;
-      fprintf(stdout, "Key: %s, start_parent_partiton: %lu (upper_bound begin) start_sub_partition %lu\n", 
-                current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+      // fprintf(stdout, "Key: %s, start_parent_partiton: %lu (upper_bound begin) start_sub_partition %lu\n", 
+      //           current_key_str.c_str(), start_parent_partiton, start_sub_partition);
     }else if(it==mem_partitions_.end()){
       it--;
       if((*it)->is_key_contains(current_key_str.c_str(),current_key_str.size())){
@@ -3987,10 +4211,10 @@ Iterator* DBImpl::NewIterator(const ReadOptions& options, const Slice& start_key
         auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
         it2--;
         start_sub_partition = (*it2)->partition_num;
-        fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound end)\n", 
-                    current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+        // fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound end)\n", 
+        //             current_key_str.c_str(), start_parent_partiton, start_sub_partition);
       }else{
-        fprintf(stdout, "Key: %s not in any partition.\n", current_key_str.c_str());
+        // fprintf(stdout, "Key: %s not in any partition.\n", current_key_str.c_str());
         return nullptr;
       }
     }else{
@@ -4000,19 +4224,19 @@ Iterator* DBImpl::NewIterator(const ReadOptions& options, const Slice& start_key
         auto it2 = (*it)->sub_partitions_.upper_bound(&temp_partition);
         it2--;
         start_sub_partition = (*it2)->partition_num;
-        fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (in middle partition)\n", 
-                    current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+        // fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (in middle partition)\n", 
+        //             current_key_str.c_str(), start_parent_partiton, start_sub_partition);
       }else{
         it++;
         start_parent_partiton = (*it)->partition_num;
         auto it2 = (*it)->sub_partitions_.begin();
         start_sub_partition = (*it2)->partition_num;
-        fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound middle)\n", 
-                    current_key_str.c_str(), start_parent_partiton, start_sub_partition);
+        // fprintf(stdout, "Key: %s, start_parent_partiton: %lu, start_sub_partition: %lu (upper_bound middle)\n", 
+        //             current_key_str.c_str(), start_parent_partiton, start_sub_partition);
       }
     }
   }else{
-    fprintf(stdout, "Key: %s is not in hot ranges.\n", start_key.ToString().c_str());
+    // fprintf(stdout, "Key: %s is in hot ranges.\n", start_key.ToString().c_str());
   }
 
   Iterator* iter = SinglePartitionNewInternalIterator(start_parent_partiton, start_sub_partition, options, &latest_snapshot, &seed);
@@ -4253,7 +4477,6 @@ Status DBImpl::Write(const WriteOptions& options, const Slice& key, const Slice&
 
       // write data into the memtable and hot memtable if it is hot data
       if (status.ok()) {
-        
         status = WriteBatchInternal::InsertInto(in_memory_batch, mem_, hot_mem_, options_.info_log, HotRanges);
       }
 
@@ -4707,6 +4930,250 @@ bool DBImpl::GetProperty_with_read(const Slice& property, std::string* value) {
 }
 
 
+Status DBImpl::RestoreHotRangesFromFile(const std::string& dbname_1){
+
+  std::string file_path = dbname_1 + "/MetaHotRange";
+  std::ifstream ifs(file_path);
+
+  if (!ifs) {
+    fprintf(stderr, "Error opening file for restoring hot ranges: %s!\n", file_path.c_str());
+    return leveldb::Status::NotFound("RangeFile not found");
+  }
+
+  nlohmann::json root = nlohmann::json::parse(ifs, nullptr, false);  // 解析时不抛出异常
+  if (root.is_discarded()) {
+    fprintf(stderr, "Error parsing JSON from %s: invalid JSON format.\n", file_path.c_str());
+    return Status::Corruption("Error parsing JSON: invalid format");
+  }
+
+  // 恢复每个 hot_range
+  HotRanges->hot_ranges_.clear();  // 清空原来的数据
+  for (const auto& hot_range_json : root["hot_ranges"]) {
+    std::string start_str = hot_range_json["start"];
+    std::string end_str = hot_range_json["end"];
+
+    hot_range r(start_str, end_str);
+    HotRanges->hot_ranges_.insert(r);
+  }
+
+  // 恢复 largest_intensity_range
+  if (root.contains("largest_intensity_range")) {
+    std::string start_str = root["largest_intensity_range"]["start"];
+    std::string end_str = root["largest_intensity_range"]["end"];
+    HotRanges->largest_intensity_range = new hot_range(start_str, end_str);
+  }
+
+  // 恢复 min_max_range
+  if (root.contains("min_max_range")) {
+    std::string start_str = root["min_max_range"]["start"];
+    std::string end_str = root["min_max_range"]["end"];
+    HotRanges->min_max_range = new hot_range(start_str, end_str);
+  }
+
+  ifs.close();
+  fprintf(stderr, "Hot ranges restored from %s\n", file_path.c_str());
+  return Status::OK();
+}
+
+
+Status DBImpl::RestoreMemPartitionsFromFile(const std::string& dbname_1) {
+  // 使用 dbname 来构建文件路径
+  std::string file_path = dbname_1 + "/MetaPartition";
+
+  // 打开文件进行读取
+  std::ifstream ifs(file_path);
+  if (!ifs.is_open()) {
+    // fprintf(stderr,"Error opening file for restoring mem partitions:: %s !\n", file_path.c_str());
+    return Status::IOError("Error opening file for restoring mem partitions");
+  }
+
+    // 解析 JSON 数据
+  nlohmann::json root = nlohmann::json::parse(ifs, nullptr, false);  // 解析时不抛出异常
+  if (root.is_discarded()) {
+    fprintf(stderr, "Error parsing JSON from %s: invalid JSON format.\n", file_path.c_str());
+    return Status::Corruption("Error parsing JSON: invalid format");
+  }
+
+  mem_partitions_.clear();  // 清空现有的 mem_partitions_
+
+  // 遍历 JSON 数据恢复分区
+  for (const auto& partition_json : root["partitions"]) {
+    mem_partition_guard* partition = new mem_partition_guard();
+
+    // 恢复 partition 的基本信息
+    partition->partition_num = partition_json["partition_num"].get<uint64_t>();
+    partition->partition_start_str = partition_json["partition_start"].get<std::string>();
+    partition->partition_end_str = partition_json["partition_end"].get<std::string>();
+    partition->partition_start = Slice(partition->partition_start_str);
+    partition->partition_end = Slice(partition->partition_end_str);
+    partition->written_kvs = partition_json["written_kvs"].get<uint64_t>();
+    partition->total_file_size = partition_json["total_file_size"].get<uint64_t>();
+    partition->min_file_size = partition_json["min_file_size"].get<uint64_t>();
+    partition->total_files = partition_json["total_files"].get<uint64_t>();
+    partition->is_true_end = partition_json["is_true_end"].get<bool>();
+
+    // 恢复 sub_partitions
+    for (const auto& sub_partition_json : partition_json["sub_partitions"]) {
+      mem_partition_guard* sub_partition = new mem_partition_guard();
+      sub_partition->partition_num = sub_partition_json["partition_num"].get<uint64_t>();
+      sub_partition->partition_start_str = sub_partition_json["partition_start"].get<std::string>();
+      sub_partition->partition_end_str = sub_partition_json["partition_end"].get<std::string>();
+      sub_partition->partition_start = Slice(sub_partition->partition_start_str);
+      sub_partition->partition_end = Slice(sub_partition->partition_end_str);
+      sub_partition->written_kvs = sub_partition_json["written_kvs"].get<uint64_t>();
+      sub_partition->total_file_size = sub_partition_json["total_file_size"].get<uint64_t>();
+      sub_partition->min_file_size = sub_partition_json["min_file_size"].get<uint64_t>();
+      sub_partition->total_files = sub_partition_json["total_files"].get<uint64_t>();
+      sub_partition->is_true_end = sub_partition_json["is_true_end"].get<bool>();
+
+      // 插入子分区到主分区
+      partition->sub_partitions_.insert(sub_partition);
+    }
+
+    // 插入主分区到 mem_partitions_
+    mem_partitions_.insert(partition);
+  }
+
+  ifs.close();
+  PrintPartitions(mem_partitions_);
+  fprintf(stderr, "Mem partitions restored from %s\n", file_path.c_str());
+  return Status::OK();
+}
+
+
+void DBImpl::SaveMemPartitionsToFile() {
+
+  std::string file_path = dbname_ + "/MetaPartition";
+
+  // 打开文件以二进制模式写入
+  std::ofstream ofs(file_path, std::ios::binary);
+  if (!ofs) {
+    fprintf(stderr,"Error opening file for saving mem partitions: %s! \n", file_path.c_str()); 
+    return;
+  }
+
+
+
+  // 写入开头的 JSON 格式
+  ofs << "{\n";
+  ofs << "  \"partitions\": [\n";
+
+    bool first_partition = true;
+    for (const auto& partition_guard : mem_partitions_) {
+        if (!first_partition) {
+            ofs << ",\n";  // 在每个分区后添加逗号
+        }
+        first_partition = false;
+
+        const mem_partition_guard* partition = partition_guard;
+
+        // 写入 partition 的基本信息
+        ofs << "    {\n";
+        ofs << "      \"partition_num\": " << partition->partition_num << ",\n";
+        ofs << "      \"partition_start\": \"" << partition->partition_start.ToString() << "\",\n";
+        ofs << "      \"partition_end\": \"" << partition->partition_end.ToString() << "\",\n";
+        ofs << "      \"written_kvs\": " << partition->written_kvs << ",\n";
+        ofs << "      \"total_file_size\": " << partition->total_file_size << ",\n";
+        ofs << "      \"min_file_size\": " << partition->min_file_size << ",\n";
+        ofs << "      \"total_files\": " << partition->total_files << ",\n";
+        ofs << "      \"is_true_end\": " << (partition->is_true_end ? "true" : "false") << ",\n";
+        ofs << "      \"sub_partitions\": [\n";
+
+        bool first_sub_partition = true;
+        for (const auto& sub_partition_guard : partition->sub_partitions_) {
+            if (!first_sub_partition) {
+                ofs << ",\n";  // 在每个子分区后添加逗号
+            }
+            first_sub_partition = false;
+
+            const mem_partition_guard* sub_partition = sub_partition_guard;
+
+            // 写入 sub_partition 的信息
+            // 写入 sub_partition 的详细信息
+            ofs << "        {\n";
+            ofs << "          \"partition_num\": " << sub_partition->partition_num << ",\n";
+            ofs << "          \"partition_start\": \"" << sub_partition->partition_start.ToString() << "\",\n";
+            ofs << "          \"partition_end\": \"" << sub_partition->partition_end.ToString() << "\",\n";
+            ofs << "          \"written_kvs\": " << sub_partition->written_kvs << ",\n";
+            ofs << "          \"total_file_size\": " << sub_partition->total_file_size << ",\n";
+            ofs << "          \"min_file_size\": " << sub_partition->min_file_size << ",\n";
+            ofs << "          \"total_files\": " << sub_partition->total_files << ",\n";
+            ofs << "          \"is_true_end\": " << (sub_partition->is_true_end ? "true" : "false") << "\n";
+            ofs << "        }";
+        }
+
+        ofs << "\n      ]\n";
+        ofs << "    }";
+    }
+
+    ofs << "\n  ]\n";
+    ofs << "}\n";
+
+    ofs.close();  
+}
+
+void DBImpl::SaveHotRangesToFile() {
+
+  // 定义保存文件路径
+    std::string file_path = dbname_ + "/MetaHotRange";
+
+    // 打开文件以二进制模式写入
+    std::ofstream ofs(file_path, std::ios::binary);
+    if (!ofs) {
+        fprintf(stderr, "Error opening file for saving hot ranges: %s\n", file_path.c_str());
+        return;
+    }
+
+    // 写入开头的 JSON 格式
+    ofs << "{\n";
+    ofs << "  \"hot_ranges\": [\n";
+
+    bool first_hot_range = true;
+    // 遍历 hot_ranges 并写入每个区间的 start 和 end 信息
+    for (const auto& hot_range : HotRanges->hot_ranges_) {
+        if (!first_hot_range) {
+            ofs << ",\n";  // 在每个热区间后添加逗号
+        }
+        first_hot_range = false;
+
+        // 写入当前 hot_range 的 start 和 end
+        ofs << "    {\n";
+        ofs << "      \"start\": \"" << std::string(hot_range.start_ptr, hot_range.start_size) << "\",\n";
+        ofs << "      \"end\": \"" << std::string(hot_range.end_ptr, hot_range.end_size) << "\"\n";
+        ofs << "    }";
+    }
+
+    ofs << "\n  ],\n";
+
+    // 存储 largest_intensity_range
+    if (HotRanges->largest_intensity_range != nullptr) {
+        ofs << "  \"largest_intensity_range\": {\n";
+        ofs << "    \"start\": \"" << std::string(HotRanges->largest_intensity_range->start_ptr,
+                                               HotRanges->largest_intensity_range->start_size) << "\",\n";
+        ofs << "    \"end\": \"" << std::string(HotRanges->largest_intensity_range->end_ptr,
+                                               HotRanges->largest_intensity_range->end_size) << "\"\n";
+        ofs << "  },\n";
+    }
+
+    // 存储 min_max_range
+    if (HotRanges->min_max_range != nullptr) {
+        ofs << "  \"min_max_range\": {\n";
+        ofs << "    \"start\": \"" << std::string(HotRanges->min_max_range->start_ptr,
+                                               HotRanges->min_max_range->start_size) << "\",\n";
+        ofs << "    \"end\": \"" << std::string(HotRanges->min_max_range->end_ptr,
+                                               HotRanges->min_max_range->end_size) << "\"\n";
+        ofs << "  }\n";
+    }
+
+    // 结束 JSON 格式
+    ofs << "}\n";
+
+    // 关闭文件
+    ofs.close();
+}
+
+
+
 
 void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
   // TODO(opt): better implementation
@@ -4773,10 +5240,17 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->log_ = new log::Writer(lfile);
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
-      impl->hot_mem_ = new MemTable(impl->internal_comparator_);
-      impl->hot_mem_->Ref();
+      
     }
   }
+
+  if (s.ok() && impl->hot_mem_ == nullptr){
+    impl->hot_mem_ = new MemTable(impl->internal_comparator_);
+    impl->hot_mem_->Ref();
+  }
+  
+
+
   if (s.ok() && save_manifest) {
     edit.SetPrevLogNumber(0);  // No older logs needed after recovery.
     edit.SetLogNumber(impl->logfile_number_);
@@ -4796,8 +5270,8 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
 
   // //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // std::fprintf(stdout,"Test start!\n");
-  impl->batch_load_keys_from_CSV(impl->hot_file_path, impl->percentagesStr);
-  impl->initialize_level_hotcoldstats();
+  // impl->batch_load_keys_from_CSV(impl->hot_file_path, impl->percentagesStr);
+  // impl->initialize_level_hotcoldstats();
   // // impl->test_hot_keys();
   // std::fprintf(stdout,"Test over!\n");
   // // exit(0);

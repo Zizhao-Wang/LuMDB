@@ -53,7 +53,9 @@ class DBImpl : public DB {
   Status Write(const WriteOptions& options, const Slice& key, const Slice& value) override;
   Status Get(const ReadOptions& options, const Slice& key,
              std::string* value) override;
+
   Iterator* NewIterator(const ReadOptions&) override;
+  std::map<uint64_t, Iterator*> NewMultiIterator(const ReadOptions&) override;
 
   Iterator* NewIterator(const ReadOptions&, const Slice&) override;
 
@@ -264,8 +266,19 @@ class DBImpl : public DB {
   Iterator* NewInternalIterator(const ReadOptions&,
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
+
+  Iterator* NewTieringInternalIterator(const ReadOptions&,
+                                SequenceNumber* latest_snapshot,
+                                uint32_t* seed);                              
   
-    Iterator* SinglePartitionNewInternalIterator(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions&,
+
+  Iterator* FindIteratorByKey(const std::map<uint64_t, Iterator*>& iter_map, const Slice& key);
+
+  std::map<uint64_t, Iterator*> NewMultiInternalIterator(const ReadOptions&,
+                                SequenceNumber* latest_snapshot,
+                                uint32_t* seed);
+  
+  Iterator* SinglePartitionNewInternalIterator(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions&,
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
 
@@ -450,6 +463,15 @@ class DBImpl : public DB {
   std::map<uint64_t, bool> partition_first_L0flush_map_;
 
   int hot_key_threshold;
+
+
+  Status RestoreHotRangesFromFile(const std::string& dbname_);
+
+  Status RestoreMemPartitionsFromFile(const std::string& dbname_);
+
+  void SaveMemPartitionsToFile();
+
+  void SaveHotRangesToFile();
 
   // ==== End of modified code ====
 

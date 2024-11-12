@@ -1,0 +1,59 @@
+LevelDB:    version 1.23
+Date:       Sun Nov 10 21:23:17 2024
+CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
+CPUCache:   39424 KB
+open dbs:in Open()
+entering db_impl.cc:/mnt/hotdb_test/level10B/read_mem1_1.4
+initialize 0 objects(LevelHotColdStats) for 7 levels
+../../../leveldb/release/db_bench --db=/mnt/hotdb_test/level10B/read_mem1_1.4 --num=10000000 --value_size=128 --batch_size=1000 --benchmarks=readrange,stats --data_file=/home/jeff-wang/workloads/zipf1.4_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --use_existing_db=true --log=1 --reads=1000 --cache_size=8388608 --RangeRead_data_file=/home/jeff-wang/workloads/zipf1.4_random_select_1000_read_keys.csv --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage_10B_key16_val128.log --open_files=40000 --range_query_length=30 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    10000000
+RawSize:    1373.3 MB (estimated)
+FileSize:   762.9 MB (estimated)
+WARNING: Optimization is disabled: benchmarks unnecessarily slow
+WARNING: Assertions are enabled; benchmarks unnecessarily slow
+WARNING: Snappy compression is not enabled
+some command parameters have been selected:
+  threads: 1
+  duration: 0
+  print_wa: 1
+  num_entries: 10000000
+  bechmark selected readrange,stats
+  hot_file_path: 
+  data_file_path: /home/jeff-wang/workloads/zipf1.4_keys10.0B.csv
+  percentages: 
+------------------------------------------------
+1000 operations have been finished (0.000 MB data have been written into db)
+readrange    :     113.094 micros/op 8842 ops/sec; (1000 of 1000 found)
+Microseconds per op:
+Count: 1000  Average: 113.0750  StdDev: 1466.09
+Percentiles: P50: 53.37 P75: 79.49 P99: 237.50 P99.9: 45000.00 P99.99: 46410.00
+------------------------------------------------------
+[      20,      25 )      27   2.700%   2.700% #
+[      25,      30 )      80   8.000%  10.700% ##
+[      30,      35 )      90   9.000%  19.700% ##
+[      35,      40 )     117  11.700%  31.400% ##
+[      40,      45 )      71   7.100%  38.500% #
+[      45,      50 )      80   8.000%  46.500% ##
+[      50,      60 )     104  10.400%  56.900% ##
+[      60,      70 )      88   8.800%  65.700% ##
+[      70,      80 )      98   9.800%  75.500% ##
+[      80,      90 )      70   7.000%  82.500% #
+[      90,     100 )      54   5.400%  87.900% #
+[     100,     120 )      35   3.500%  91.400% #
+[     120,     140 )      31   3.100%  94.500% #
+[     140,     160 )      25   2.500%  97.000% #
+[     160,     180 )       6   0.600%  97.600% 
+[     180,     200 )       8   0.800%  98.400% 
+[     200,     250 )       8   0.800%  99.200% 
+[     250,     300 )       1   0.100%  99.300% 
+[     450,     500 )       1   0.100%  99.400% 
+[     500,     600 )       2   0.200%  99.600% 
+[     600,     700 )       1   0.100%  99.700% 
+[     700,     800 )       1   0.100%  99.800% 
+[    1000,    1200 )       1   0.100%  99.900% 
+[   45000,   50000 )       1   0.100% 100.000% 
+
+entering io_statistics1
+db_bench: /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/db/version_set.cc:811: leveldb::VersionSet::~VersionSet(): Assertion `dummy_versions_.next_ == &dummy_versions_' failed.

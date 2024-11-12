@@ -6,7 +6,7 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
-Mem=64
+Mem=32
 Mem_size_bytes=$((Mem * 1048576))
 
 
@@ -39,7 +39,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.4; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.3; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem${Mem}MB_zipf${zipf_a}.log"

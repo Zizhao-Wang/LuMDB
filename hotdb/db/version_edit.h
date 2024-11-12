@@ -170,12 +170,6 @@ class VersionEdit {
   friend class VersionSet;
 
   typedef std::set<std::pair<int, uint64_t>> DeletedFileSet;
-  
-  typedef std::tuple<int, int, uint64_t> DeletedTieringFileTuple;
-  typedef std::set<DeletedTieringFileTuple> DeletedTieringFileSet;
-
-  typedef std::tuple<int, uint64_t, uint64_t> DeletedPartitionLevelingFileTuple;
-  typedef std::set<DeletedPartitionLevelingFileTuple> DeletedPartitionLevelFileSet;
 
   std::string comparator_;
   uint64_t log_number_;
@@ -197,17 +191,18 @@ class VersionEdit {
 
   DeletedFileSet deleted_files_;
 
+  std::vector<std::pair<int, FileMetaData>> new_files_;
 
   // ==== Start of modified code ====
 
-
-
-  std::vector<std::pair<int, FileMetaData>> new_files_;
-
+  typedef std::tuple<int, uint64_t, uint64_t> DeletedPartitionLevelingFileTuple;
+  typedef std::set<DeletedPartitionLevelingFileTuple> DeletedPartitionLevelFileSet;
   std::vector<std::tuple<int,uint64_t, FileMetaData>> new_partitioning_files_;
   DeletedPartitionLevelFileSet deleted_partitioning_files_;
 
   std::vector<std::tuple<int, int, FileMetaData>> new_tiering_files;
+  typedef std::tuple<int, int, uint64_t> DeletedTieringFileTuple;
+  typedef std::set<DeletedTieringFileTuple> DeletedTieringFileSet;
   DeletedTieringFileSet deleted_tiering_files_;
 
   bool is_tiering_edit;

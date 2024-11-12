@@ -108,6 +108,8 @@ DEFINE_string(data_file, "", "Use the db with the following name.");
 
 DEFINE_string(Read_data_file, "", "Use the db with the following name.");
 
+DEFINE_string(RangeRead_data_file, "", "Use the db with the following name.");
+
 DEFINE_int64(No_hot_percentage, 0, "");
 
 DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
@@ -127,6 +129,8 @@ DEFINE_int32(prefix_length, 16,
 DEFINE_int64(reads, -1, "");
 
 DEFINE_int64(ycsb_ops_num, 1000000, "YCSB operations num");
+
+DEFINE_int64(range_query_length, -1, "range query length");
 
 // YCSB workload type
 static leveldb::YCSBLoadType FLAGS_ycsb_type = leveldb::kYCSB_A;
@@ -1109,6 +1113,9 @@ class Benchmark {
       } else if (name == Slice("fillzipf")) {
         fresh_db = true;
         method = &Benchmark::WriteZipf;
+      } else if (name == Slice("fillzipf2")) {
+        fresh_db = true;
+        method = &Benchmark::WriteZipf2;
       } else if (name == Slice("filletc")) {
         fresh_db = true;
         method = &Benchmark::WriteRandom_from_file;
@@ -1131,6 +1138,8 @@ class Benchmark {
         method = &Benchmark::ReadReverse;
       } else if (name == Slice("readrandom")) {
         method = &Benchmark::ReadRandom;
+      } else if (name == Slice("readrange")) {
+        method = &Benchmark::range_query_read;
       } else if (name == Slice("readmissing")) {
         method = &Benchmark::ReadMissing;
       } else if (name == Slice("seekrandom")) {
@@ -1371,6 +1380,9 @@ class Benchmark {
 
   void WriteZipf(ThreadState* thread) { DoWrite_zipf2(thread, false); }
 
+
+  void WriteZipf2(ThreadState* thread) { DoWrite_zipf3(thread, false); }
+
   void WriteRandom_from_file(ThreadState* thread) {
     DoWrite2(thread, false);
   }
@@ -1541,7 +1553,7 @@ class Benchmark {
     thread->stats.AddBytes(bytes);
   }
 
-    void DoWrite_zipf2(ThreadState* thread, bool seq) {
+  void DoWrite_zipf2(ThreadState* thread, bool seq) {
     
     if (num_ != FLAGS_num) {
       char msg[100];
@@ -1611,6 +1623,135 @@ class Benchmark {
       }
     }
     thread->stats.AddBytes(bytes);
+  }
+
+
+  void DoWrite_zipf3(ThreadState* thread, bool seq) {
+    
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in zipf2\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+    assert(FLAGS_No_hot_percentage != -1);
+    std::fprintf(stdout, "start benchmarking num_ = %ld entries in DoWrite_zipf2()\n", num_);
+    uint64_t total_ops = 0;
+    for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        if (!std::getline(csv_file, line)) { 
+          fprintf(stderr, "Error reading key from file\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 1) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+        const uint64_t k = std::stoull(row_data[0]);
+        thread->stats.Addops(db_);
+        if(k <= FLAGS_No_hot_percentage){
+          continue;
+        }
+        // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+        char key[100];
+        snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+        batch.Put(key, gen.Generate(value_size_));
+        bytes += value_size_ + strlen(key);
+        if(thread->stats.real_ops % FLAGS_stats_interval == 0 ){
+          // fprintf(stderr,"real_ops : %lu\n",thread->stats.real_ops);
+          thread->stats.AddBytes(bytes);
+          bytes = 0;
+        }
+        thread->stats.FinishedSingleOp();
+        // thread->stats.FinishedSingleOp(db_);
+      }
+      s = db_->Write(write_options_, &batch);
+      if (!s.ok()) {
+        std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+        std::exit(1);
+      }
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
+
+  void range_query_read(ThreadState* thread) {
+
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+    variable_Buffer Key;
+    Iterator* iter = db_->NewIterator(options);
+
+    std::ifstream csv_file(FLAGS_RangeRead_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in range_query_read\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    uint64_t seek_length = FLAGS_range_query_length;
+
+    for (int i = 0; i < reads_; i++) {
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
+      }
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
+      const uint64_t k = std::stoull(row_data[0]);
+      Key.Set(k);
+      iter->Seek(Key.slice());
+      if (iter->Valid() && iter->key() == Key.slice()) found++;
+      while (seek_length--){
+        // fprintf(stdout,"Searched Key is: %s \n", iter->key().data());
+        iter->Next();
+      }
+      seek_length = FLAGS_range_query_length;
+      thread->stats.FinishedSingleOp();
+    }
+    
+    char msg[100];
+    std::snprintf(msg, sizeof(msg), "(%d of %ld found)", found, reads_);
+    thread->stats.AddMessage(msg);
   }
 
   void ReadSequential(ThreadState* thread) {

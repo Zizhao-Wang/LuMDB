@@ -81,6 +81,8 @@ class Version {
   // REQUIRES: This version has been saved (see VersionSet::SaveTo)
   void AddIterators(const ReadOptions&, std::vector<Iterator*>* iters);
 
+  void AddTieringIterators(const ReadOptions&, std::vector<Iterator*>* iters);
+
 
   void AddIterators(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions&, std::vector<Iterator*>* iters);
 
@@ -188,6 +190,8 @@ class Version {
   ~Version();
 
   Iterator* NewConcatenatingIterator(const ReadOptions&, int level) const;
+
+  Iterator* NewTieringConcatenatingIterator(const ReadOptions&, int level, int run) const;
 
   Iterator* NewPartitionConcatenatingIterator(uint64_t partition_number, const ReadOptions&, int level) const;
 

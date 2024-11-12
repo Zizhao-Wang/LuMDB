@@ -2143,6 +2143,24 @@ class ModelDB : public DB {
     }
   }
 
+  Iterator* FindIteratorByKey(const std::map<uint64_t, Iterator*>& iter_map, const Slice& key){
+    return nullptr;
+  }
+
+  std::map<uint64_t, Iterator*> NewMultiIterator(const ReadOptions& options) override {
+    // if (options.snapshot == nullptr) {
+    //   KVMap* saved = new KVMap;
+    //   *saved = map_;
+    //   return new ModelIter(saved, true);
+    // } else {
+    //   const KVMap* snapshot_state =
+    //       &(reinterpret_cast<const ModelSnapshot*>(options.snapshot)->map_);
+    //   return new ModelIter(snapshot_state, false);
+    // }
+    std::map<uint64_t, Iterator*> a64;
+    return a64;
+  }
+
   Iterator* NewIterator(const ReadOptions& options, const Slice&) override {
     if (options.snapshot == nullptr) {
       KVMap* saved = new KVMap;

@@ -243,7 +243,7 @@ DEFINE_int32(rwdelay, 10, "delay in us");
 DEFINE_int32(sleep, 100, "sleep for write in readwhilewriting2");
 DEFINE_int64(report_interval, 20, "report time interval");
 
-
+static std::vector<uint64_t> ycsb_insertion_sequence;
 
 
 namespace leveldb {
@@ -1089,7 +1089,7 @@ class Benchmark {
     PrintHeader();
     // std::fprintf(stderr,"open dbs in Run()\n");
     // fflush(stderr);
-    // Open();
+    Open();
 
     const char* benchmarks = FLAGS_benchmarks.c_str();
     while (benchmarks != nullptr) {
@@ -1133,7 +1133,10 @@ class Benchmark {
       } else if (name == Slice("fillzipf")) {
         fresh_db = true;
         method = &Benchmark::WriteZipf;
-      } else if (name == Slice("filletc")) {
+      } else if (name == Slice("fillzipf2")) {
+        fresh_db = true;
+        method = &Benchmark::WriteZipf2;
+      }else if (name == Slice("filletc")) {
         fresh_db = true;
         method = &Benchmark::WriteRandom_from_file;
       }else if (name == Slice("overwrite")) {
@@ -1156,7 +1159,7 @@ class Benchmark {
       } else if (name == Slice("pointread")) {
         method = &Benchmark::point_query_read;
       } else if (name == Slice("rangeread")) {
-        method = &Benchmark::range_query_read;
+        method = &Benchmark::range_query;
       }else if (name == Slice("readrandom")) {
         method = &Benchmark::ReadRandom;
       } else if (name == Slice("readmissing")) {
@@ -1191,6 +1194,24 @@ class Benchmark {
         method = &Benchmark::ZstdUncompress;
       } else if (name == Slice("heapprofile")) {
         HeapProfile();
+      }  else if (name == Slice("ycsba")) {
+        FLAGS_ycsb_type = kYCSB_A;
+        method = &Benchmark::YCSB;
+      } else if (name == Slice("ycsbb")) {
+        FLAGS_ycsb_type = kYCSB_B;
+        method = &Benchmark::YCSB;
+      } else if (name == Slice("ycsbc")) {
+        FLAGS_ycsb_type = kYCSB_C;
+        method = &Benchmark::YCSB;
+      } else if (name == Slice("ycsbd")) {
+        FLAGS_ycsb_type = kYCSB_D;
+        method = &Benchmark::YCSB;
+      } else if (name == Slice("ycsbe")) {
+        FLAGS_ycsb_type = kYCSB_E;
+        method = &Benchmark::YCSB;
+      } else if (name == Slice("ycsbf")) {
+        FLAGS_ycsb_type = kYCSB_F;
+        method = &Benchmark::YCSB;
       } else if (name == Slice("stats")) {
         PrintStats("leveldb.stats");
       } else if (name == Slice("sstables")) {
@@ -1219,8 +1240,11 @@ class Benchmark {
 
       if (method != nullptr) {
         RunBenchmark(num_threads, name, method);
-        if(method == &Benchmark::WriteZipf){
-          RunBenchmark(num_threads, Slice("pointread"), &Benchmark::point_query_read);
+        // if(method == &Benchmark::WriteZipf2){
+        //   RunBenchmark(num_threads, Slice("pointread"), &Benchmark::point_query_read);
+        // }
+        if(method == &Benchmark::WriteZipf2){
+          RunBenchmark(num_threads, Slice("rangeread"), &Benchmark::range_query);
         }
       }
     }
@@ -1356,6 +1380,88 @@ class Benchmark {
         &port::Zstd_Uncompress);
   }
 
+
+  void YCSB(ThreadState* thread) {
+    Trace* ycsb_selector = nullptr;
+    if (FLAGS_ycsb_type == kYCSB_D) {      
+      // use exponential distribution as selector to select more on front index
+      ycsb_selector = new TraceExponential(kYCSB_LATEST_SEED + thread->tid * 996, 50, FLAGS_num);
+    }
+    else {
+      ycsb_selector = new TraceUniform(kYCSB_SEED + FLAGS_ycsb_type * 333 + thread->tid * 996);
+    }
+
+    std::vector<YCSB_Op> ycsb_ops = YCSB_LoadGenerate(FLAGS_num, FLAGS_ycsb_ops_num, FLAGS_ycsb_type, ycsb_selector, ycsb_insertion_sequence);
+    Status s;
+    uint64_t len = FLAGS_ycsb_ops_num;
+    if (FLAGS_ycsb_type == kYCSB_E) {
+      len = len / 4;
+    }
+    int64_t bytes = 0;
+
+    thread->stats.Start();
+    uint64_t found = 0;
+    uint64_t total_ops = 0;
+    std::string ovalue;
+    for (uint64_t i = 0; i < len; ++i) {
+      total_ops++;
+      Slice ivalue = thread->gen.Generate(value_size_);
+      bool op_res = YCSBOperation(ycsb_ops[i], ivalue, &ovalue);
+      if ((ycsb_ops[i].type == kYCSB_Read || ycsb_ops[i].type == kYCSB_ReadModifyWrite || ycsb_ops[i].type == kYCSB_Query) && op_res) {
+        found++;
+      }
+      bytes += ycsb_ops[i].type == kYCSB_Query ? (value_size_  + 16) * FLAGS_seek_nexts : (value_size_  + 16);
+      thread->stats.FinishedSingleOp();
+    } 
+    thread->stats.AddBytes(bytes);
+    
+    char msg[100];
+    snprintf(msg, sizeof(msg), "(%lu of %lu found)", found, total_ops);
+    thread->stats.AddMessage(msg);
+  }
+
+  bool YCSBOperation(const YCSB_Op& operation, const Slice& ivalue, std::string* ovalue) {
+    static ReadOptions roption;
+    static WriteOptions woption;
+    static TraceUniform seekrnd(333, 1, 100);
+    bool res = false;
+    char key[100];
+    char value_buffer[256];
+    snprintf(key, sizeof(key), "%016llu", (unsigned long long)operation.key);
+    if (operation.type == kYCSB_Write) {
+      res = db_->Put(woption,key, ivalue).ok();
+    } else if (operation.type == kYCSB_Read) {
+      res = db_->Get(roption, key, ovalue).ok();
+    } else if (operation.type == kYCSB_Query) {
+      auto* iter = db_->NewIterator(roption);
+      iter->Seek(key);
+      if (iter->Valid()) {
+        if (iter->key() == key) {
+	    		  res = true;
+        }
+        int seeks = FLAGS_seek_nexts * (seekrnd.Next() / 100.0);
+        for (int j = 0; j < seeks && iter->Valid(); j++) {
+            // Copy out iterator's value to make sure we read them.
+            Slice value = iter->value();
+            memcpy(value_buffer, value.data(),
+            std::min(value.size(), sizeof(value_buffer)));
+            iter->Next();
+        }
+      }
+      delete iter;
+      iter = nullptr;
+    } else if (operation.type == kYCSB_ReadModifyWrite) {
+        res = db_->Get(roption, key, ovalue).ok();
+        if (res) {
+          db_->Put(woption, key, ivalue);
+        }
+    }
+
+    return res;
+  }
+
+
+
   void Open() {
     assert(db_ == nullptr);
     Options options;
@@ -1401,6 +1507,8 @@ class Benchmark {
   void WriteRandom(ThreadState* thread) { DoWrite3(thread, false); }
 
   void WriteZipf(ThreadState* thread) { DoWrite_zipf3(thread, false); }
+
+  void WriteZipf2(ThreadState* thread) { DoWrite_zipf4(thread, false); }
 
   void WriteRandom_from_file(ThreadState* thread) {
     DoWrite2(thread, false);
@@ -1777,8 +1885,73 @@ class Benchmark {
       }
     }
     thread->stats.AddBytes(bytes);
+  }
 
-    point_query_read(thread);
+
+  void DoWrite_zipf4(ThreadState* thread, bool seq) {
+    
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in zipf2\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch\n", entries_per_batch_);
+
+    for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+          line_stream.clear();
+          line_stream.str("");
+          row_data.clear();
+          // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+          if (!std::getline(csv_file, line)) { // 从文件中读取一行
+              fprintf(stderr, "Error reading key from file\n");
+              return;
+          }
+          line_stream << line;
+          while (getline(line_stream, cell, ',')) {
+              row_data.push_back(cell);
+          }
+          if (row_data.size() != 1) {
+              fprintf(stderr, "Invalid CSV row format\n");
+              continue;
+          }
+          const uint64_t k = std::stoull(row_data[0]);
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          s = db_->Batch_Put(write_options_, key, gen.Generate(value_size_));
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+          bytes += value_size_ + strlen(key);
+          if(thread->stats.done_ % FLAGS_stats_interval == 0){
+            thread->stats.AddBytes(bytes);
+            bytes = 0;
+          }
+          thread->stats.FinishedSingleOp(db_);
+      }
+    }
+    thread->stats.AddBytes(bytes);
   }
 
   void ReadSequential(ThreadState* thread) {
@@ -1878,6 +2051,69 @@ class Benchmark {
     thread->stats.AddMessage(msg);
   }
 
+
+  void range_query(ThreadState* thread) {
+
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+    int not_found=0;
+    variable_Buffer Key;
+    std::map<uint64_t, Iterator*> iter_map = db_->NewMultiIterator(options);
+
+    std::ifstream csv_file(FLAGS_RangeRead_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+      fprintf(stderr,"Unable to open CSV file in range_query\n");
+      return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    uint64_t seek_length = FLAGS_range_query_length;
+    Iterator* current_iter = nullptr;
+    Iterator* current_Tiering_iter = nullptr;
+
+    for (int i = 0; i < reads_; i++) {
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
+      }
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
+      const uint64_t k = std::stoull(row_data[0]);
+      Key.Set(k);
+      current_iter = db_->FindIteratorByKey(iter_map, Key.slice());
+      if(current_iter != nullptr){
+        current_iter->Seek(Key.slice());
+        if (current_iter->Valid() && current_iter->key() == Key.slice()) found++;
+        while (seek_length--){
+          // fprintf(stdout,"Searched Key is: %s \n", current_iter->key().data());
+          current_iter->Next();
+        }
+      }else{
+        not_found++;
+      }
+      seek_length = FLAGS_range_query_length;
+      thread->stats.FinishedSingleOp3(db_);
+    }
+    char msg[100];
+    std::snprintf(msg, sizeof(msg), "(%d of %d found), %d not found in DBs", found, reads_, not_found);
+    thread->stats.AddMessage(msg);
+  }
+
   void range_query_read(ThreadState* thread) {
 
     ReadOptions options;
@@ -1888,7 +2124,7 @@ class Benchmark {
     std::ifstream csv_file(FLAGS_RangeRead_data_file);
     std::string line;
     if (!csv_file.is_open()) {
-        fprintf(stderr,"Unable to open CSV file in point_query_read\n");
+        fprintf(stderr,"Unable to open CSV file in range_query_read\n");
         return;
     }
     std::getline(csv_file, line);
@@ -1921,9 +2157,10 @@ class Benchmark {
       Iterator* iter = db_->NewIterator(options, Key.slice());
       iter->Seek(Key.slice());
       while (seek_length--){
+        fprintf(stdout,"Searched Key is: %s \n", iter->key().data());
         iter->Next();
       }
-
+      seek_length = FLAGS_range_query_length;
     }
   
     thread->stats.FinishedSingleOp3(db_);

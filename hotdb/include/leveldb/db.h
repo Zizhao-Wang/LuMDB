@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <map>
 
 #include "leveldb/export.h"
 #include "leveldb/iterator.h"
@@ -103,6 +104,10 @@ class LEVELDB_EXPORT DB {
   // Caller should delete the iterator when it is no longer needed.
   // The returned iterator should be deleted before this db is deleted.
   virtual Iterator* NewIterator(const ReadOptions& options) = 0;
+
+  virtual std::map<uint64_t, Iterator*> NewMultiIterator(const ReadOptions& options) = 0;
+
+  virtual Iterator* FindIteratorByKey(const std::map<uint64_t, Iterator*>& iter_map, const Slice& key)=0;
 
 
   virtual Iterator* NewIterator(const ReadOptions& options, const Slice& key) = 0;
