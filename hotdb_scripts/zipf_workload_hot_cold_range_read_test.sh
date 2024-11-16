@@ -43,7 +43,7 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000
 
-            for zipf_a in 1.5; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.4; do  # 1.2 1.3 1.4 1.5
 
                 log_file="LuMDB_Range_Query${Query_length}_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 reads_data_file="/home/jeff-wang/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
@@ -83,7 +83,9 @@ for i in {10..10}; do
                 --compression=0 \
                 --stats_interval=$stats_interva \
                 --histogram=1 \
-                --print_wa=true 
+                --print_wa=true \ 
+                &> >( tee $log_file) &  
+
             done
         done
 done

@@ -16,20 +16,38 @@ namespace leveldb {
 // cache locality.
 class IteratorWrapper {
  public:
-  IteratorWrapper() : iter_(nullptr), valid_(false) {}
+  IteratorWrapper() : iter_(nullptr), valid_(false) {
+    // fprintf(stdout, "IteratorWrapper: Created with null iterator.\n");
+  }
+
   explicit IteratorWrapper(Iterator* iter) : iter_(nullptr) { Set(iter); }
-  ~IteratorWrapper() { delete iter_; }
+
+  ~IteratorWrapper() { 
+      if (iter_ != nullptr) {
+        // fprintf(stdout, "IteratorWrapper: Deleting iterator at address %p, iter_: %p.\n", this, iter_);
+        delete iter_; 
+      } else {
+        // fprintf(stdout, "IteratorWrapper: Destructing with null iterator.\n");
+      }
+    }
+
   Iterator* iter() const { return iter_; }
+
 
   // Takes ownership of "iter" and will delete it when destroyed, or
   // when Set() is invoked again.
   void Set(Iterator* iter) {
-    delete iter_;
+    if (iter_ != nullptr) {
+      // fprintf(stdout, "IteratorWrapper: Deleting existing iterator at address %p, iter_: %p.\n", this, iter_);
+      delete iter_;
+    }
     iter_ = iter;
     if (iter_ == nullptr) {
       valid_ = false;
+      // fprintf(stdout, "IteratorWrapper: Set to null iterator at address %p.\n", this);
     } else {
       Update();
+      // fprintf(stdout, "IteratorWrapper: Set to new iterator at address %p, iter_: %p.\n", this, iter_);
     }
   }
 
@@ -80,6 +98,7 @@ class IteratorWrapper {
     if (valid_) {
       key_ = iter_->key();
     }
+    // fprintf(stdout, "IteratorWrapper: Update at address %p - valid: %d, key: %s\n", this, valid_, key_.ToString().c_str());
   }
 
   Iterator* iter_;

@@ -481,6 +481,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     return s;
   }
 
+  
   if (!env_->FileExists(CurrentFileName(dbname_))) {
     if (options_.create_if_missing) {
       Log(options_.info_log, "Creating DB %s since it was missing.",
@@ -515,6 +516,8 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
     return s;
   }
   SequenceNumber max_sequence(0);
+  fprintf(stderr, "After restoring,  save_manifest = %s\n", save_manifest ? "true" : "false");
+
 
   // Recover from all newer log files than the ones named in the
   // descriptor (new log files may have been added by the previous
@@ -542,7 +545,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
       expected.erase(number);
       if (type == kLogFile && ((number >= min_log) || (number == prev_log))){
         logs.push_back(number);
-        fprintf(stderr,"find %d as a log file!\n", number);
+        fprintf(stderr,"find %ld as a log file!\n", number);
       }
         
     }
@@ -669,7 +672,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     }
 
 
-    if (hot_mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
+    if (hot_mem->ApproximateMemoryUsage() > options_.write_hot_buffer_size) {
       compactions++;
       *save_manifest = true;
       status = WriteLevel0Table(hot_mem, edit, nullptr);
@@ -680,6 +683,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
         // file-systems cause the DB::Open() to fail.
         break;
       }
+      edit->set_is_tiering();
     }
 
   }
@@ -712,7 +716,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
     // mem did not get reused; compact it.
     if (status.ok()) {
       *save_manifest = true;
-      status = WriteLevel0Table(mem, edit, nullptr);
+      status = WritePartitionLevelingL0Table(mem, edit, nullptr);
     }
     mem->Unref();
   }
@@ -764,10 +768,9 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     const Slice min_user_key = meta.smallest.user_key();
     const Slice max_user_key = meta.largest.user_key();
 
-    if(base!= nullptr ){
-      // level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
-      edit->AddTieringFile(level, 0, meta.number, meta.file_size, meta.smallest, meta.largest);
-    }
+    // level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+    edit->AddTieringFile(level, 0, meta.number, meta.file_size, meta.smallest, meta.largest);
+    
   }
 
   CompactionStats stats;
@@ -3770,6 +3773,9 @@ std::map<uint64_t, Iterator*> DBImpl::NewMultiInternalIterator(const ReadOptions
   std::map<uint64_t, std::vector<Iterator*>> lists;
   Iterator* mem_iterator = mem_->NewIterator();
   Iterator* imm_iterator = nullptr;
+  if (imm_ != nullptr) {
+    imm_iterator = imm_->NewIterator();
+  }
 
   // list.push_back(mem_iterator);
   // mem_->Ref();
@@ -4065,12 +4071,14 @@ std::map<uint64_t, Iterator*> DBImpl::NewMultiIterator(const ReadOptions& option
 
   std::map<uint64_t, Iterator*> internal_iters = NewMultiInternalIterator(options, &latest_snapshot, &seed);
   Iterator* tiering_iters = NewTieringInternalIterator(options, &latest_snapshot, &seed);
+  SequenceNumber seq= options.snapshot != nullptr ? static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number() : latest_snapshot;
 
   // 创建一个 map，用于存储每个分区的 DBIterator
   std::map<uint64_t, Iterator*> db_iter_map;
-  db_iter_map[0]=tiering_iters;
+  Iterator* tiering_db_iters = NewDBIterator(this, user_comparator(), tiering_iters,seq,seed);
+  db_iter_map[0]=tiering_db_iters;
 
-  SequenceNumber seq= options.snapshot != nullptr ? static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number() : latest_snapshot;
+  
   for (auto& entry : internal_iters) {
     uint64_t partition_num = entry.first;
     Iterator* internal_iter = entry.second;
@@ -4123,7 +4131,7 @@ Iterator* DBImpl::FindIteratorByKey(const std::map<uint64_t, Iterator*>& iter_ma
     Iterator * tiering_iterator = iter_map.at(0);
   }
 
-  fprintf(stdout, "Key: %s  situation:%d \n", start_key.data(), key_situation);
+  // fprintf(stdout, "Key: %s  situation:%d \n", start_key.data(), key_situation);
 
   uint64_t start_parent_partiton, start_sub_partition;
   std::string current_key_str(start_key.data(), start_key.size());
@@ -4937,7 +4945,7 @@ Status DBImpl::RestoreHotRangesFromFile(const std::string& dbname_1){
 
   if (!ifs) {
     fprintf(stderr, "Error opening file for restoring hot ranges: %s!\n", file_path.c_str());
-    return leveldb::Status::NotFound("RangeFile not found");
+    return Status::NotFound("RangeFile not found");
   }
 
   nlohmann::json root = nlohmann::json::parse(ifs, nullptr, false);  // 解析时不抛出异常
@@ -4948,30 +4956,47 @@ Status DBImpl::RestoreHotRangesFromFile(const std::string& dbname_1){
 
   // 恢复每个 hot_range
   HotRanges->hot_ranges_.clear();  // 清空原来的数据
+  range_boundaries.clear();
+
   for (const auto& hot_range_json : root["hot_ranges"]) {
     std::string start_str = hot_range_json["start"];
     std::string end_str = hot_range_json["end"];
 
-    hot_range r(start_str, end_str);
-    HotRanges->hot_ranges_.insert(r);
+    range_boundaries.push_back(start_str);
+    range_boundaries.push_back(end_str);
+
+    hot_range new_hot_range(
+      range_boundaries[range_boundaries.size() - 2].data(), 
+      range_boundaries[range_boundaries.size() - 2].size(),
+      range_boundaries[range_boundaries.size() - 1].data(),
+      range_boundaries[range_boundaries.size() - 1].size()
+    );
+
+    HotRanges->hot_ranges_.insert(new_hot_range);
   }
 
   // 恢复 largest_intensity_range
   if (root.contains("largest_intensity_range")) {
-    std::string start_str = root["largest_intensity_range"]["start"];
-    std::string end_str = root["largest_intensity_range"]["end"];
-    HotRanges->largest_intensity_range = new hot_range(start_str, end_str);
+    HotRanges->largestindensity_start_str = root["largest_intensity_range"]["start"];
+    HotRanges->largestindensity_end_str= root["largest_intensity_range"]["end"];
+    HotRanges->largest_intensity_range = new hot_range(
+      HotRanges->largestindensity_start_str.data(),
+      HotRanges->largestindensity_start_str.size(),
+      HotRanges->largestindensity_end_str.data(),
+      HotRanges->largestindensity_end_str.size() );
   }
 
   // 恢复 min_max_range
   if (root.contains("min_max_range")) {
-    std::string start_str = root["min_max_range"]["start"];
-    std::string end_str = root["min_max_range"]["end"];
-    HotRanges->min_max_range = new hot_range(start_str, end_str);
+    HotRanges->min_max_range = new hot_range(
+      range_boundaries[0].data(), 
+      range_boundaries[0].size(),
+      range_boundaries[range_boundaries.size() - 1].data(),
+      range_boundaries[range_boundaries.size() - 1].size());
   }
 
   ifs.close();
-  fprintf(stderr, "Hot ranges restored from %s\n", file_path.c_str());
+  fprintf(stderr, "%lu Hot ranges restored from %s\n",HotRanges->hot_ranges_.size(), file_path.c_str());
   return Status::OK();
 }
 
@@ -5036,7 +5061,7 @@ Status DBImpl::RestoreMemPartitionsFromFile(const std::string& dbname_1) {
 
   ifs.close();
   PrintPartitions(mem_partitions_);
-  fprintf(stderr, "Mem partitions restored from %s\n", file_path.c_str());
+  fprintf(stderr, "%lu Mem partitions restored from %s\n",mem_partitions_.size(), file_path.c_str());
   return Status::OK();
 }
 
@@ -5051,8 +5076,6 @@ void DBImpl::SaveMemPartitionsToFile() {
     fprintf(stderr,"Error opening file for saving mem partitions: %s! \n", file_path.c_str()); 
     return;
   }
-
-
 
   // 写入开头的 JSON 格式
   ofs << "{\n";
@@ -5226,7 +5249,10 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   VersionEdit edit;
   // Recover handles create_if_missing, error_if_exists
   bool save_manifest = false;
+  fprintf(stderr, "Before recovering in DBImpl,  save_manifest = %s\n", save_manifest ? "true" : "false");
   Status s = impl->Recover(&edit, &save_manifest);
+  fprintf(stderr, "After recovering in DBImpl,  save_manifest = %s\n", save_manifest ? "true" : "false");
+  
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
@@ -5240,7 +5266,6 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->log_ = new log::Writer(lfile);
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
-      
     }
   }
 
@@ -5249,8 +5274,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     impl->hot_mem_->Ref();
   }
   
-
-
+  
   if (s.ok() && save_manifest) {
     edit.SetPrevLogNumber(0);  // No older logs needed after recovery.
     edit.SetLogNumber(impl->logfile_number_);

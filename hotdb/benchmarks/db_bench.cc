@@ -1243,9 +1243,9 @@ class Benchmark {
         // if(method == &Benchmark::WriteZipf2){
         //   RunBenchmark(num_threads, Slice("pointread"), &Benchmark::point_query_read);
         // }
-        if(method == &Benchmark::WriteZipf2){
-          RunBenchmark(num_threads, Slice("rangeread"), &Benchmark::range_query);
-        }
+        // if(method == &Benchmark::WriteZipf2){
+        //   RunBenchmark(num_threads, Slice("rangeread"), &Benchmark::range_query);
+        // }
       }
     }
   }
@@ -2109,6 +2109,20 @@ class Benchmark {
       seek_length = FLAGS_range_query_length;
       thread->stats.FinishedSingleOp3(db_);
     }
+
+    // Assuming iter_map is a member variable or local variable.
+    // int  i=0;
+    // for (auto& kv : iter_map) {
+    //   Iterator* iter = kv.second;
+    //   if (iter != nullptr) {
+    //     delete iter;  // Release the memory of the Iterator.
+    //     if(i==0) fprintf(stderr,"Tiering iterator has been canceled!\n");
+    //     i++;
+    //   }
+    // }
+    // // Optionally, you may clear the map if no longer needed.
+    // iter_map.clear();
+
     char msg[100];
     std::snprintf(msg, sizeof(msg), "(%d of %d found), %d not found in DBs", found, reads_, not_found);
     thread->stats.AddMessage(msg);

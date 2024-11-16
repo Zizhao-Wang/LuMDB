@@ -926,15 +926,19 @@ bool Version::RecordReadSample(Slice internal_key) {
   return false;
 }
 
-void Version::Ref() { ++refs_; }
+void Version::Ref() 
+{ 
+  ++refs_; 
+  // fprintf(stdout, "[Version Ref ++] Version %p, Ref count = %d\n", static_cast<void*>(this), this->refs_);
+}
 
 void Version::Unref() {
   assert(this != &vset_->dummy_versions_);
   assert(refs_ >= 1);
   --refs_;
   if (refs_ == 0) {
-  fprintf(stdout, "Unref called in Finalize: Version %p, Ref count = %d\n",
-                static_cast<void*>(this), this->refs_);
+  // fprintf(stdout, "Unref called in Finalize: Version %p, Ref count = %d\n",
+  //               static_cast<void*>(this), this->refs_);
     delete this;
   }
 }
@@ -1531,7 +1535,8 @@ class VersionSet::Builder {
     }
 
     for (int level = 0; level < config::kNumLevels; level++) {
-      for (const auto& run_entry : base_->tiering_runs_[level]) {
+      fprintf(stdout,"we have %ld runs in level %d\n",base_->tiering_runs_[level].size(), level);
+      for (const auto& run_entry : tiering_levels_[level].added_files_every_runs) {
         const Tiering_files_in_run* added_tier_files_this_run = tiering_levels_[level].added_files_every_runs[run_entry.first];
         const std::vector<FileMetaData*>& base_files = base_->tiering_runs_[level][run_entry.first];
         std::vector<FileMetaData*>::const_iterator base_iter = base_files.begin();
@@ -1918,8 +1923,8 @@ void VersionSet::AppendVersion(Version* v) {
   }
   current_ = v;
   v->Ref();
-  fprintf(stdout, "we have created a new Version %p, Ref count = %d\n",
-                static_cast<void*>(v), v->refs_);
+  // fprintf(stdout, "we have created a new Version %p, Ref count = %d\n",
+  //               static_cast<void*>(v), v->refs_);
 
   // Append to linked list
   v->prev_ = dummy_versions_.prev_;
@@ -1933,7 +1938,7 @@ void VersionSet::AppendVersion(Version* v) {
     version_count++;
     current = current->next_;
   }
-  fprintf(stdout, "Now we have %d versions in the linked list\n", version_count);
+  // fprintf(stdout, "Now we have %d versions in the linked list\n", version_count);
 }
 
 Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
@@ -1975,6 +1980,7 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     // No reason to unlock *mu here since we only hit this path in the
     // first call to LogAndApply (when opening the database).
     assert(descriptor_file_ == nullptr);
+    fprintf(stdout,"We have created a new mainfest file!\n");
     new_manifest_file = DescriptorFileName(dbname_, manifest_file_number_);
     s = env_->NewWritableFile(new_manifest_file, &descriptor_file_);
     if (s.ok()) {
@@ -2161,10 +2167,12 @@ Status VersionSet::Recover(bool* save_manifest) {
       
 
       if (s.ok() && (!edit.new_partitioning_files_.empty() || !edit.deleted_partitioning_files_.empty())) {
+        fprintf(stdout,"We apply leveling component!\n");
         builder.Apply(&edit);
       }
 
       if (s.ok() && (!edit.new_tiering_files.empty() || !edit.deleted_tiering_files_.empty())) {
+        // fprintf(stdout,"We apply Tiering component!\n");
         builder.Apply(&edit, true);
       }
 
@@ -2222,11 +2230,15 @@ Status VersionSet::Recover(bool* save_manifest) {
     log_number_ = log_number;
     prev_log_number_ = prev_log_number;
 
+    fprintf(stdout, "After restoring, we have %u leveling files and %u Tiering file!\n", v->NumPartitioningFiles(0), v->NumTieringFilesInLevel(0));
+
     // See if we can reuse the existing MANIFEST file.
     if (ReuseManifest(dscname, current)) {
       // No need to save new manifest
     } else {
+      fprintf(stderr, "now: save_manifest = %s\n", save_manifest ? "true" : "false");
       *save_manifest = true;
+      fprintf(stderr, "now we set: save_manifest = %s\n", save_manifest ? "true" : "false");
     }
   } else {
     std::string error = s.ToString();
@@ -2396,6 +2408,19 @@ Status VersionSet::WriteSnapshot(log::Writer* log) {
       for (size_t i = 0; i < files.size(); i++) {
         const FileMetaData* f = files[i];
         edit.AddPartitionLevelingFile(partition_number, level, f->number, f->file_size, f->smallest, f->largest);
+      }
+    }
+  }
+
+  for (int level = 0; level < config::kNumLevels; level++) {
+    // const std::vector<FileMetaData*>& files = current_->leveling_files_[level];
+    const auto& runs = current_->tiering_runs_[level];
+    for (const auto& run_entry : runs) {
+      int run_number = run_entry.first; // 获取当前运行编号
+      const std::vector<FileMetaData*>& files = run_entry.second;
+      for (size_t i = 0; i < files.size(); i++) {
+        const FileMetaData* f = files[i];
+        edit.AddTieringFile(level, run_number, f->number, f->file_size, f->smallest, f->largest);
       }
     }
   }
@@ -3571,7 +3596,7 @@ TieringCompaction::TieringCompaction(const Options* options, int level)
 }
 
 TieringCompaction::~TieringCompaction() {
-  fprintf(stdout, "We start a tiering_compaction delete!%  ");
+  // fprintf(stdout, "We start a tiering_compaction delete!%  ");
   if (input_version_ != nullptr) {
     input_version_->Unref();
     fprintf(stdout, "Unref called for tiering_compaction: Version %p, Ref count = %d\n",
