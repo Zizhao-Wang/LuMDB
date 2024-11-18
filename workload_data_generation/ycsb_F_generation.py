@@ -1,0 +1,50 @@
+import pandas as pd
+import random
+
+def process_csv(input_file, n, m, output_ops_file):
+    # 读取前 n 行数据
+    data = pd.read_csv(input_file, nrows=n)
+    
+    # 去重操作
+    dedup_data = data['Key'].drop_duplicates().reset_index(drop=True)
+    print(f"去重后的数据量：{dedup_data.size}")
+    
+    # 从去重数据中随机选择 m/2 个数据用于 READ 操作
+    num_read_ops = m // 2
+    if num_read_ops > len(dedup_data):
+        print("警告：请求的读取样本数量超过可用的唯一 keys 数量。将使用所有可用的 keys。")
+        read_keys = dedup_data
+    else:
+        read_keys = dedup_data.sample(n=num_read_ops, random_state=None).reset_index(drop=True)
+    
+    # 从去重数据中随机选择 m/2 个数据用于 RMW 操作
+    num_rmw_ops = m - num_read_ops  # 保证总数为 m
+    if num_rmw_ops > len(dedup_data):
+        print("警告：请求的 RMW 样本数量超过可用的唯一 keys 数量。将使用所有可用的 keys。")
+        rmw_keys = dedup_data
+    else:
+        rmw_keys = dedup_data.sample(n=num_rmw_ops, random_state=None).reset_index(drop=True)
+    
+    # 为读取和 RMW 操作添加操作类型
+    read_ops = pd.DataFrame({'Operation': 'READ', 'Key': read_keys})
+    rmw_ops = pd.DataFrame({'Operation': 'RMW', 'Key': rmw_keys})
+    
+    # 合并读取和 RMW 操作
+    all_ops = pd.concat([read_ops, rmw_ops], ignore_index=True)
+    
+    # 随机打乱顺序
+    all_ops = all_ops.sample(frac=1).reset_index(drop=True)
+    
+    # 保存结果到新的文件
+    all_ops.to_csv(output_ops_file, index=False)
+    print(f"YCSB-F 数据集已保存到 {output_ops_file}")
+
+# 参数设置
+input_file = '/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
+n = 1000000000  # 提取前 n 行数据并去重
+m = 1000000  # 总操作数量，50% 读取，50% RMW
+
+output_ops_file = '/home/jeff-wang/workloads/ycsb_f_workload.csv'  # 最终操作数据保存路径
+
+# 执行处理
+process_csv(input_file, n, m, output_ops_file)

@@ -107,6 +107,8 @@ DEFINE_int32(key_prefix,0, "Common key prefix length.");
 // static const char* FLAGS_data_file = nullptr;
 DEFINE_string(data_file, "", "Use the db with the following name.");
 
+DEFINE_string(YCSB_data_file, "", "Use the db with the following name.");
+
 DEFINE_string(Read_data_file, "", "Use the db with the following name.");
 
 DEFINE_string(RangeRead_data_file, "", "Use the db with the following name.");
@@ -117,6 +119,10 @@ DEFINE_int32(zstd_compression_level, 1, "ZSTD compression level to try out");
 
 // Number of key/values to place in database
 DEFINE_int64(num, 1000000, "Number of key/values to place in database");
+
+
+DEFINE_int64(ycsb_num, 1000000, "Number of key/values to place in database");
+
 DEFINE_int64(range, 0, "key range space");
 
 DEFINE_int64(writes, -1, "Number of write");
@@ -1196,13 +1202,13 @@ class Benchmark {
         HeapProfile();
       }  else if (name == Slice("ycsba")) {
         FLAGS_ycsb_type = kYCSB_A;
-        method = &Benchmark::YCSB;
+        method = &Benchmark::YCSB_A;
       } else if (name == Slice("ycsbb")) {
         FLAGS_ycsb_type = kYCSB_B;
-        method = &Benchmark::YCSB;
+        method = &Benchmark::YCSB_A;
       } else if (name == Slice("ycsbc")) {
         FLAGS_ycsb_type = kYCSB_C;
-        method = &Benchmark::YCSB;
+        method = &Benchmark::YCSB_A;
       } else if (name == Slice("ycsbd")) {
         FLAGS_ycsb_type = kYCSB_D;
         method = &Benchmark::YCSB;
@@ -1418,6 +1424,91 @@ class Benchmark {
     char msg[100];
     snprintf(msg, sizeof(msg), "(%lu of %lu found)", found, total_ops);
     thread->stats.AddMessage(msg);
+  }
+
+  void YCSB_A(ThreadState* thread) {
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+    variable_Buffer Read_Key;
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch\n", entries_per_batch_);
+
+    for (uint64_t i = 0; i < FLAGS_ycsb_num; i += entries_per_batch_) {
+      batch.Clear();
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 2) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if (row_data[0]=="READ"){
+          const uint64_t k = std::stoull(row_data[1]); 
+          // fprintf(stdout,"The key is %lu!\n",k);
+          Read_Key.Set(k);
+          if (db_->Get(options, Read_Key.slice(), &value).ok()) {
+            found++;
+          }
+          thread->stats.FinishedSingleOp3(db_);
+          bytes = (16 + FLAGS_value_size);
+          thread->stats.AddBytes(bytes);
+        }else if(row_data[0]=="UPDATE"){
+          const uint64_t k = std::stoull(row_data[1]);
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          s = db_->Batch_Put(write_options_, key, gen.Generate(value_size_));
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+          bytes += value_size_ + strlen(key);
+          if(thread->stats.done_ % FLAGS_stats_interval == 0){
+            thread->stats.AddBytes(bytes);
+            bytes = 0;
+          } 
+        }else{}
+
+        thread->stats.FinishedSingleOp(db_);
+
+      }
+    }
+    thread->stats.AddBytes(bytes);
   }
 
   bool YCSBOperation(const YCSB_Op& operation, const Slice& ivalue, std::string* ovalue) {

@@ -1312,6 +1312,7 @@ void DBImpl::Merge_all_supersmall_partitions( std::vector<uint64_t>& merge_delet
             if (p != last_partition) {
               delete p;
               partition_first_L0flush_map_.erase(p->partition_num); 
+              fprintf(stdout,"delete partition %lu\n",p->partition_num);
             }
           }
         } else if (suces_last_partition) {
@@ -1320,6 +1321,7 @@ void DBImpl::Merge_all_supersmall_partitions( std::vector<uint64_t>& merge_delet
             if (p != first_partition) {
               delete p;
               partition_first_L0flush_map_.erase(p->partition_num); // 移除被删除的 partition
+              fprintf(stdout,"delete partition %lu\n",p->partition_num);
             }
           }
         } else {
@@ -1335,6 +1337,7 @@ void DBImpl::Merge_all_supersmall_partitions( std::vector<uint64_t>& merge_delet
             Log(options_.leveling_info_log, "Deleting old partition: partition_start=%s, partition_end=%s",
               p->partition_start.ToString().c_str(), p->partition_end.ToString().c_str());
             partition_first_L0flush_map_.erase(p->partition_num); // 移除被删除的 partition
+            fprintf(stdout,"delete partition %lu\n",p->partition_num);
             delete p;
           }
           mem_partitions_.insert(new_partition);
@@ -1370,12 +1373,14 @@ void DBImpl::Merge_all_supersmall_partitions( std::vector<uint64_t>& merge_delet
       need_merge_to_partition = UpdateSubPartitionsEnd(prev_first_partition, last_partition->partition_end.ToString());
       for (mem_partition_guard* p : to_merge) { 
         partition_first_L0flush_map_.erase(p->partition_num);
+        fprintf(stdout,"delete partition %lu\n",p->partition_num);
         delete p;
       }
     } else if (suces_last_partition) {
       need_merge_to_partition = UpdateSubPartitionsStart(suces_last_partition, first_partition->partition_start.ToString());
       for (mem_partition_guard* p : to_merge) {
         partition_first_L0flush_map_.erase(p->partition_num); 
+        fprintf(stdout,"delete partition %lu\n",p->partition_num);
         delete p;
       }
     } else {
@@ -1384,13 +1389,15 @@ void DBImpl::Merge_all_supersmall_partitions( std::vector<uint64_t>& merge_delet
       mem_partition_guard* new_partition = new mem_partition_guard(new_start, new_end);
       new_partition->partition_num = versions_->NewPartitionNumber();
       partition_first_L0flush_map_[new_partition->partition_num] = false;
+      fprintf(stdout,"create a new partition %lu\n",new_partition->partition_num);
       Log(options_.leveling_info_log, "Creating final merged partition: new_start=%s, new_end=%s, partition_num=%llu",
           new_start.c_str(), new_end.c_str(), (unsigned long long)new_partition->partition_num);
 
       for (mem_partition_guard* p : to_merge) {
         Log(options_.leveling_info_log, "Deleting old partition: partition_start=%s, partition_end=%s",
             p->partition_start.ToString().c_str(), p->partition_end.ToString().c_str());
-        partition_first_L0flush_map_.erase(p->partition_num); 
+        partition_first_L0flush_map_.erase(p->partition_num);
+        fprintf(stdout,"delete partition %lu\n",p->partition_num); 
         delete p;
       }
       mem_partitions_.insert(new_partition);
@@ -1886,10 +1893,10 @@ void DBImpl::BackgroundCompaction() {
   }
   // Log pointer address and stored address after PickCompaction
   Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
-  if(Partitionleveling_compactions.size() !=0){
-    fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
-      Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
-  }
+  // if(Partitionleveling_compactions.size() !=0){
+  //   fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
+  //     Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
+  // }
   
 
   Status status;

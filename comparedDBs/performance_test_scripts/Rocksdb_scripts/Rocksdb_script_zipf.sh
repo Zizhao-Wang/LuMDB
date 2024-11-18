@@ -6,7 +6,7 @@ bash -c 'ulimit -n 800000'
 BASE_VALUE_SIZE=128
 billion=1000000000
 
-DEVICE_NAME="nvme1n1"
+DEVICE_NAME="nvme0n1"
 MEM=1
 
 convert_to_billion_format() {

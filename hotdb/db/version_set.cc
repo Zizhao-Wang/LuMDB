@@ -3157,8 +3157,8 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
 
       leveling_compactions[i]->input_version_ = current_;
       leveling_compactions[i]->input_version_->Ref();
-      fprintf(stdout, "Ref added for Leveling_compaction: Version %p, Ref count = %d\n", 
-            static_cast<void*>(current_), current_->refs_);
+      // fprintf(stdout, "Ref added for Leveling_compaction: Version %p, Ref count = %d\n", 
+      //       static_cast<void*>(current_), current_->refs_);
       
 
       if(leveling_compactions[i]->level_ == 0 || leveling_compactions[i]->level_ == 1){
@@ -3178,8 +3178,8 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
     
     (*tiering_compaction)->input_version_ = current_;
     (*tiering_compaction)->input_version_->Ref();
-    fprintf(stdout, "Ref added for tiering_compaction: Version %p, Ref count = %d\n", 
-            static_cast<void*>(current_), current_->refs_);
+    // fprintf(stdout, "Ref added for tiering_compaction: Version %p, Ref count = %d\n", 
+    //         static_cast<void*>(current_), current_->refs_);
 
     if((*tiering_compaction)->level_ == 0){
       InternalKey smallest, largest;
@@ -3476,8 +3476,8 @@ Compaction::Compaction(const Options* options, int level, uint64_t partition)
 Compaction::~Compaction() {
   if (input_version_ != nullptr) {
     input_version_->Unref();
-    fprintf(stdout, "Unref called for leveling_compaction in ~Compaction(): Version %p, Ref count = %d\n",
-                static_cast<void*>(input_version_), input_version_->refs_);
+    // fprintf(stdout, "Unref called for leveling_compaction in ~Compaction(): Version %p, Ref count = %d\n",
+    //             static_cast<void*>(input_version_), input_version_->refs_);
   }
 }
 
@@ -3565,8 +3565,8 @@ void Compaction::ReleaseInputs() {
   if (input_version_ != nullptr) {
 
     input_version_->Unref();
-    fprintf(stdout, "Unref called for leveling_compaction in leveling ReleaseInputs: Version %p, Ref count = %d\n",
-                static_cast<void*>(input_version_), input_version_->refs_);
+    // fprintf(stdout, "Unref called for leveling_compaction in leveling ReleaseInputs: Version %p, Ref count = %d\n",
+    //             static_cast<void*>(input_version_), input_version_->refs_);
     input_version_ = nullptr;
   }
 }
@@ -3599,8 +3599,8 @@ TieringCompaction::~TieringCompaction() {
   // fprintf(stdout, "We start a tiering_compaction delete!%  ");
   if (input_version_ != nullptr) {
     input_version_->Unref();
-    fprintf(stdout, "Unref called for tiering_compaction: Version %p, Ref count = %d\n",
-                static_cast<void*>(input_version_), input_version_->refs_);
+    // fprintf(stdout, "Unref called for tiering_compaction: Version %p, Ref count = %d\n",
+    //             static_cast<void*>(input_version_), input_version_->refs_);
   }
 
 }
@@ -3678,8 +3678,8 @@ bool TieringCompaction::ShouldStopBefore(const Slice& internal_key) {
 void TieringCompaction::ReleaseInputs() {
   if (input_version_ != nullptr) {
     input_version_->Unref();
-    fprintf(stdout, "Unref called for Tiering_compaction in ReleaseInputs(): Version %p, Ref count = %d\n",
-                static_cast<void*>(input_version_), input_version_->refs_);
+    // fprintf(stdout, "Unref called for Tiering_compaction in ReleaseInputs(): Version %p, Ref count = %d\n",
+    //             static_cast<void*>(input_version_), input_version_->refs_);
     input_version_ = nullptr;
   }
 }
