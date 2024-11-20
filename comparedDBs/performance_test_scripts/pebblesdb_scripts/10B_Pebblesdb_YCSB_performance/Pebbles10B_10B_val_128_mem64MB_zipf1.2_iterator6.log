@@ -1,0 +1,33 @@
+../../../pebblesdb/release/db_bench --db=/mnt/hotdb_test/pebbles10B/ycsb_mem64_1.2_6 --num=1000000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_64MiB_10B_key16_val128_zipf1.2.log --compression=0 --stats_interval=100000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    1000000000
+RawSize:    137329.1 MB (estimated)
+FileSize:   76293.9 MB (estimated)
+WARNING: Snappy compression is not enabled
+------------------------------------------------
+Recover Time : 18446744073709541240
+InitializeFileLevelBloomFilter Time: 2
+InitializeTableCacheFileMetaData Time: 3
+PebblesDB Open Time: 57895
+Write buffer: 1024.00 KB
+Recover Time : 18446744073709542448
+InitializeFileLevelBloomFilter Time: 1
+InitializeTableCacheFileMetaData Time: 2
+PebblesDB Open Time: 28635
+start benchmarking num_ = 1000000000 entries(batches:1) in DoWrite_zipf()
+2024/11/20-00:53:28  ... thread 0: (100000000,100000000) ops and (58922.5,58922.5) ops/second in (1697.144658,1697.144658) seconds
+100000000 operations have been finished (13733.014 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        1        1       557        0     13804
+  1        3        1       312    13802      3958
+  2        2        2       116     3956      3295
+  3        3        3        89     3296      2745
+  4       10        8        60     2752      2294
+  5       37       34        85     2487      2081
+  6      329      877       215     7966      7009
+WriteAmplification: 2.5490
+

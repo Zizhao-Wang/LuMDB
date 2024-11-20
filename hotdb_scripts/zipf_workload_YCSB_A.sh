@@ -78,7 +78,7 @@ for i in {10..10}; do
                 --YCSB_data_file=$ycsb_data_file \
                 --cache_size=8388608 \
                 --open_files=40000 \
-                --use_existing_db=false \
+                --use_existing_db=true \
                 --reads=1000 \
                 --compression=0 \
                 --stats_interval=$stats_interva \

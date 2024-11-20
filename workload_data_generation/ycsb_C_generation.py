@@ -24,7 +24,7 @@ def process_csv(input_file, n, k, output_ops_file):
 # 参数设置
 input_file = '/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
 n = 1000000000  # 提取前 n 行数据并去重
-k = 9500000  # 从第 n+1 到 n+k 行数据提取 k 个更新操作
+k = 10000000  # 从第 n+1 到 n+k 行数据提取 k 个更新操作
 
 output_ops_file = '/home/jeff-wang/workloads/ycsb_c_workload.csv'  # 最终操作数据保存路径
 

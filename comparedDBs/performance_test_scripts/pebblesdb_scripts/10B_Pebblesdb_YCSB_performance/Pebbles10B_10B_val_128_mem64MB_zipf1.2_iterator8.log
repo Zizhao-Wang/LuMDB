@@ -1,0 +1,78 @@
+../../../pebblesdb/release/db_bench --db=/mnt/hotdb_test/pebbles10B/ycsb_mem64_1.2_8 --num=1000000000 --value_size=128 --batch_size=1000 --benchmarks=fillzipf,stats --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=40000 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_64MiB_10B_key16_val128_zipf1.2.log --compression=0 --stats_interval=100000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    1000000000
+RawSize:    137329.1 MB (estimated)
+FileSize:   76293.9 MB (estimated)
+WARNING: Snappy compression is not enabled
+------------------------------------------------
+Recover Time : 18446744073709544408
+InitializeFileLevelBloomFilter Time: 1
+InitializeTableCacheFileMetaData Time: 1
+PebblesDB Open Time: 29751
+Write buffer: 1024.00 KB
+Recover Time : 18446744073709538801
+InitializeFileLevelBloomFilter Time: 1
+InitializeTableCacheFileMetaData Time: 2
+PebblesDB Open Time: 41457
+start benchmarking num_ = 1000000000 entries(batches:1) in DoWrite_zipf()
+2024/11/20-05:02:38  ... thread 0: (100000000,100000000) ops and (56565.6,56565.6) ops/second in (1767.859516,1767.859516) seconds
+100000000 operations have been finished (13733.014 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2       547        0     13804
+  1        2        1       301    13803      3958
+  2        2        2       113     3957      3296
+  3        3        3        86     3296      2745
+  4        8        7        59     2749      2291
+  5       40       32        68     2378      1997
+  6      331      875       256     8153      7166
+WriteAmplification: 2.5541
+
+2024/11/20-06:00:40  ... thread 0: (100000000,200000000) ops and (28715.3,38092.9) ops/second in (3482.466954,5250.326470) seconds
+200000000 operations have been finished (27466.030 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2       977        0     27608
+  1        0        0       553    27606      7921
+  2        1        1       204     7920      6596
+  3        6        5       187     6598      5495
+  4       19       13       147     5497      4581
+  5       22        3       214     5505      4666
+  6      633     1587       619    18797     16668
+WriteAmplification: 2.6635
+
+2024/11/20-07:34:51  ... thread 0: (100000000,300000000) ops and (17694.9,27518.7) ops/second in (5651.352030,10901.678500) seconds
+300000000 operations have been finished (41199.045 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        2        2      1369        0     41411
+  1        2        1       781    41410     11884
+  2        2        2       287    11883      9897
+  3        4        5       286     9898      8244
+  4       11        2       241     8248      6872
+  5       56       58       416     9417      8088
+  6      892     2176      1011    29827     26532
+WriteAmplification: 2.7270
+
+2024/11/20-09:57:58  ... thread 0: (100000000,400000000) ops and (11646.7,20525.7) ops/second in (8586.113849,19487.792349) seconds
+400000000 operations have been finished (54932.060 MB data have been written into db)
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2      1730        0     55216
+  1        0        0       984    55215     15847
+  2        1        1       362    15847     13197
+  3        6        0       400    13199     10994
+  4       22       11       356    11003      9167
+  5      168       87       670    14163     12301
+  6     1123     2804      1315    40425     36034
+WriteAmplification: 2.7665
+

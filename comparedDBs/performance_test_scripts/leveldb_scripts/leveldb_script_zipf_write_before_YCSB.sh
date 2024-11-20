@@ -33,17 +33,17 @@ for i in {10..10}; do
         cd $dir1
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 100))
 
             num_format=$(convert_to_billion_format $num_entries)
-            num_entries=100000000
+            num_entries=1000000000
 
-            for iteration in {1..10}; do  #  1.2 
-                for zipf_a in 1.4; do  #  1.2 
+            for iteration in {10..12}; do  #  1.2 
+                for zipf_a in 1.2; do  #  1.2 
                     for buffer_size in 1048576; do
 
                         buffer_size_mb=$((buffer_size / 1048576))
-                        log_file="leveldb_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}.log"
+                        log_file="leveldb_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_iterator${iteration}.log"
                         data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                         memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage${buffer_size_mb}MB_${num_format}_key16_val${value_size}.log"
 
@@ -72,8 +72,8 @@ for i in {10..10}; do
 
                         # echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
 
-                        iostat -d 100 -x $DEVICE_NAME > leveldb_HDD_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_IOstats.log &
-                        PID_IOSTAT=$!
+                        # iostat -d 100 -x $DEVICE_NAME > leveldb_HDD_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_IOstats.log &
+                        # PID_IOSTAT=$!
                             
                         cgexec -g memory:group32 ../../../leveldb/release/db_bench \
                         --db=$db_dir \
@@ -94,33 +94,35 @@ for i in {10..10}; do
                         --write_buffer_size=$buffer_size \
                         --max_file_size=$buffer_size   \
                         --print_wa=true \
-                        &> >( tee $log_file) &  
+                        | tee $log_file
+
+                        # &> >( tee $log_file) &  
 
                         # 保存 db_bench 的 PID 供监控使用
-                        sleep 1
+                        # sleep 1
 
-                        DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
-                        echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
+                        # DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
+                        # echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
 
-                        perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}.txt" &
-                        PERF_PID=$!
+                        # perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}.txt" &
+                        # PERF_PID=$!
 
-                        wait $DB_BENCH_PID
+                        # wait $DB_BENCH_PID
 
-                        # 结束 iostat 进程
-                        echo "Checking if iostat process with PID $PID_IOSTAT is still running..."
-                        ps -p $PID_IOSTAT
-                        if [ $? -eq 0 ]; then
-                            echo "iostat process $PID_IOSTAT is still running, killing now..."
-                            kill -9 $PID_IOSTAT
-                            if [ $? -eq 0 ]; then
-                                echo "iostat process $PID_IOSTAT has been successfully killed."
-                            else
-                                echo "Failed to kill iostat process $PID_IOSTAT."
-                            fi
-                        else
-                            echo "iostat process $PID_IOSTAT is no longer running."
-                        fi
+                        # # 结束 iostat 进程
+                        # echo "Checking if iostat process with PID $PID_IOSTAT is still running..."
+                        # ps -p $PID_IOSTAT
+                        # if [ $? -eq 0 ]; then
+                        #     echo "iostat process $PID_IOSTAT is still running, killing now..."
+                        #     kill -9 $PID_IOSTAT
+                        #     if [ $? -eq 0 ]; then
+                        #         echo "iostat process $PID_IOSTAT has been successfully killed."
+                        #     else
+                        #         echo "Failed to kill iostat process $PID_IOSTAT."
+                        #     fi
+                        # else
+                        #     echo "iostat process $PID_IOSTAT is no longer running."
+                        # fi
                     done
                 done
             done

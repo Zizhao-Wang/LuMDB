@@ -2167,7 +2167,7 @@ Status VersionSet::Recover(bool* save_manifest) {
       
 
       if (s.ok() && (!edit.new_partitioning_files_.empty() || !edit.deleted_partitioning_files_.empty())) {
-        fprintf(stdout,"We apply leveling component!\n");
+        // fprintf(stdout,"We apply leveling component!\n");
         builder.Apply(&edit);
       }
 
