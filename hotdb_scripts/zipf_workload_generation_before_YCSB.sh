@@ -40,7 +40,7 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
 
-            for iterator in {14..16}; do
+            for iterator in {7..7}; do
                 for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
 
                     log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}_iteratoration${iterator}.log"
