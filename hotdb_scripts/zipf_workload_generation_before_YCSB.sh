@@ -40,7 +40,7 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
 
-            for iterator in {7..7}; do
+            for iterator in {10..10}; do
                 for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
 
                     log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}_iteratoration${iterator}.log"
@@ -57,10 +57,10 @@ for i in {10..10}; do
                     fi
 
                     # 如果日志文件存在，则跳过当前迭代
-                    # if [ -f "$log_file" ]; then
-                    #     echo "Log file $log_file already exists. Skipping this iteration."
-                    #     continue
-                    # fi
+                    if [ -f "$log_file" ]; then
+                        echo "Log file $log_file already exists. Skipping this iteration."
+                        continue
+                    fi
 
                     echo "base_num: $base_num"
                     echo "num_entries: $num_entries"

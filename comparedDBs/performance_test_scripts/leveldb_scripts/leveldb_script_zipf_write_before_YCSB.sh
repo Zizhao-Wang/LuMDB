@@ -38,7 +38,7 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
 
-            for iteration in {10..12}; do  #  1.2 
+            for iteration in {4..4}; do  #  1.2 
                 for zipf_a in 1.2; do  #  1.2 
                     for buffer_size in 1048576; do
 
