@@ -8,6 +8,6 @@ def extract_every_100th_line(input_file, output_file):
                 count += 1  # 每写一行，第一列的数值加1
 
 # 使用示例
-input_file = '/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_wa_outputfile_mem8MB_1.1.txt'  # 替换为你的文件路径
-output_file = '/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_wa_outputfile_mem8MB_1.1(1-10).txt'  # 替换为输出文件的路径
+input_file = '/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_wa_outputfile_mem1MB_1.3.txt'  # 替换为你的文件路径
+output_file = '/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_wa_outputfile_mem1MB_1.3(1-10).txt'  # 替换为输出文件的路径
 extract_every_100th_line(input_file, output_file)
