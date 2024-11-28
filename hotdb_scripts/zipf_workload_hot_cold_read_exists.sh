@@ -9,9 +9,9 @@ billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
-Mem=1
-partition=1
-hot_identification=2
+# Mem=1
+# partition=1
+# hot_identification=2
 
 convert_to_billion_format() {
     local num=$1
@@ -42,21 +42,21 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=100000000
 
-            for zipf_a in 1.4; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
 
                 log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_P${partition}_hot${hot_identification}_zipf${zipf_a}_EXIST.log"
                 reads_data_file="/home/jeff-wang/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/read_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}"
+                db_directory="/mnt/hotdb_test/hotdb10B/pointread_${zipf_a}"
 
-                if [ ! -d "$db_directory" ]; then
-                    mkdir -p "$db_directory"
-                fi
+                # if [ ! -d "$db_directory" ]; then
+                #     mkdir -p "$db_directory"
+                # fi
 
-                # 检查目录是否为空，如果不为空则删除所有内容
-                if [ "$(ls -A $db_directory)" ]; then
-                    rm -rf "${db_directory:?}/"*
-                fi
+                # # 检查目录是否为空，如果不为空则删除所有内容
+                # if [ "$(ls -A $db_directory)" ]; then
+                #     rm -rf "${db_directory:?}/"*
+                # fi
 
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -69,7 +69,7 @@ for i in {10..10}; do
                 echo "value_size:$value_size"
                 echo "stats_interval: $stats_interva"
                 echo "$num_format"
-
+                echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
                 iostat -d 100 -x $DEVICE_NAME > LuMDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${Mem}MiB_P${partition}_hot${hot_identification}_IOstats.log &
                 PID_IOSTAT=$!
                     
@@ -78,23 +78,27 @@ for i in {10..10}; do
                 --num=$num_entries \
                 --value_size=$value_size \
                 --batch_size=1000 \
-                --benchmarks=fillzipf,stats \
+                --benchmarks=pointread,stats \
                 --data_file=$data_file  \
                 --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \
                 --Read_data_file=$reads_data_file \
                 --cache_size=8388608 \
+                --use_existing_db=true \
                 --open_files=40000 \
                 --reads=1000 \
                 --compression=0 \
                 --stats_interval=$stats_interva \
                 --histogram=1 \
-                --print_wa=true \ 
-                &> >( tee $log_file) &  
+                --print_wa=true 
+                
+                
+                # \ 
+                # &> >( tee $log_file) &  
 
                 # 保存 db_bench 的 PID 供监控使用
-                sleep 1
+                # sleep 1
 
                 DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_directory" | grep -v 'sudo' | awk '{print $1}')
                 echo "Selected DB_BENCH_PID: $DB_BENCH_PID"

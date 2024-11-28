@@ -115,7 +115,13 @@ DEFINE_int64(range, -1, "key range space");
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 DEFINE_int64(reads, -1, "");
 DEFINE_int64(writes, -1, "");
+
 DEFINE_string(mem_log_file,"", "log path");
+
+DEFINE_int64(ycsb_num, 10000000, "Number of key/values to place in database");
+
+DEFINE_string(YCSB_data_file, "", "Use the db with the following name.");
+
 DEFINE_int32(rwdelay, 10, "readwhilewriting delay in us");
 DEFINE_int32(sleep, 100, "sleep for write in readwhilewriting2");
 
@@ -1345,6 +1351,24 @@ random_double(void)
         method = &Benchmark::SnappyUncompress;
       } else if (name == Slice("heapprofile")) {
         HeapProfile();
+      } else if (name == Slice("ycsba")) {
+        FLAGS_ycsb_type = kYCSB_A;
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbb")) {
+        FLAGS_ycsb_type = kYCSB_B;
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbc")) {
+        FLAGS_ycsb_type = kYCSB_C;
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbd")) {
+        FLAGS_ycsb_type = kYCSB_D;
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbe")) {
+        FLAGS_ycsb_type = kYCSB_E;
+        method = &Benchmark::YCSB_E;
+      } else if (name == Slice("ycsbf")) {
+        FLAGS_ycsb_type = kYCSB_F;
+        method = &Benchmark::YCSB_F;
       } else if (name == Slice("stats")) {
         PrintStats("leveldb.stats");
       } else if (name == Slice("sstables")) {
@@ -1866,6 +1890,296 @@ random_double(void)
     snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)", found, FLAGS_ycsb_ops_num);
     printf("thread %d : (%" PRIu64 " of %" PRIu64 " found)\n", thread->tid, found, FLAGS_ycsb_ops_num);
     thread->stats.AddMessage(msg);
+  }
+
+  void YCSB_A(ThreadState* thread) {
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+    variable_Buffer Read_Key;
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+    int read_ops=0;
+    int write_ops = 0;
+    int other = 0;
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch, FLAGS_ycsb_num = %lu\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (uint64_t i = 0; i < FLAGS_ycsb_num; i += 1) {
+      batch.Clear();
+      for (uint64_t j = 0; j < 1; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          continue;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 2) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if (!std::all_of(row_data[1].begin(), row_data[1].end(), ::isdigit)) {
+          fprintf(stderr, "Non-numeric key encountered: %s in line %ld \n", row_data[1].c_str(),i);
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[0]=="READ"){
+          // fprintf(stdout,"The read key is %lu!\n",k);
+          char Read_Key[100];
+          snprintf(Read_Key, sizeof(Read_Key), "%016d", k);
+          if (db_->Get(options, Read_Key, &value).ok()) {
+            found++;
+          }
+          bytes = (16 + FLAGS_value_size);
+          read_ops++;
+          thread->stats.AddBytes(bytes);
+        }else if(row_data[0]=="UPDATE" || row_data[0]=="INSERT"){
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          batch.Put(key, gen.Generate(value_size_));
+          s = db_->Write(write_options_, &batch);
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+          bytes += value_size_ + strlen(key);
+          if(thread->stats.done_ % FLAGS_stats_interval == 0){
+            thread->stats.AddBytes(bytes);
+            bytes = 0;
+          } 
+          write_ops++;
+        }else{
+          other++;
+        }
+        thread->stats.FinishedSingleOp(db_);
+      }
+    }
+    fprintf(stdout,"The number of found keys is %d!, the total number of read is: %d the total number of write is: %d, other:%d\n",
+      found,read_ops,write_ops, other);
+    thread->stats.AddBytes(bytes);
+  }
+
+  void YCSB_E(ThreadState* thread) {
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+    variable_Buffer Read_Key;
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+    int seek_lengthE = 20;
+    char value_buffer[256];
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in YCSB_E\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch, FLAGS_ycsb_num = %lu\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (uint64_t i = 0; i < FLAGS_ycsb_num; i += 1) {
+      batch.Clear();
+      for (uint64_t j = 0; j < 1; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_E\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 2) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if (!std::all_of(row_data[1].begin(), row_data[1].end(), ::isdigit)) {
+          fprintf(stderr, "Non-numeric key encountered: %s in line %ld \n", row_data[1].c_str(),i);
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[0]=="READ"){
+          // fprintf(stdout,"The key is %lu!\n",k);
+          // char Read_Key[100];
+          // snprintf(Read_Key, sizeof(Read_Key), "%016d", k);
+          // if (db_->Get(options, Read_Key, &value).ok()) {
+          //   found++;
+          // }
+          // bytes = (16 + FLAGS_value_size);
+          // thread->stats.AddBytes(bytes);
+
+          auto* iter = db_->NewIterator(options);
+          char Read_Key[100];
+          snprintf(Read_Key, sizeof(Read_Key), "%016llu", ((k+2000000)));
+          iter->Seek(Read_Key);
+          if (iter->Valid()) {
+            if (iter->key() == Read_Key) {
+              found++;
+            }
+            for (int j = 0; j < seek_lengthE && iter->Valid(); j++) {
+              // make sure we read from file
+              Slice value = iter->value();
+              memcpy(value_buffer, value.data(), std::min(value.size(), sizeof(value_buffer)));
+              iter->Next();
+            }
+          }
+          delete iter;
+        }else if(row_data[0]=="INSERT1"){
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          s = db_->Put(write_options_, key, gen.Generate(value_size_));
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+          bytes += value_size_ + strlen(key); 
+        }else{}
+        thread->stats.FinishedSingleOp(db_);
+        seek_lengthE = 20;
+      }
+    }
+    thread->stats.AddBytes(bytes);
+    std::fprintf(stderr, "found %d keys\n",found);
+  }
+
+  void YCSB_F(ThreadState* thread) {
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+    variable_Buffer Read_Key;
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch, FLAGS_ycsb_num = %lu\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (uint64_t i = 0; i < FLAGS_ycsb_num; i += 1) {
+      batch.Clear();
+      for (uint64_t j = 0; j < 1; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 2) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if (!std::all_of(row_data[1].begin(), row_data[1].end(), ::isdigit)) {
+          fprintf(stderr, "Non-numeric key encountered: %s in line %ld \n", row_data[1].c_str(),i);
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[0]=="READ"){
+          // fprintf(stdout,"The key is %lu!\n",k);
+          char Read_Key[100];
+          snprintf(Read_Key, sizeof(Read_Key), "%016d", k);
+          if (db_->Get(options, Read_Key, &value).ok()) {
+            found++;
+          }
+          bytes = (16 + FLAGS_value_size);
+          thread->stats.AddBytes(bytes);
+        }else if(row_data[0]=="RMW" ){
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          if (db_->Get(options, key, &value).ok()) {
+            found++;
+            char key2[100];
+            snprintf(key2, sizeof(key2), "%016llu", (unsigned long long)k);
+            batch.Put(key2, gen.Generate(value_size_));
+            s = db_->Write(write_options_, &batch);
+            if (!s.ok()) {
+              std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+              std::exit(1);
+            }
+          }
+          bytes += value_size_ + strlen(key);
+        }else{}
+        thread->stats.FinishedSingleOp(db_);
+      }
+    }
+    thread->stats.AddBytes(bytes);
   }
 
 

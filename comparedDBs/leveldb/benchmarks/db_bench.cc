@@ -785,8 +785,8 @@ class Stats {
       //     fflush(stdout);
       //   }
       // }
-      // fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
-      // fflush(stderr);
+      fprintf(stderr, "... finished %llu ops%30s\r", (unsigned long long)done_, "");
+      fflush(stderr);
     }
   }
 
@@ -1187,10 +1187,10 @@ class Benchmark {
         method = &Benchmark::YCSB_A;
       } else if (name == Slice("ycsbd")) {
         FLAGS_ycsb_type = kYCSB_D;
-        method = &Benchmark::YCSB_D;
+        method = &Benchmark::YCSB_A;
       } else if (name == Slice("ycsbe")) {
         FLAGS_ycsb_type = kYCSB_E;
-        method = &Benchmark::YCSB_D;
+        method = &Benchmark::YCSB_E;
       } else if (name == Slice("ycsbf")) {
         FLAGS_ycsb_type = kYCSB_F;
         method = &Benchmark::YCSB_F;
@@ -1575,7 +1575,7 @@ class Benchmark {
     thread->stats.AddBytes(bytes);
   }
 
-    void YCSB_A(ThreadState* thread) {
+  void YCSB_A(ThreadState* thread) {
 
     if (num_ != FLAGS_num) {
       char msg[100];
@@ -1641,7 +1641,7 @@ class Benchmark {
           }
           bytes = (16 + FLAGS_value_size);
           thread->stats.AddBytes(bytes);
-        }else if(row_data[0]=="INSERT"){
+        }else if(row_data[0]=="INSERT1" || row_data[0]=="UPDATE1"){
           // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
           char key[100];
           snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
@@ -1662,8 +1662,8 @@ class Benchmark {
     thread->stats.AddBytes(bytes);
   }
 
-  void YCSB_D(ThreadState* thread) {
-
+  void YCSB_E(ThreadState* thread) {
+    fprintf(stderr,"Enter YCSB_E\n");
     if (num_ != FLAGS_num) {
       char msg[100];
       std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
@@ -1679,6 +1679,9 @@ class Benchmark {
     ReadOptions options;
     std::string value;
     int found = 0;
+    
+
+    int seek_lengthE=20;
 
     std::ifstream csv_file(FLAGS_YCSB_data_file);
     std::string line;
@@ -1720,33 +1723,34 @@ class Benchmark {
 
         const uint64_t k = std::stoull(row_data[1]);
 
-        if (row_data[0]=="READ"){
-          // fprintf(stdout,"The key is %lu!\n",k);
-          Read_Key.Set(k);
-          if (db_->Get(options, Read_Key.slice(), &value).ok()) {
-            found++;
-          }
-          bytes = (16 + FLAGS_value_size);
-          thread->stats.AddBytes(bytes);
-        }else if(row_data[0]=="RMW"){
-          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+        if (row_data[0]=="INSERT"){
           char key[100];
-          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)(k+2000000));
+          s = db_->Put(write_options_, key, gen.Generate(value_size_));
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+          bytes += value_size_ + strlen(key);
+        }else if(row_data[0]=="READ"){
+          Iterator* iter = db_->NewIterator(ReadOptions());
           Read_Key.Set(k);
-          // 读取当前键值
-          if (db_->Get(options, Read_Key.slice(), &value).ok()) {
-            // 在获取成功后，生成新值并写入
-            s = db_->Put(write_options_, key, gen.Generate(value_size_));
-            if (!s.ok()) {
-              std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
-              std::exit(1);
+          iter->Seek(Read_Key.slice());
+          if (iter->Valid() && iter->key() == Read_Key.slice()) found++;
+          while (seek_lengthE--){
+            // fprintf(stdout,"Searched Key is: %s \n", iter->key().data());
+            if(iter->Valid()){
+              iter->Next();
             }
-          } 
+          }
+          delete iter;
         }else{}
+        thread->stats.AddBytes(bytes);
+        bytes = 0;
         thread->stats.FinishedSingleOp();
+        seek_lengthE = 20;
       }
     }
-    thread->stats.AddBytes(bytes);
   }
 
   void YCSB_F(ThreadState* thread) {
@@ -1817,18 +1821,17 @@ class Benchmark {
           thread->stats.AddBytes(bytes);
         }else if(row_data[0]=="RMW"){
           // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
-          char key[100];
-          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
-          s = db_->Put(write_options_, key, gen.Generate(value_size_));
-          if (!s.ok()) {
-            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
-            std::exit(1);
+          Read_Key.Set(k);
+          if (db_->Get(options, Read_Key.slice(), &value).ok()) {
+            char key[100];
+            snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+            s = db_->Put(write_options_, key, gen.Generate(value_size_));
+            if (!s.ok()) {
+              std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+              std::exit(1);
+            }
+            bytes += value_size_ + strlen(key);
           }
-          bytes += value_size_ + strlen(key);
-          if(thread->stats.done_ % FLAGS_stats_interval == 0){
-            thread->stats.AddBytes(bytes);
-            bytes = 0;
-          } 
         }else{}
         thread->stats.FinishedSingleOp();
       }
@@ -2139,6 +2142,7 @@ class Benchmark {
     ReadOptions options;
     int found = 0;
     KeyBuffer key;
+
     for (int i = 0; i < reads_; i++) {
       Iterator* iter = db_->NewIterator(options);
       const int k = thread->rand.Uniform(FLAGS_num);

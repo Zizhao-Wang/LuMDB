@@ -33,16 +33,16 @@ for i in {10..10}; do
         cd $dir1
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 100))
 
             num_format=$(convert_to_billion_format $num_entries)
-            num_entries=100000000
+            num_entries=1000000000
 
-            for zipf_a in 1.2 1.3 1.4 1.5; do  #  1.2 
+            for zipf_a in 1.3; do  #  1.2 
                 for buffer_size in 1048576; do
 
                     buffer_size_mb=$((buffer_size / 1048576))
-                    log_file="leveldb_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}.log"
+                    log_file="leveldb_POINTRead${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage${buffer_size_mb}MB_${num_format}_key16_val${value_size}.log"
 
@@ -59,7 +59,7 @@ for i in {10..10}; do
                     echo "$num_format"
 
                     # 创建相应的目录
-                    db_dir="/mnt/hotdb_test/level10B/read_mem${buffer_size_mb}_${zipf_a}"
+                    db_dir="/mnt/hotdb_test/level10B/Pointread_${zipf_a}"
                     if [ ! -d "$db_dir" ]; then
                         mkdir -p "$db_dir"
                     fi

@@ -39,14 +39,14 @@ for i in {10..10}; do
             stats_interva=$((num_entries / 1000))
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
-            ycsb_num_entries=10000000
+            ycsb_num_entries=950000
 
-            for zipf_a in 1.4; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
 
                 log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}"
-                YCSB_data_file="/home/jeff-wang/workloads/ycsb_b_workload.csv" # 构建数据文件路径
+                db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator1"
+                ycsb_data_file="/home/jeff-wang/workloads/ycsb_b_workload.csv" # 构建数据文件路径
 
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -59,7 +59,7 @@ for i in {10..10}; do
                 echo "value_size:$value_size"
                 echo "stats_interval: $stats_interva"
                 echo "$num_format"
-
+                echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
                 iostat -d 100 -x $DEVICE_NAME > LuMDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${Mem}MiB_P${partition}_hot${hot_identification}_IOstats.log &
                 PID_IOSTAT=$!
                     

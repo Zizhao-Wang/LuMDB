@@ -70,7 +70,7 @@ for i in {10..10}; do
                 --num=$num_entries \
                 --value_size_=$value_size \
                 --batch_size=1 \
-                --benchmarks=readrandom,stats \
+                --benchmarks=pointread,stats \
                 --data_file_path=$data_file  \
                 --bloom_bits=10 \
                 --cache_size=8388608 \

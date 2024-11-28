@@ -1,0 +1,111 @@
+LevelDB:    version 1.23
+Date:       Fri Nov 29 01:12:51 2024
+CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
+CPUCache:   39424 KB
+open dbs:in Open()
+entering db_impl.cc:/mnt/hotdb_test/level10B/YCSBa_mem1_1.2_iterator2
+initialize 0 objects(LevelHotColdStats) for 7 levels
+Enter YCSB_E
+Processing 1 entries in every Batch, FLAGS_ycsb_num = 10000000
+... finished 100 ops                              ... finished 200 ops                              ... finished 300 ops                              ... finished 400 ops                              ... finished 500 ops                              ... finished 600 ops                              ... finished 700 ops                              ... finished 800 ops                              ... finished 900 ops                              ... finished 1000 ops                              ... finished 1500 ops                              ... finished 2000 ops                              ... finished 2500 ops                              ... finished 3000 ops                              ... finished 3500 ops                              ... finished 4000 ops                              ... finished 4500 ops                              ... finished 5000 ops                              ... finished 6000 ops                              ... finished 7000 ops                              ... finished 8000 ops                              ... finished 9000 ops                              ... finished 10000 ops                              ... finished 15000 ops                              ... finished 20000 ops                              ... finished 25000 ops                              ... finished 30000 ops                              ... finished 35000 ops                              ... finished 40000 ops                              ... finished 45000 ops                              ... finished 50000 ops                              ... finished 60000 ops                              ... finished 70000 ops                              ... finished 80000 ops                              ... finished 90000 ops                              ... finished 100000 ops                              ... finished 150000 ops                              ... finished 200000 ops                              ... finished 250000 ops                              ... finished 300000 ops                              ... finished 350000 ops                              ... finished 400000 ops                              ... finished 450000 ops                              ... finished 500000 ops                              Error reading key from file in YCSB_A
+../../../leveldb/release/db_bench --db=/mnt/hotdb_test/level10B/YCSBa_mem1_1.2_iterator2 --num=100000000 --value_size=128 --batch_size=1000 --benchmarks=ycsbe,stats --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage1MB_10B_key16_val128.log --open_files=40000 --ycsb_num=10000000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --YCSB_data_file=/home/jeff-wang/workloads/random_read_workload1.2.csv --use_existing_db=true --max_file_size=1048576 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    100000000
+RawSize:    13732.9 MB (estimated)
+FileSize:   7629.4 MB (estimated)
+WARNING: Optimization is disabled: benchmarks unnecessarily slow
+WARNING: Assertions are enabled; benchmarks unnecessarily slow
+WARNING: Snappy compression is not enabled
+some command parameters have been selected:
+  threads: 1
+  duration: 0
+  print_wa: 1
+  num_entries: 100000000
+  bechmark selected ycsbe,stats
+  hot_file_path: 
+  data_file_path: /home/jeff-wang/workloads/zipf1.2_keys10.0B.csv
+  percentages: 
+------------------------------------------------
+500000 operations have been finished (0.000 MB data have been written into db)
+ycsbe        :     693.584 micros/op 1441 ops/sec;
+Microseconds per op:
+Count: 500000  Average: 693.5839  StdDev: 2911.88
+Percentiles: P50: 41.75 P75: 674.85 P99: 9987.50 P99.9: 42222.22 P99.99: 79166.67
+------------------------------------------------------
+[      20,      25 )    8814   1.763%   1.763% 
+[      25,      30 )   93073  18.615%  20.377% ####
+[      30,      35 )  104471  20.894%  41.272% ####
+[      35,      40 )   37370   7.474%  48.746% #
+[      40,      45 )   17891   3.578%  52.324% #
+[      45,      50 )   14622   2.924%  55.248% #
+[      50,      60 )   17063   3.413%  58.661% #
+[      60,      70 )    8050   1.610%  60.271% 
+[      70,      80 )    3875   0.775%  61.046% 
+[      80,      90 )    2860   0.572%  61.618% 
+[      90,     100 )    2003   0.401%  62.018% 
+[     100,     120 )    2953   0.591%  62.609% 
+[     120,     140 )    2115   0.423%  63.032% 
+[     140,     160 )    1472   0.294%  63.326% 
+[     160,     180 )    1182   0.236%  63.563% 
+[     180,     200 )    1573   0.315%  63.877% 
+[     200,     250 )    5119   1.024%  64.901% 
+[     250,     300 )    7225   1.445%  66.346% 
+[     300,     350 )    6460   1.292%  67.638% 
+[     350,     400 )    5711   1.142%  68.780% 
+[     400,     450 )    5446   1.089%  69.870% 
+[     450,     500 )    5340   1.068%  70.938% 
+[     500,     600 )   11449   2.290%  73.227% 
+[     600,     700 )   11841   2.368%  75.596% 
+[     700,     800 )   13304   2.661%  78.256% #
+[     800,     900 )   13042   2.608%  80.865% #
+[     900,    1000 )   12869   2.574%  83.439% #
+[    1000,    1200 )   18221   3.644%  87.083% #
+[    1200,    1400 )   13604   2.721%  89.804% #
+[    1400,    1600 )   10912   2.182%  91.986% 
+[    1600,    1800 )    7849   1.570%  93.556% 
+[    1800,    2000 )    5012   1.002%  94.558% 
+[    2000,    2500 )    7663   1.533%  96.091% 
+[    2500,    3000 )    4197   0.839%  96.930% 
+[    3000,    3500 )    2446   0.489%  97.419% 
+[    3500,    4000 )    1659   0.332%  97.751% 
+[    4000,    4500 )    1203   0.241%  97.992% 
+[    4500,    5000 )     996   0.199%  98.191% 
+[    5000,    6000 )    1492   0.298%  98.489% 
+[    6000,    7000 )     942   0.188%  98.678% 
+[    7000,    8000 )     667   0.133%  98.811% 
+[    8000,    9000 )     549   0.110%  98.921% 
+[    9000,   10000 )     400   0.080%  99.001% 
+[   10000,   12000 )     621   0.124%  99.125% 
+[   12000,   14000 )     408   0.082%  99.207% 
+[   14000,   16000 )     421   0.084%  99.291% 
+[   16000,   18000 )     666   0.133%  99.424% 
+[   18000,   20000 )     609   0.122%  99.546% 
+[   20000,   25000 )     994   0.199%  99.745% 
+[   25000,   30000 )     276   0.055%  99.800% 
+[   30000,   35000 )     243   0.049%  99.849% 
+[   35000,   40000 )     189   0.038%  99.886% 
+[   40000,   45000 )     153   0.031%  99.917% 
+[   45000,   50000 )      91   0.018%  99.935% 
+[   50000,   60000 )     143   0.029%  99.964% 
+[   60000,   70000 )      98   0.020%  99.983% 
+[   70000,   80000 )      36   0.007%  99.991% 
+[   80000,   90000 )      22   0.004%  99.995% 
+[   90000,  100000 )       4   0.001%  99.996% 
+[  100000,  120000 )       9   0.002%  99.998% 
+[  120000,  140000 )       6   0.001%  99.999% 
+[  140000,  160000 )       3   0.001%  99.999% 
+[  160000,  180000 )       1   0.000% 100.000% 
+[  180000,  200000 )       2   0.000% 100.000% 
+
+entering io_statistics1
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  1        1        0         0        0         0
+  2       17        3         0        0         0
+  3      200      181         0        0         0
+  4     6188     5960         0        0         0
+user_io:0.000MB total_ios: 0.000MB WriteAmplification: -nan
+

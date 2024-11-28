@@ -16,7 +16,7 @@ def process_csv(input_file, n, m, output_ops_file):
     else:
         read_keys = dedup_data.sample(n=num_read_ops, random_state=None).reset_index(drop=True)
     
-    # 从前 n 行数据中随机选择 m/2 个数据用于 RMW 操作（不去重）
+    # 从前 n 行数据0中随机选择 m/2 个数据用于 RMW 操作（不去重）
     num_rmw_ops = m // 2 # 保证总数为 m
     if num_rmw_ops > len(data['Key']):
         print("警告：请求的 RMW 样本数量超过可用的 keys 数量。将使用所有可用的 keys。")
@@ -26,7 +26,7 @@ def process_csv(input_file, n, m, output_ops_file):
     
     # 为读取和 RMW 操作添加操作类型
     read_ops = pd.DataFrame({'Operation': 'READ', 'Key': read_keys})
-    rmw_ops = pd.DataFrame({'Operation': 'RMW', 'Key': rmw_keys})
+    rmw_ops = pd.DataFrame({'Operation': 'RMW', 'Key': read_keys})
     
     # 合并读取和 RMW 操作
     all_ops = pd.concat([read_ops, rmw_ops], ignore_index=True)
@@ -41,7 +41,7 @@ def process_csv(input_file, n, m, output_ops_file):
 # 参数设置
 input_file = '/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
 n = 1000000000  # 提取前 n 行数据
-m = 10000000  # 总操作数量，50% 读取，50% RMW
+m = 1000000  # 总操作数量，50% 读取，50% RMW
 
 output_ops_file = '/home/jeff-wang/workloads/ycsb_f_workload.csv'  # 最终操作数据保存路径
 

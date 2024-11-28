@@ -65,6 +65,8 @@ class DBImpl : public DB {
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
   void CompactRange(const Slice* begin, const Slice* end) override;
 
+  // void ScheduleCompaction() override;
+
   // Extra methods (for testing) that are not in the public DB interface
 
   // Compact any files in the named level that overlap [*begin,*end]
@@ -469,7 +471,11 @@ class DBImpl : public DB {
 
   Status RestoreMemPartitionsFromFile(const std::string& dbname_);
 
+  Status LoadPartitionFirstL0FlushMap(const std::string& dbname_);
+
   void SaveMemPartitionsToFile();
+
+  void SavePartitionFirstL0FlushMap();
 
   void SaveHotRangesToFile();
 

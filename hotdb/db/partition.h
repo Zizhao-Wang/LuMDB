@@ -119,7 +119,7 @@ namespace leveldb {
 
   struct HotRangeComparator {
     bool operator() (const hot_range lhs, const hot_range rhs) const {
-      return lhs.compare(rhs) < 0;
+      return lhs.CompareWithBegin(rhs.start_ptr,rhs.start_size) < 0;
     }
   };
 

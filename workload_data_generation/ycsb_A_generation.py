@@ -38,8 +38,8 @@ def process_csv(input_file, n, m, k, output_ops_file):
 # 参数设置
 input_file = '/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
 n = 1000000000  # 提取前 n 行数据并去重
-m = 5000000   # 从去重后的数据中随机选取 m 个读取操作
-k = 5000000  # 从第 n+1 到 n+k 行数据提取 k 个更新操作
+m = 500000   # 从去重后的数据中随机选取 m 个读取操作
+k = 500000  # 从第 n+1 到 n+k 行数据提取 k 个更新操作
 
 output_ops_file = '/home/jeff-wang/workloads/ycsb_a_workload.csv'  # 最终操作数据保存路径
 

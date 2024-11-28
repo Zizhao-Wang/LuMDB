@@ -304,6 +304,10 @@ DEFINE_string(value_size_distribution_type, "fixed",
 
 DEFINE_string(data_file_path, "", "Value size distribution type: fixed, uniform, normal");
 
+DEFINE_string(YCSB_data_file, "", "Use the db with the following name.");
+
+DEFINE_int64(ycsb_num, 10000000, "Number of key/values to place in database");
+
 DEFINE_string(Read_data_file, "", "Value size distribution type: fixed, uniform, normal");
 
 DEFINE_string(mem_log_file,"", "mem usage path");
@@ -3613,7 +3617,19 @@ class Benchmark {
       } else if (name == "fillzipf") {
         fresh_db = true;
         method = &Benchmark::WriteZipf;
-      }else if (name == "filluniquerandom" ||
+      } else if (name == Slice("ycsba")) {
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbb")) {
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbc")) {
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbd")) {
+        method = &Benchmark::YCSB_A;
+      } else if (name == Slice("ycsbe")) {
+        method = &Benchmark::YCSB_E;
+      } else if (name == Slice("ycsbf")) {
+        method = &Benchmark::YCSB_F;
+      } else if (name == "filluniquerandom" ||
                  name == "fillanddeleteuniquerandom") {
         fresh_db = true;
         if (num_threads > 1) {
@@ -3657,7 +3673,13 @@ class Benchmark {
                   entries_per_batch_);
         }
         method = &Benchmark::ReadRandom;
-      } else if (name == "readrandomfast") {
+      } else if (name == "pointread") {
+        if (FLAGS_multiread_stride) {
+          fprintf(stderr, "entries_per_batch = %" PRIi64 "\n",
+                  entries_per_batch_);
+        }
+        method = &Benchmark::ReadRandom;
+      }else if (name == "readrandomfast") {
         method = &Benchmark::ReadRandomFast;
       } else if (name == "multireadrandom") {
         fprintf(stderr, "entries_per_batch = %" PRIi64 "\n",
@@ -5266,9 +5288,369 @@ class Benchmark {
     thread->stats.AddBytes(bytes);
   }
 
+  void ReadRandom(ThreadState* thread) {
+    int64_t read = 0;
+    int64_t found = 0;
+    int64_t bytes = 0;
+    int num_keys = 0;
+    int64_t key_rand = 0;
+    std::string value;
+    ReadOptions options;
 
 
-   void DoWrite(ThreadState* thread, WriteMode write_mode) {
+    std::ifstream csv_file(FLAGS_Read_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+      fprintf(stderr,"Unable to open CSV file in point_query_read\n");
+      return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    for (int i = 0; i < FLAGS_reads; i++) {
+
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
+      }
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 1) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
+      const uint64_t k = std::stoull(row_data[0]);
+      char key1[100];
+      snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)k);
+      Slice key(key1);
+      std::string* ts_ptr = nullptr;
+      auto sta = db_.db->Get(options, key, &value, ts_ptr);
+
+      if (sta.ok()) {
+        found++;
+        bytes += key.size() + 128;
+      }
+
+      if (thread->shared->read_rate_limiter.get() != nullptr &&
+          read % 256 == 255) {
+        thread->shared->read_rate_limiter->Request(
+            256, Env::IO_HIGH, nullptr /* stats */, RateLimiter::OpType::kRead);
+      }
+
+      thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+    }
+
+
+    char msg[100];
+    snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)\n", found,
+             read);
+
+    thread->stats.AddBytes(bytes);
+    thread->stats.AddMessage(msg);
+
+  }
+
+  void YCSB_A(ThreadState* thread) {
+    fprintf(stderr,"Enter YCSB_A\n");
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
+                      FLAGS_write_batch_protection_bytes_per_key,
+                      user_timestamp_size_);
+    Status s;
+    int64_t bytes = 0;
+    ReadOptions options = read_options_;
+    std::string value;
+    int found = 0;
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+      fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+      return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %ld entries in every Batch, FLAGS_ycsb_num = %lu\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (int64_t i = 0; i < FLAGS_ycsb_num; i += entries_per_batch_) {
+      batch.Clear();
+      int64_t batch_bytes = 0;
+      for (int64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 2) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if (!std::all_of(row_data[1].begin(), row_data[1].end(), ::isdigit)) {
+          fprintf(stderr, "Non-numeric key encountered: %s in line %ld \n", row_data[1].c_str(),i);
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[0]=="READ"){
+          // fprintf(stdout,"The key is %lu!\n",k);
+          char key1[100];
+          snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)k);
+          Slice key(key1);
+          std::string* ts_ptr = nullptr;
+          auto sta = db_.db->Get(options, key, &value, ts_ptr);
+          if (sta.ok()) {
+            found++;
+          }
+          bytes = (16 + FLAGS_value_size);
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+        }else if(row_data[0]=="UPDATE"||row_data[0]=="INSERT"){
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          // fprintf(stderr, "Read key: %llu\n", (unsigned long long)k); // 输出读取的键
+
+          char key2[100];
+          snprintf(key2, sizeof(key2), "%016llu", (unsigned long long)k);
+          Slice val = gen.Generate(FLAGS_value_size_);
+          // fprintf(stderr, "Writing key: %s, value size: %zu\n", key, val.size()); // 输出写入的键和值大小
+          batch.Put(key2, val);
+            
+          batch_bytes += val.size() + key_size_ + user_timestamp_size_;
+          bytes += val.size() + key_size_ + user_timestamp_size_;
+          s = db_.db->Write(write_options_, &batch);
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kWrite);
+        }else{}
+      }
+    }
+    
+  }
+
+  void YCSB_E(ThreadState* thread) {
+    fprintf(stderr,"Enter YCSB_E\n");
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
+                      FLAGS_write_batch_protection_bytes_per_key,
+                      user_timestamp_size_);
+    Status s;
+    int64_t bytes = 0;
+    ReadOptions options = read_options_;
+    int found = 0;
+    char value_buffer[256];
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %ld entries in every Batch, FLAGS_ycsb_num = %lu\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (int64_t i = 0; i < FLAGS_ycsb_num; i += entries_per_batch_) {
+      batch.Clear();
+      int64_t batch_bytes = 0;
+      for (int64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 2) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if (!std::all_of(row_data[1].begin(), row_data[1].end(), ::isdigit)) {
+          fprintf(stderr, "Non-numeric key encountered: %s in line %ld \n", row_data[1].c_str(),i);
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[0]=="SCAN"){
+          // fprintf(stdout,"The key is %lu!\n",k);
+          char key1[100];
+          snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)(k+2000000));
+          Slice key(key1);
+          std::string* ts_ptr = nullptr;
+          
+          Iterator* iter_to_use = db_.db->NewIterator(options);
+          iter_to_use->Seek(key);
+          if (iter_to_use->Valid() && iter_to_use->key().compare(key) == 0) {
+            found++;
+          }
+
+          for (int j2 = 0; j2 < FLAGS_seek_nexts && iter_to_use->Valid(); ++j2) {
+            // Copy out iterator's value to make sure we read them.
+            Slice value = iter_to_use->value();
+            memcpy(value_buffer, value.data(),
+                  std::min(value.size(), sizeof(value_buffer)));
+            bytes += iter_to_use->key().size() + iter_to_use->value().size();
+            iter_to_use->Next();
+            assert(iter_to_use->status().ok());
+          }
+          bytes = (16 + FLAGS_value_size);
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kSeek);
+        }else if(row_data[0]=="UPDATE"||row_data[0]=="INSERT"){
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          // fprintf(stderr, "Read key: %llu\n", (unsigned long long)k); // 输出读取的键
+
+          char key2[100];
+          snprintf(key2, sizeof(key2), "%016llu", (unsigned long long)k);
+          Slice val = gen.Generate(FLAGS_value_size_);
+          // fprintf(stderr, "Writing key: %s, value size: %zu\n", key, val.size()); // 输出写入的键和值大小
+          batch.Put(key2, val);
+            
+          batch_bytes += val.size() + key_size_ + user_timestamp_size_;
+          bytes += val.size() + key_size_ + user_timestamp_size_;
+          s = db_.db->Write(write_options_, &batch);
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kSeek);
+        }else{}
+      }
+    }
+    
+  }
+
+  void YCSB_F(ThreadState* thread) {
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
+                      FLAGS_write_batch_protection_bytes_per_key,
+                      user_timestamp_size_);
+    Status s;
+    int64_t bytes = 0;
+    ReadOptions options = read_options_;
+    std::string value;
+    int found = 0;
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %ld entries in every Batch, FLAGS_ycsb_num = %lu\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (int64_t i = 0; i < FLAGS_ycsb_num; i += entries_per_batch_) {
+      batch.Clear();
+      int64_t batch_bytes = 0;
+      for (int64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 2) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if (!std::all_of(row_data[1].begin(), row_data[1].end(), ::isdigit)) {
+          fprintf(stderr, "Non-numeric key encountered: %s in line %ld \n", row_data[1].c_str(),i);
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[0]=="READ"){
+          // fprintf(stdout,"The key is %lu!\n",k);
+          char key1[100];
+          snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)k);
+          Slice key(key1);
+          std::string* ts_ptr = nullptr;
+          auto sta = db_.db->Get(options, key, &value, ts_ptr);
+          if (sta.ok()) {
+            found++;
+          }
+          bytes = (16 + FLAGS_value_size);
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+        }else if(row_data[0]=="RMW"){
+          char key2[100];
+          snprintf(key2, sizeof(key2), "%016llu", (unsigned long long)k);
+          Slice read_key(key2);
+          std::string* ts_ptr = nullptr;
+          auto sta = db_.db->Get(options, read_key, &value, ts_ptr);
+          if (sta.ok()) {
+            found++;
+            Slice val = gen.Generate(FLAGS_value_size_);
+            char key3[100];
+            snprintf(key3, sizeof(key3), "%016llu", (unsigned long long)k);
+            // fprintf(stderr, "Writing key: %s, value size: %zu\n", key, val.size()); // 输出写入的键和值大小
+            batch.Put(key3, val);
+            batch_bytes += val.size() + key_size_ + user_timestamp_size_;
+            bytes += val.size() + key_size_ + user_timestamp_size_;
+            s = db_.db->Write(write_options_, &batch);
+          }
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+        }else{}
+      }
+    }
+  }
+
+
+
+  void DoWrite(ThreadState* thread, WriteMode write_mode) {
     const int test_duration = write_mode == RANDOM ? FLAGS_duration : 0;
     const int64_t num_ops = writes_ == 0 ? num_ : writes_;
 
@@ -6222,110 +6604,7 @@ class Benchmark {
     return key_rand;
   }
 
-  void ReadRandom(ThreadState* thread) {
-    int64_t read = 0;
-    int64_t found = 0;
-    int64_t bytes = 0;
-    int num_keys = 0;
-    int64_t key_rand = 0;
-    ReadOptions options = read_options_;
 
-
-    std::ifstream csv_file(FLAGS_Read_data_file);
-    std::string line;
-    if (!csv_file.is_open()) {
-      fprintf(stderr,"Unable to open CSV file in point_query_read\n");
-      return;
-    }
-    std::getline(csv_file, line);
-    std::stringstream line_stream;
-    std::string cell;
-    std::vector<std::string> row_data;
-
-    for (int i = 0; i < FLAGS_reads; i++) {
-
-      line_stream.clear();
-      line_stream.str("");
-      row_data.clear();
-      
-      if (!std::getline(csv_file, line)) { // 从文件中读取一行
-        fprintf(stderr, "Error reading key from file\n");
-        return;
-      }
-      line_stream << line;
-      while (getline(line_stream, cell, ',')) {
-        row_data.push_back(cell);
-      }
-      if (row_data.size() != 1) {
-        fprintf(stderr, "Invalid CSV row format\n");
-        continue;
-      }
-      const uint64_t k = std::stoull(row_data[0]);
-      char key1[100];
-      snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)k);
-      slice key(key1);
-
-      ColumnFamilyHandle* cfh;
-      if (FLAGS_num_column_families > 1) {
-        cfh = db_with_cfh->GetCfh(key_rand);
-      } else {
-        cfh = db_with_cfh->db->DefaultColumnFamily();
-      }
-
-      if (read_operands_) {
-        GetMergeOperandsOptions get_merge_operands_options;
-        get_merge_operands_options.expected_max_number_of_operands =
-            static_cast<int>(pinnable_vals.size());
-        int number_of_operands;
-        s = db_with_cfh->db->GetMergeOperands(
-            options, cfh, key, pinnable_vals.data(),
-            &get_merge_operands_options, &number_of_operands);
-        if (s.IsIncomplete()) {
-          // Should only happen a few times when we encounter a key that had
-          // more merge operands than any key seen so far. Production use case
-          // would typically retry in such event to get all the operands so do
-          // that here.
-          pinnable_vals.resize(number_of_operands);
-          get_merge_operands_options.expected_max_number_of_operands =
-              static_cast<int>(pinnable_vals.size());
-          s = db_with_cfh->db->GetMergeOperands(
-              options, cfh, key, pinnable_vals.data(),
-              &get_merge_operands_options, &number_of_operands);
-        }
-      } else {
-        s = db_with_cfh->db->Get(options, cfh, key, &pinnable_val, ts_ptr);
-      }
-
-      if (s.ok()) {
-        found++;
-        bytes += key.size() + pinnable_val.size() + user_timestamp_size_;
-        for (size_t i = 0; i < pinnable_vals.size(); ++i) {
-          bytes += pinnable_vals[i].size();
-          pinnable_vals[i].Reset();
-        }
-      } else if (!s.IsNotFound()) {
-        fprintf(stderr, "Get returned an error: %s\n", s.ToString().c_str());
-        abort();
-      }
-
-      if (thread->shared->read_rate_limiter.get() != nullptr &&
-          read % 256 == 255) {
-        thread->shared->read_rate_limiter->Request(
-            256, Env::IO_HIGH, nullptr /* stats */, RateLimiter::OpType::kRead);
-      }
-
-      thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kRead);
-    }
-
-
-    char msg[100];
-    snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)\n", found,
-             read);
-
-    thread->stats.AddBytes(bytes);
-    thread->stats.AddMessage(msg);
-
-  }
 
   // Calls MultiGet over a list of keys from a random distribution.
   // Returns the total number of keys found.

@@ -33,7 +33,7 @@ int kInitialPartitionLevelingCompactionTrigger = 256;
 
 int kDynamicallPartitionLevelingCompactionTrigger = 64;
 
-int kPartitionLevelingL1CompactionTrigger = 4;
+int kPartitionLevelingL1CompactionTrigger = 1;
 
 int kLevelingL0PartitionSize = 128 * 1024 * 1024;
 

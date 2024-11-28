@@ -241,11 +241,12 @@ DBImpl::~DBImpl() {
   while (background_compaction_scheduled_) {
     background_work_finished_signal_.Wait();
   }
+
+  // PrintPartitions(mem_partitions_);
   
-
-
   SaveMemPartitionsToFile();
   SaveHotRangesToFile();
+  SavePartitionFirstL0FlushMap();
 
   mutex_.Unlock();
 
@@ -509,6 +510,11 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   s = RestoreHotRangesFromFile(dbname_);
   if (!s.ok()) {
     std::fprintf(stderr, "Not find range file: %s\n", s.ToString().c_str());
+  }
+
+  s = LoadPartitionFirstL0FlushMap(dbname_);
+  if (!s.ok()) {
+    std::fprintf(stderr, "Not find PartitionFirstL0FlushMap file: %s\n", s.ToString().c_str());
   }
 
   s = versions_->Recover(save_manifest);
@@ -1070,10 +1076,10 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
           std::string new_start_str = current_partition->partition_start_str;
           // change the position of pointer!
           RemovePartition(mem_partitions_, current_partition);
-          fprintf(stderr,"before update: start str:%s\n",next_partition->partition_start_str.c_str());
+          // fprintf(stderr,"before update: start str:%s\n",next_partition->partition_start_str.c_str());
           next_partition->UpdatePartitionStart(new_start_str);
           current_partition = next_partition;
-          fprintf(stderr,"After update: start str:%s\n",current_partition->partition_start_str.c_str());
+          // fprintf(stderr,"After update: start str:%s\n",current_partition->partition_start_str.c_str());
           GetNextPartition(mem_partitions_, current_partition, next_partition);
           continue;
         } 
@@ -1904,6 +1910,7 @@ void DBImpl::BackgroundCompaction() {
     // Nothing to do
   } else{
     for (Compaction* c : Partitionleveling_compactions) {
+      // fprintf(stdout,"start a leveling compaction from !\n");
       uint64_t need_partition_num = c->partition_num();
       mem_partition_guard* temp_partition = nullptr;
       for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
@@ -1920,7 +1927,7 @@ void DBImpl::BackgroundCompaction() {
           continue;  
         }
       }
-      bool is_first_L0flush =  partition_first_L0flush_map_[need_partition_num];
+      bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
       if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
         std::vector<uint64_t> deleted_partition_nums;
         Merge_all_supersmall_partitions(deleted_partition_nums);
@@ -1983,6 +1990,7 @@ void DBImpl::BackgroundCompaction() {
     }
 
     if(tiering_com != nullptr){
+      // fprintf(stdout,"start a tiering compaction from !\n");
       if (!is_manual && tiering_com->IsTrivialMoveWithTier()) { 
         // Move file to next level
         assert(tiering_com->num_input_tier_files(0) == 1);
@@ -3077,7 +3085,7 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
   }
   VersionSet::LevelSummaryStorage tmp;
   Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  config::kInitialPartitionLevelingCompactionTrigger = 24;
+  config::kInitialPartitionLevelingCompactionTrigger = 12;
 
   return status;
 }
@@ -3449,7 +3457,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
   }
   VersionSet::LevelSummaryStorage tmp;
   Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  config::kInitialPartitionLevelingCompactionTrigger = 24;
+  config::kInitialPartitionLevelingCompactionTrigger = 12;
 
   return status;
 }
@@ -3899,7 +3907,7 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   bool is_hot = false;
 
   if(HotRanges->hot_ranges_.size()!=0){
-    hot_range temp_hot_range(key.ToString(),key.ToString());
+    hot_range temp_hot_range(key.data(),key.size(),key.data(),key.size());
     auto it = HotRanges->hot_ranges_.upper_bound(temp_hot_range);
     if(it == HotRanges->hot_ranges_.begin() ){
       is_hot = false;
@@ -4112,18 +4120,28 @@ std::map<uint64_t, Iterator*> DBImpl::NewMultiIterator(const ReadOptions& option
 int DBImpl::Is_Overlap_HotRanges(const Slice& key){
 
   if(HotRanges->hot_ranges_.size()!=0){
-    hot_range temp_hot_range(key.ToString(),key.ToString());
+    hot_range temp_hot_range(key.data(),key.size(),key.data(),key.size());
     auto it = HotRanges->hot_ranges_.upper_bound(temp_hot_range);
 
-    if(it == HotRanges->hot_ranges_.end()){
-      it--;
-      if(it->is_key_contains(key.data(), key.size())){
-        return  0;
-      }else{
-        return 1;
-      }
+    // int count = 0;
+    // for (auto iter = HotRanges->hot_ranges_.begin(); iter != HotRanges->hot_ranges_.end() && count < 10; ++iter, ++count) {
+    //   // 假设每个元素有 start_ptr 和 start_size
+    //   iter->printRange();
+    // }
+
+    // fprintf(stdout,"There are %lu hot ranges, range_start_size:%s(size:%lu) key:%s(size:%lu)!\n",
+    //   HotRanges->hot_ranges_.size(),HotRanges->hot_ranges_.begin()->start_ptr, HotRanges->hot_ranges_.begin()->start_size,key.data(),key.size());
+
+    if(it == HotRanges->hot_ranges_.begin()){
+      return 0;
     }else{
-      return  0;
+      it--;
+      // it->printRange();
+      if(it->is_key_contains(key.data(), key.size())){
+        return  1;
+      }else{
+        return 0;
+      }
     }
   }
   return 1;
@@ -4134,8 +4152,9 @@ Iterator* DBImpl::FindIteratorByKey(const std::map<uint64_t, Iterator*>& iter_ma
   // PrintPartitions(mem_partitions_);
   int key_situation=Is_Overlap_HotRanges(start_key);
 
-  if(key_situation == 0){
+  if(key_situation == 1){
     Iterator * tiering_iterator = iter_map.at(0);
+    return tiering_iterator;
   }
 
   // fprintf(stdout, "Key: %s  situation:%d \n", start_key.data(), key_situation);
@@ -5142,6 +5161,78 @@ void DBImpl::SaveMemPartitionsToFile() {
     ofs.close();  
 }
 
+
+Status DBImpl::LoadPartitionFirstL0FlushMap(const std::string& dbname_) {
+  std::string file_path = dbname_ + "/PartitionFirstL0FlushMap";
+    
+  std::ifstream ifs(file_path);
+  if (!ifs.is_open()) {
+    return Status::IOError("Error opening file for restoring partition_first_L0flush_map");
+  }
+
+  // 解析 JSON 数据
+  nlohmann::json root = nlohmann::json::parse(ifs, nullptr, false);  // 解析时不抛出异常
+  if (root.is_discarded()) {
+    return Status::Corruption("Error parsing JSON: invalid format");
+  }
+
+  partition_first_L0flush_map_.clear();  // 清空现有的 partition_first_L0flush_map_
+
+  // 恢复 partition_first_L0flush_map_ 中的数据
+  for (const auto& entry : root["partition_first_L0flush_map"].items()) {
+    uint64_t partition_num = std::stoull(entry.key()); // 使用 std::stoull 处理 JSON 字符串键
+    bool is_first_flush = entry.value().get<bool>();
+
+    // 将读取的数据插入到 map 中
+    partition_first_L0flush_map_[partition_num] = is_first_flush;
+  }
+
+  fprintf(stderr, "Restored partition_first_L0flush_map entries:\n");
+  for (const auto& pair : partition_first_L0flush_map_) {
+    fprintf(stderr, "Partition %lu: %s\n", pair.first, pair.second ? "true" : "false");
+  }
+
+  ifs.close();
+  fprintf(stderr, "%lu partition_first_L0flush_map entries restored from %s\n", partition_first_L0flush_map_.size(), file_path.c_str());
+  return Status::OK();
+}
+
+
+void DBImpl::SavePartitionFirstL0FlushMap() {
+
+  PrintPartitions(mem_partitions_);
+
+  std::string file_path = dbname_ + "/PartitionFirstL0FlushMap";
+
+    // 打开文件以二进制模式写入
+    std::ofstream ofs(file_path, std::ios::binary);
+    if (!ofs) {
+        fprintf(stderr, "Error opening file for saving partition_first_L0flush_map: %s! \n", file_path.c_str());
+        return;
+    }
+
+    // 写入开头的 JSON 格式
+    ofs << "{\n";
+    ofs << "  \"partition_first_L0flush_map\": {\n";
+
+    bool first_entry = true;
+    for (const auto& entry : partition_first_L0flush_map_) {
+        if (!first_entry) {
+            ofs << ",\n";  // 在每个条目后添加逗号
+        }
+        first_entry = false;
+
+        // 写入每个 partition 的信息
+        ofs << "    \"" << entry.first << "\": " << (entry.second ? "true" : "false");
+    }
+
+    ofs << "\n  }\n";
+    ofs << "}\n";
+
+    ofs.close();
+}
+
+
 void DBImpl::SaveHotRangesToFile() {
 
   // 定义保存文件路径
@@ -5298,6 +5389,8 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   } else {
     delete impl;
   }
+  // impl->versions_->Finalize(versions_->current());
+  // impl->MaybeScheduleCompaction();
 
   // //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // std::fprintf(stdout,"Test start!\n");
@@ -5307,7 +5400,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   // std::fprintf(stdout,"Test over!\n");
   // // exit(0);
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
-
+  fprintf(stdout,"The DB has been opened!\n");
   return s;
 }
 

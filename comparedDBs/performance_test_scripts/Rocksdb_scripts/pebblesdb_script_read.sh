@@ -68,7 +68,7 @@ for i in {10..10}; do
                 --num=$num_entries \
                 --value_size=$value_size \
                 --batch_size=1000 \
-                --benchmarks=readrandom,stats \
+                --benchmarks=pointread,stats \
                 --use_existing_db=true \
                 --Read_data_file=$reads_data_file  \
                 --data_file=$data_file  \

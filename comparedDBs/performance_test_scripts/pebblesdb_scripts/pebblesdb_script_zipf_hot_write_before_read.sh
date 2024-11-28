@@ -26,18 +26,18 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_Pebblesdb_read_performance"
+    dir1="${i}B_Pebblesdb_Pointread_performance"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
         cd $dir1
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 100))
             num_format=$(convert_to_billion_format $num_entries)
-            num_entries=100000000
+            num_entries=1000000000
 
-            for zipf_a in 1.2 1.3 1.4; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.3 1.4; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem${Mem}MB_zipf${zipf_a}.log"
@@ -45,10 +45,10 @@ for i in {10..10}; do
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_${Mem}MiB_${num_format}_key16_val${value_size}_zipf${zipf_a}.log"
 
                 # 如果日志文件存在，则跳过当前迭代
-                if [ -f "$log_file" ]; then
-                    echo "Log file $log_file already exists. Skipping this iteration."
-                    continue
-                fi
+                # if [ -f "$log_file" ]; then
+                #     echo "Log file $log_file already exists. Skipping this iteration."
+                #     continue
+                # fi
 
                 echo "base_num: $base_num"
                 echo "num_entries: $num_entries"
@@ -57,7 +57,7 @@ for i in {10..10}; do
                 echo "$num_format"
 
                 # 创建相应的目录
-                db_dir="/mnt/hotdb_test/pebbles10B/read_mem${Mem}_${zipf_a}"
+                db_dir="/mnt/hotdb_test/pebbles10B/PointRead_${zipf_a}"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
                 fi

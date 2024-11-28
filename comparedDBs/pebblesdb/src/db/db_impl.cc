@@ -2516,15 +2516,15 @@ Status DB::Open(const Options& options, const std::string& dbname,
   // Populate the file level bloom filter at the start of the database
   // TODO: Optimize this by storing the filter values in file during shutdown and just reading them during open or
   // store file level bloom filter for every file along with the index block
-  uint64_t before = Env::Default()->NowMicros();
-  impl->versions_->InitializeFileLevelBloomFilter();
-  uint64_t after = Env::Default()->NowMicros();
-  printf("InitializeFileLevelBloomFilter Time: %llu\n", after - before);
+  // uint64_t before = Env::Default()->NowMicros();
+  // impl->versions_->InitializeFileLevelBloomFilter();
+  // uint64_t after = Env::Default()->NowMicros();
+  // printf("InitializeFileLevelBloomFilter Time: %llu\n", after - before);
 
 
-  impl->versions_->InitializeTableCacheFileMetaData();
-  before = Env::Default()->NowMicros();
-  printf("InitializeTableCacheFileMetaData Time: %llu\n", before - after);
+  // impl->versions_->InitializeTableCacheFileMetaData();
+  // before = Env::Default()->NowMicros();
+  // printf("InitializeTableCacheFileMetaData Time: %llu\n", before - after);
   
   impl->pending_outputs_.clear();
   impl->allow_background_activity_ = true;

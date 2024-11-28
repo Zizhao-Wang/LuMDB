@@ -40,8 +40,8 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
 
-            for iterator in {10..10}; do
-                for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
+            for iterator in {1..1}; do
+                for zipf_a in 1.4; do  # 1.2 1.3 1.4 1.5
 
                     log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}_iteratoration${iterator}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径

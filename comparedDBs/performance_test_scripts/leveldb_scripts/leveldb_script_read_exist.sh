@@ -40,7 +40,7 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=10000000
 
-            for zipf_a in 1.4; do  #  1.2 
+            for zipf_a in 1.2; do  #  1.2 
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(0) #10 20 30 40 50 60 70 80 90 100
 
@@ -67,7 +67,8 @@ for i in {10..10}; do
                             echo "$num_format"
 
                             # 创建相应的目录
-                            db_dir="/mnt/hotdb_test/level10B/read_mem${buffer_size_mb}_${zipf_a}"
+                            db_dir="/mnt/hotdb_test/level10B/YCSBa_mem${buffer_size_mb}_${zipf_a}_iterator2"
+                            echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
                             iostat -d 100 -x $DEVICE_NAME > leveldb_HDD_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_IOstats.log &
                             PID_IOSTAT=$!
                         
@@ -96,7 +97,7 @@ for i in {10..10}; do
                             &> >( tee $log_file) &  
 
                             # 保存 db_bench 的 PID 供监控使用
-                            sleep 1
+                            # sleep 1
 
                             DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
                             echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
