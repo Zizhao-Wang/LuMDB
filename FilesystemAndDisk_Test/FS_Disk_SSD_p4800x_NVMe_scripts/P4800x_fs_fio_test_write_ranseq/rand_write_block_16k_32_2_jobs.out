@@ -1,0 +1,38 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 16.0KiB-16.0KiB, (W) 16.0KiB-16.0KiB, (T) 16.0KiB-16.0KiB, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 2 processes
+
+rand_write_test: (groupid=0, jobs=2): err= 0: pid=1133890: Sun May 12 18:43:12 2024
+  write: IOPS=49.7k, BW=776MiB/s (813MB/s)(200GiB/263987msec); 0 zone resets
+    slat (usec): min=3, max=792, avg=10.05, stdev= 3.68
+    clat (nsec): min=914, max=12110k, avg=27964.00, stdev=9682.05
+     lat (usec): min=19, max=12123, avg=38.14, stdev=11.43
+    clat percentiles (usec):
+     |  1.00th=[   19],  5.00th=[   19], 10.00th=[   19], 20.00th=[   23],
+     | 30.00th=[   28], 40.00th=[   29], 50.00th=[   29], 60.00th=[   29],
+     | 70.00th=[   30], 80.00th=[   31], 90.00th=[   34], 95.00th=[   37],
+     | 99.00th=[   55], 99.50th=[   61], 99.90th=[   72], 99.95th=[   78],
+     | 99.99th=[  133]
+   bw (  KiB/s): min=643680, max=1254240, per=100.00%, avg=804865.00, stdev=77146.50, samples=1042
+   iops        : min=40230, max=78390, avg=50303.95, stdev=4821.65, samples=1042
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=15.22%, 50=83.36%
+  lat (usec)   : 100=1.38%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.01%, 4=0.01%, 20=0.01%
+  cpu          : usr=13.44%, sys=32.73%, ctx=13153757, majf=0, minf=930
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,13107200,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=776MiB/s (813MB/s), 776MiB/s-776MiB/s (813MB/s-813MB/s), io=200GiB (215GB), run=263987-263987msec
+
+Disk stats (read/write):
+  nvme5n1: ios=0/13104514, merge=0/53, ticks=0/239743, in_queue=239743, util=100.00%
+
+Test Time: 2024-05-12 18:43:12
+Device Name: filetest.txt
+Device Info: 

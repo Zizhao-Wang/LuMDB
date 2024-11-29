@@ -1,0 +1,40 @@
+seq_write_test: (g=0): rw=write, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 16 processes
+
+seq_write_test: (groupid=0, jobs=16): err= 0: pid=142557: Mon Apr 29 20:56:33 2024
+  write: IOPS=6051, BW=23.6MiB/s (24.8MB/s)(83.1GiB/3600061msec); 0 zone resets
+    slat (usec): min=3, max=1003, avg=22.30, stdev=15.23
+    clat (nsec): min=1298, max=2565.0M, avg=2619089.81, stdev=32832973.68
+     lat (usec): min=31, max=2565.0k, avg=2641.69, stdev=32834.26
+    clat percentiles (usec):
+     |  1.00th=[     28],  5.00th=[     29], 10.00th=[     29],
+     | 20.00th=[     31], 30.00th=[     33], 40.00th=[     33],
+     | 50.00th=[     34], 60.00th=[     35], 70.00th=[   3556],
+     | 80.00th=[   4686], 90.00th=[   7242], 95.00th=[   8356],
+     | 99.00th=[  14877], 99.50th=[  19268], 99.90th=[  42730],
+     | 99.95th=[  73925], 99.99th=[2499806]
+   bw (  KiB/s): min=  128, max=1579483, per=100.00%, avg=28025.93, stdev=7681.87, samples=99493
+   iops        : min=   32, max=394872, avg=7005.23, stdev=1920.45, samples=99493
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.02%, 50=66.60%
+  lat (usec)   : 100=0.22%, 250=0.13%, 500=0.16%, 750=0.05%, 1000=0.09%
+  lat (msec)   : 2=0.08%, 4=6.77%, 10=23.67%, 20=1.71%, 50=0.40%
+  lat (msec)   : 100=0.04%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2000=0.01%, >=2000=0.01%
+  cpu          : usr=0.30%, sys=0.75%, ctx=42963774, majf=0, minf=842
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,21784883,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=23.6MiB/s (24.8MB/s), 23.6MiB/s-23.6MiB/s (24.8MB/s-24.8MB/s), io=83.1GiB (89.2GB), run=3600061-3600061msec
+
+Disk stats (read/write):
+  sdb: ios=92/21745887, merge=0/37304, ticks=33/56876399, in_queue=56876431, util=100.00%
+
+Test Time: 2024-04-29 20:56:33
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

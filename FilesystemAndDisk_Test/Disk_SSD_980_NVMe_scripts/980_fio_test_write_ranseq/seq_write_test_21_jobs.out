@@ -1,0 +1,34 @@
+seq_write_test: (g=0): rw=write, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 21 processes
+
+seq_write_test: (groupid=0, jobs=21): err= 0: pid=781250: Fri May  3 04:09:49 2024
+  write: IOPS=51.0k, BW=199MiB/s (209MB/s)(200GiB/1027725msec); 0 zone resets
+    slat (usec): min=2, max=64938, avg= 9.40, stdev=10.54
+    clat (nsec): min=1412, max=780645k, avg=398101.05, stdev=3249619.83
+     lat (usec): min=17, max=780652, avg=407.68, stdev=3249.62
+    clat percentiles (usec):
+     |  1.00th=[   30],  5.00th=[   49], 10.00th=[   72], 20.00th=[   86],
+     | 30.00th=[   92], 40.00th=[   97], 50.00th=[  108], 60.00th=[  137],
+     | 70.00th=[  188], 80.00th=[  302], 90.00th=[  668], 95.00th=[ 1270],
+     | 99.00th=[ 5473], 99.50th=[ 6521], 99.90th=[ 9241], 99.95th=[11600],
+     | 99.99th=[22152]
+   bw (  KiB/s): min=  168, max=657367, per=100.00%, avg=206130.72, stdev=2574.13, samples=42740
+   iops        : min=   42, max=164337, avg=51529.70, stdev=643.51, samples=42740
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.02%, 50=5.17%
+  lat (usec)   : 100=38.66%, 250=32.72%, 500=11.05%, 750=3.49%, 1000=2.31%
+  lat (msec)   : 2=2.69%, 4=1.62%, 10=2.18%, 20=0.06%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  cpu          : usr=2.04%, sys=3.61%, ctx=52416572, majf=0, minf=587
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428810,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=199MiB/s (209MB/s), 199MiB/s-199MiB/s (209MB/s-209MB/s), io=200GiB (215GB), run=1027725-1027725msec
+
+Disk stats (read/write):
+  nvme4n1: ios=867/52423059, merge=0/0, ticks=964/20086844, in_queue=20087809, util=100.00%

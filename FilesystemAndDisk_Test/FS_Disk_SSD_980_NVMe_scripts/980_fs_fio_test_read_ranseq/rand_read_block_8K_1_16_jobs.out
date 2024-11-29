@@ -1,0 +1,35 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 16 processes
+
+rand_read_test: (groupid=0, jobs=16): err= 0: pid=2457128: Mon May 20 00:00:17 2024
+  read: IOPS=14.8k, BW=115MiB/s (121MB/s)(200GiB/1775644msec)
+    slat (usec): min=3, max=24323, avg=16.52, stdev= 8.14
+    clat (nsec): min=1964, max=6262.5M, avg=1058569.09, stdev=10738739.35
+     lat (usec): min=56, max=6262.5k, avg=1075.39, stdev=10739.10
+    clat percentiles (usec):
+     |  1.00th=[  190],  5.00th=[  273], 10.00th=[  322], 20.00th=[  404],
+     | 30.00th=[  482], 40.00th=[  570], 50.00th=[  668], 60.00th=[  791],
+     | 70.00th=[ 1029], 80.00th=[ 1582], 90.00th=[ 2278], 95.00th=[ 2933],
+     | 99.00th=[ 4555], 99.50th=[ 5014], 99.90th=[ 5932], 99.95th=[ 6390],
+     | 99.99th=[35914]
+   bw (  KiB/s): min=  241, max=412471, per=100.00%, avg=121462.99, stdev=5299.24, samples=55276
+   iops        : min=   17, max=51557, avg=15179.78, stdev=662.42, samples=55276
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (usec)   : 100=0.01%, 250=3.50%, 500=28.68%, 750=24.94%, 1000=12.00%
+  lat (msec)   : 2=17.45%, 4=11.60%, 10=1.80%, 20=0.01%, 50=0.02%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2000=0.01%, >=2000=0.01%
+  cpu          : usr=0.95%, sys=2.12%, ctx=26216314, majf=0, minf=1006
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=26214400,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=115MiB/s (121MB/s), 115MiB/s-115MiB/s (121MB/s-121MB/s), io=200GiB (215GB), run=1775644-1775644msec
+
+Disk stats (read/write):
+  nvme2n1: ios=143407329/0, merge=74/0, ticks=18446744069925173060/0, in_queue=510588740, util=100.00%

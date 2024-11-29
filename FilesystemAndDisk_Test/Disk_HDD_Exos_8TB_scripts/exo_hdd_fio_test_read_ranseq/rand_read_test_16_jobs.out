@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 16 processes
+
+rand_read_test: (groupid=0, jobs=16): err= 0: pid=533419: Thu May  2 12:39:38 2024
+  read: IOPS=371, BW=1486KiB/s (1521kB/s)(5223MiB/3600065msec)
+    slat (usec): min=5, max=1072, avg=51.09, stdev=11.72
+    clat (usec): min=147, max=877551, avg=43021.92, stdev=48700.63
+     lat (usec): min=168, max=877607, avg=43073.83, stdev=48700.65
+    clat percentiles (msec):
+     |  1.00th=[    3],  5.00th=[    5], 10.00th=[    6], 20.00th=[    9],
+     | 30.00th=[   14], 40.00th=[   19], 50.00th=[   26], 60.00th=[   35],
+     | 70.00th=[   48], 80.00th=[   68], 90.00th=[  104], 95.00th=[  142],
+     | 99.00th=[  232], 99.50th=[  271], 99.90th=[  368], 99.95th=[  409],
+     | 99.99th=[  510]
+   bw (  KiB/s): min=  128, max= 9517, per=99.96%, avg=1485.81, stdev=31.18, samples=115167
+   iops        : min=   32, max= 2378, avg=371.45, stdev= 7.79, samples=115167
+  lat (usec)   : 250=0.04%, 500=0.01%, 750=0.01%, 1000=0.02%
+  lat (msec)   : 2=0.11%, 4=3.84%, 10=18.71%, 20=19.68%, 50=28.71%
+  lat (msec)   : 100=18.22%, 250=9.94%, 500=0.71%, 750=0.01%, 1000=0.01%
+  cpu          : usr=0.05%, sys=0.11%, ctx=2586443, majf=0, minf=6862
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=1337007,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=1486KiB/s (1521kB/s), 1486KiB/s-1486KiB/s (1521kB/s-1521kB/s), io=5223MiB (5476MB), run=3600065-3600065msec
+
+Disk stats (read/write):
+  sdb: ios=1337005/0, merge=0/0, ticks=57490035/0, in_queue=57490034, util=100.00%
+
+Test Time: 2024-05-02 12:39:38
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

@@ -1,0 +1,38 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=2
+...
+fio-3.28
+Starting 32 processes
+
+rand_read_test: (groupid=0, jobs=32): err= 0: pid=3771740: Tue May 14 07:57:11 2024
+  read: IOPS=101k, BW=789MiB/s (827MB/s)(200GiB/259645msec)
+    slat (usec): min=3, max=10147, avg=13.55, stdev= 7.55
+    clat (usec): min=2, max=617119, avg=583.63, stdev=4079.37
+     lat (usec): min=17, max=624122, avg=597.39, stdev=4079.67
+    clat percentiles (usec):
+     |  1.00th=[    85],  5.00th=[    94], 10.00th=[   101], 20.00th=[   113],
+     | 30.00th=[   145], 40.00th=[   217], 50.00th=[   260], 60.00th=[   363],
+     | 70.00th=[   498], 80.00th=[   717], 90.00th=[  1156], 95.00th=[  1647],
+     | 99.00th=[  3621], 99.50th=[  5342], 99.90th=[ 16581], 99.95th=[ 44303],
+     | 99.99th=[130548]
+   bw (  KiB/s): min= 2535, max=4076132, per=100.00%, avg=855782.40, stdev=25145.40, samples=15686
+   iops        : min=  309, max=509505, avg=106964.96, stdev=3143.13, samples=15686
+  lat (usec)   : 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%, 100=9.44%
+  lat (usec)   : 250=39.44%, 500=21.13%, 750=11.19%, 1000=6.13%
+  lat (msec)   : 2=9.45%, 4=2.38%, 10=0.70%, 20=0.03%, 50=0.05%
+  lat (msec)   : 100=0.02%, 250=0.01%, 500=0.01%, 750=0.01%
+  cpu          : usr=2.86%, sys=6.48%, ctx=26044716, majf=0, minf=16885
+  IO depths    : 1=0.1%, 2=100.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=26214400,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=2
+
+Run status group 0 (all jobs):
+   READ: bw=789MiB/s (827MB/s), 789MiB/s-789MiB/s (827MB/s-827MB/s), io=200GiB (215GB), run=259645-259645msec
+
+Disk stats (read/write):
+  nvme5n1: ios=87843697/0, merge=582/0, ticks=134247857/0, in_queue=134247856, util=100.00%
+
+Test Time: 2024-05-14 07:58:04
+Device Name: filetest.txt
+Device Info: 

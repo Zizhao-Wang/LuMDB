@@ -1,0 +1,35 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 8 processes
+
+rand_read_test: (groupid=0, jobs=8): err= 0: pid=2431543: Mon May 13 21:08:13 2024
+  read: IOPS=323k, BW=1261MiB/s (1323MB/s)(200GiB/162363msec)
+    slat (usec): min=2, max=7035, avg= 4.21, stdev= 3.37
+    clat (nsec): min=804, max=312862k, avg=18842.03, stdev=621594.62
+     lat (usec): min=10, max=312893, avg=23.10, stdev=622.20
+    clat percentiles (usec):
+     |  1.00th=[   10],  5.00th=[   10], 10.00th=[   10], 20.00th=[   11],
+     | 30.00th=[   11], 40.00th=[   12], 50.00th=[   12], 60.00th=[   13],
+     | 70.00th=[   14], 80.00th=[   16], 90.00th=[   20], 95.00th=[   22],
+     | 99.00th=[   36], 99.50th=[   44], 99.90th=[ 1483], 99.95th=[ 1549],
+     | 99.99th=[ 1696]
+   bw (  MiB/s): min=    6, max= 2106, per=100.00%, avg=1309.79, stdev=96.69, samples=2498
+   iops        : min= 1741, max=539280, avg=335306.39, stdev=24752.01, samples=2498
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=16.87%, 20=74.69%, 50=8.07%
+  lat (usec)   : 100=0.08%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.26%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%
+  cpu          : usr=11.38%, sys=25.79%, ctx=52397875, majf=0, minf=3032
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=1261MiB/s (1323MB/s), 1261MiB/s-1261MiB/s (1323MB/s-1323MB/s), io=200GiB (215GB), run=162363-162363msec
+
+Disk stats (read/write):
+  nvme5n1: ios=63486733/0, merge=0/0, ticks=159211095/0, in_queue=159211095, util=100.00%

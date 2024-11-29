@@ -1,0 +1,38 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 64 processes
+
+rand_write_test: (groupid=0, jobs=64): err= 0: pid=2743708: Fri May 10 19:39:42 2024
+  write: IOPS=195k, BW=760MiB/s (797MB/s)(200GiB/269519msec); 0 zone resets
+    slat (usec): min=3, max=943, avg=14.78, stdev= 4.79
+    clat (usec): min=4, max=63245, avg=310.40, stdev=494.34
+     lat (usec): min=27, max=63269, avg=325.41, stdev=494.80
+    clat percentiles (usec):
+     |  1.00th=[  161],  5.00th=[  182], 10.00th=[  190], 20.00th=[  202],
+     | 30.00th=[  210], 40.00th=[  221], 50.00th=[  233], 60.00th=[  247],
+     | 70.00th=[  265], 80.00th=[  289], 90.00th=[  334], 95.00th=[  412],
+     | 99.00th=[ 2868], 99.50th=[ 4293], 99.90th=[ 5145], 99.95th=[ 5473],
+     | 99.99th=[ 9241]
+   bw (  KiB/s): min=372104, max=1325430, per=100.00%, avg=780292.04, stdev=4546.23, samples=34405
+   iops        : min=93026, max=331350, avg=195058.73, stdev=1136.54, samples=34405
+  lat (usec)   : 10=0.01%, 20=0.01%, 50=0.01%, 100=0.04%, 250=61.64%
+  lat (usec)   : 500=34.24%, 750=1.07%, 1000=0.61%
+  lat (msec)   : 2=1.04%, 4=0.72%, 10=0.62%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=2.94%, sys=6.14%, ctx=52441875, majf=0, minf=6783
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428800,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=760MiB/s (797MB/s), 760MiB/s-760MiB/s (797MB/s-797MB/s), io=200GiB (215GB), run=269519-269519msec
+
+Disk stats (read/write):
+  nvme1n1: ios=0/52407199, merge=0/54, ticks=0/15065036, in_queue=15065811, util=100.00%
+
+Test Time: 2024-05-10 19:39:42
+Device Name: filetest.txt
+Device Info: 

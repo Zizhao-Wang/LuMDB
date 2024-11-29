@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 19 processes
+
+rand_read_test: (groupid=0, jobs=19): err= 0: pid=1178508: Fri May  3 23:55:15 2024
+  read: IOPS=385, BW=1543KiB/s (1580kB/s)(5423MiB/3600096msec)
+    slat (usec): min=4, max=40597, avg=46.54, stdev=37.32
+    clat (usec): min=174, max=991668, avg=49215.34, stdev=56410.19
+     lat (usec): min=264, max=991719, avg=49262.55, stdev=56410.16
+    clat percentiles (msec):
+     |  1.00th=[    3],  5.00th=[    5], 10.00th=[    7], 20.00th=[   10],
+     | 30.00th=[   15], 40.00th=[   21], 50.00th=[   29], 60.00th=[   41],
+     | 70.00th=[   55], 80.00th=[   78], 90.00th=[  118], 95.00th=[  163],
+     | 99.00th=[  268], 99.50th=[  317], 99.90th=[  426], 99.95th=[  481],
+     | 99.99th=[  600]
+   bw (  KiB/s): min=  151, max= 3984, per=100.00%, avg=1543.49, stdev=28.91, samples=136707
+   iops        : min=   37, max=  996, avg=385.87, stdev= 7.23, samples=136707
+  lat (usec)   : 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.09%, 4=3.44%, 10=16.81%, 20=18.44%, 50=28.18%
+  lat (msec)   : 100=19.40%, 250=12.33%, 500=1.26%, 750=0.04%, 1000=0.01%
+  cpu          : usr=0.04%, sys=0.10%, ctx=2760926, majf=0, minf=5688
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=1388306,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=1543KiB/s (1580kB/s), 1543KiB/s-1543KiB/s (1580kB/s-1580kB/s), io=5423MiB (5687MB), run=3600096-3600096msec
+
+Disk stats (read/write):
+  sdb: ios=1388297/0, merge=0/0, ticks=68336422/0, in_queue=68336422, util=100.00%
+
+Test Time: 2024-05-03 23:55:15
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

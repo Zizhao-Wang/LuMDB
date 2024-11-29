@@ -1,0 +1,38 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=8
+...
+fio-3.28
+Starting 16 processes
+
+rand_read_test: (groupid=0, jobs=16): err= 0: pid=3452100: Tue May 14 05:21:39 2024
+  read: IOPS=152k, BW=1189MiB/s (1247MB/s)(200GiB/172252msec)
+    slat (usec): min=2, max=35460, avg=14.91, stdev=10.38
+    clat (usec): min=2, max=74636, avg=823.00, stdev=857.71
+     lat (usec): min=85, max=74647, avg=838.18, stdev=857.91
+    clat percentiles (usec):
+     |  1.00th=[  159],  5.00th=[  190], 10.00th=[  225], 20.00th=[  314],
+     | 30.00th=[  400], 40.00th=[  494], 50.00th=[  603], 60.00th=[  734],
+     | 70.00th=[  898], 80.00th=[ 1139], 90.00th=[ 1549], 95.00th=[ 2024],
+     | 99.00th=[ 4424], 99.50th=[ 6521], 99.90th=[ 9241], 99.95th=[10028],
+     | 99.99th=[11863]
+   bw (  MiB/s): min=  562, max= 1369, per=100.00%, avg=1190.63, stdev=15.78, samples=5500
+   iops        : min=71980, max=175266, avg=152399.35, stdev=2019.55, samples=5500
+  lat (usec)   : 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%, 100=0.01%
+  lat (usec)   : 250=12.72%, 500=27.93%, 750=20.37%, 1000=13.79%
+  lat (msec)   : 2=20.04%, 4=3.98%, 10=1.12%, 20=0.05%, 50=0.01%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=7.91%, sys=17.90%, ctx=19536087, majf=0, minf=5099
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=100.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.1%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=26214400,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=8
+
+Run status group 0 (all jobs):
+   READ: bw=1189MiB/s (1247MB/s), 1189MiB/s-1189MiB/s (1247MB/s-1247MB/s), io=200GiB (215GB), run=172252-172252msec
+
+Disk stats (read/write):
+  nvme0n1: ios=26200547/0, merge=0/0, ticks=21228538/0, in_queue=21228539, util=100.00%
+
+Test Time: 2024-05-14 05:21:39
+Device Name: filetest.txt
+Device Info: 

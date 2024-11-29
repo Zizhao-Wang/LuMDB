@@ -1,0 +1,38 @@
+seq_read_test: (g=0): rw=read, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=4
+...
+fio-3.28
+Starting 64 processes
+
+seq_read_test: (groupid=0, jobs=64): err= 0: pid=124109: Tue May 14 12:20:12 2024
+  read: IOPS=147k, BW=1145MiB/s (1200MB/s)(200GiB/178895msec)
+    slat (usec): min=3, max=48477, avg=16.00, stdev=19.53
+    clat (usec): min=2, max=69549, avg=1726.83, stdev=2426.78
+     lat (usec): min=84, max=69565, avg=1743.13, stdev=2427.02
+    clat percentiles (usec):
+     |  1.00th=[  449],  5.00th=[  545], 10.00th=[  619], 20.00th=[  725],
+     | 30.00th=[  824], 40.00th=[  930], 50.00th=[ 1045], 60.00th=[ 1172],
+     | 70.00th=[ 1319], 80.00th=[ 1614], 90.00th=[ 2835], 95.00th=[ 6390],
+     | 99.00th=[13566], 99.50th=[16581], 99.90th=[20579], 99.95th=[22152],
+     | 99.99th=[26084]
+   bw (  MiB/s): min=  620, max= 3132, per=100.00%, avg=1147.63, stdev= 9.17, samples=22822
+   iops        : min=79466, max=400954, avg=146887.69, stdev=1173.30, samples=22822
+  lat (usec)   : 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%, 100=0.01%
+  lat (usec)   : 250=0.02%, 500=2.62%, 750=19.74%, 1000=23.96%
+  lat (msec)   : 2=39.63%, 4=6.11%, 10=5.42%, 20=2.38%, 50=0.12%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=2.01%, sys=4.79%, ctx=20517201, majf=0, minf=7397
+  IO depths    : 1=0.1%, 2=0.1%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=26214400,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=4
+
+Run status group 0 (all jobs):
+   READ: bw=1145MiB/s (1200MB/s), 1145MiB/s-1145MiB/s (1200MB/s-1200MB/s), io=200GiB (215GB), run=178895-178895msec
+
+Disk stats (read/write):
+  nvme4n1: ios=26206503/0, merge=0/0, ticks=44884044/0, in_queue=44884045, util=100.00%
+
+Test Time: 2024-05-14 12:20:12
+Device Name: filetest.txt
+Device Info: 

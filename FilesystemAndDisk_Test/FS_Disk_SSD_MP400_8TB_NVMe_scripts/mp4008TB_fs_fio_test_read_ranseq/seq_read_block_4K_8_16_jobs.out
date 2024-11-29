@@ -1,0 +1,38 @@
+seq_read_test: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=8
+...
+fio-3.28
+Starting 16 processes
+
+seq_read_test: (groupid=0, jobs=16): err= 0: pid=3441895: Tue May 14 05:18:46 2024
+  read: IOPS=176k, BW=688MiB/s (722MB/s)(200GiB/297463msec)
+    slat (usec): min=2, max=8195, avg=10.57, stdev= 5.08
+    clat (usec): min=3, max=64598, avg=713.45, stdev=654.88
+     lat (usec): min=67, max=64608, avg=724.19, stdev=655.11
+    clat percentiles (usec):
+     |  1.00th=[  145],  5.00th=[  221], 10.00th=[  265], 20.00th=[  322],
+     | 30.00th=[  383], 40.00th=[  523], 50.00th=[  611], 60.00th=[  734],
+     | 70.00th=[  840], 80.00th=[  938], 90.00th=[ 1156], 95.00th=[ 1418],
+     | 99.00th=[ 3195], 99.50th=[ 4948], 99.90th=[ 8455], 99.95th=[ 9241],
+     | 99.99th=[11469]
+   bw (  KiB/s): min=268810, max=1595443, per=100.00%, avg=706130.41, stdev=17429.72, samples=9503
+   iops        : min=67200, max=398858, avg=176530.43, stdev=4357.46, samples=9503
+  lat (usec)   : 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%, 100=0.22%
+  lat (usec)   : 250=8.43%, 500=29.87%, 750=22.94%, 1000=22.58%
+  lat (msec)   : 2=14.33%, 4=0.87%, 10=0.72%, 20=0.03%, 50=0.01%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=7.53%, sys=16.72%, ctx=48013732, majf=0, minf=2048
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=100.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.1%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=8
+
+Run status group 0 (all jobs):
+   READ: bw=688MiB/s (722MB/s), 688MiB/s-688MiB/s (722MB/s-722MB/s), io=200GiB (215GB), run=297463-297463msec
+
+Disk stats (read/write):
+  nvme0n1: ios=52423181/0, merge=0/0, ticks=36855164/0, in_queue=36855165, util=100.00%
+
+Test Time: 2024-05-14 05:18:46
+Device Name: filetest.txt
+Device Info: 

@@ -1,0 +1,38 @@
+seq_read_test: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=2
+...
+fio-3.28
+Starting 64 processes
+
+seq_read_test: (groupid=0, jobs=64): err= 0: pid=35857: Tue May 14 11:38:00 2024
+  read: IOPS=209k, BW=814MiB/s (854MB/s)(200GiB/251443msec)
+    slat (usec): min=2, max=49846, avg=13.92, stdev=15.85
+    clat (nsec): min=1260, max=53477k, avg=596450.69, stdev=1086547.05
+     lat (usec): min=16, max=53512, avg=610.70, stdev=1086.89
+    clat percentiles (usec):
+     |  1.00th=[   84],  5.00th=[  118], 10.00th=[  153], 20.00th=[  223],
+     | 30.00th=[  281], 40.00th=[  347], 50.00th=[  367], 60.00th=[  433],
+     | 70.00th=[  482], 80.00th=[  578], 90.00th=[  832], 95.00th=[ 1582],
+     | 99.00th=[ 6325], 99.50th=[ 8029], 99.90th=[13042], 99.95th=[15008],
+     | 99.99th=[17957]
+   bw (  KiB/s): min=273968, max=2038448, per=100.00%, avg=835704.72, stdev=4333.53, samples=32100
+   iops        : min=68492, max=509612, avg=208916.15, stdev=1083.36, samples=32100
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (usec)   : 100=2.86%, 250=22.24%, 500=47.30%, 750=16.12%, 1000=3.46%
+  lat (msec)   : 2=4.03%, 4=2.07%, 10=1.68%, 20=0.24%, 50=0.01%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=3.09%, sys=6.50%, ctx=51264492, majf=0, minf=6530
+  IO depths    : 1=0.1%, 2=100.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=2
+
+Run status group 0 (all jobs):
+   READ: bw=814MiB/s (854MB/s), 814MiB/s-814MiB/s (854MB/s-854MB/s), io=200GiB (215GB), run=251443-251443msec
+
+Disk stats (read/write):
+  nvme4n1: ios=52406621/0, merge=0/0, ticks=30624946/0, in_queue=30624946, util=100.00%
+
+Test Time: 2024-05-14 11:38:00
+Device Name: filetest.txt
+Device Info: 

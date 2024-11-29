@@ -1,0 +1,35 @@
+seq_read_test: (g=0): rw=read, bs=(R) 64.0KiB-64.0KiB, (W) 64.0KiB-64.0KiB, (T) 64.0KiB-64.0KiB, ioengine=libaio, iodepth=32
+...
+fio-3.28
+Starting 64 processes
+
+seq_read_test: (groupid=0, jobs=64): err= 0: pid=410968: Tue May 14 14:42:34 2024
+  read: IOPS=7325, BW=458MiB/s (480MB/s)(200GiB/447329msec)
+    slat (usec): min=4, max=53765, avg=49.67, stdev=376.99
+    clat (usec): min=80, max=1735.0k, avg=201313.89, stdev=215684.08
+     lat (usec): min=461, max=1735.0k, avg=201363.87, stdev=215719.17
+    clat percentiles (usec):
+     |  1.00th=[   1483],  5.00th=[   6194], 10.00th=[  12125],
+     | 20.00th=[  18220], 30.00th=[  31851], 40.00th=[  52691],
+     | 50.00th=[  95945], 60.00th=[ 173016], 70.00th=[ 308282],
+     | 80.00th=[ 417334], 90.00th=[ 530580], 95.00th=[ 624952],
+     | 99.00th=[ 784335], 99.50th=[ 834667], 99.90th=[ 901776],
+     | 99.95th=[ 918553], 99.99th=[1002439]
+   bw (  KiB/s): min=32436, max=8749642, per=100.00%, avg=710092.45, stdev=15820.19, samples=40836
+   iops        : min=  447, max=136688, avg=11059.24, stdev=247.25, samples=40836
+  lat (usec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.09%, 1000=0.29%
+  lat (msec)   : 2=1.19%, 4=1.72%, 10=4.55%, 20=14.10%, 50=17.00%
+  lat (msec)   : 100=11.78%, 250=15.04%, 500=21.34%, 750=11.38%, 1000=1.49%
+  lat (msec)   : 2000=0.01%
+  cpu          : usr=0.15%, sys=0.49%, ctx=3250802, majf=0, minf=37121
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=99.9%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.1%, 64=0.0%, >=64=0.0%
+     issued rwts: total=3276800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=32
+
+Run status group 0 (all jobs):
+   READ: bw=458MiB/s (480MB/s), 458MiB/s-458MiB/s (480MB/s-480MB/s), io=200GiB (215GB), run=447329-447329msec
+
+Disk stats (read/write):
+  nvme5n1: ios=20117482/0, merge=0/0, ticks=18446744073644038415/0, in_queue=18446744073644038415, util=100.00%

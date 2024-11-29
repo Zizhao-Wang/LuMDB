@@ -1,0 +1,39 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 4 processes
+
+rand_write_test: (groupid=0, jobs=4): err= 0: pid=2466590: Wed May  8 20:38:22 2024
+  write: IOPS=67.1k, BW=524MiB/s (550MB/s)(200GiB/390542msec); 0 zone resets
+    slat (usec): min=3, max=803, avg=11.40, stdev= 2.42
+    clat (nsec): min=880, max=493319k, avg=44443.02, stdev=313070.71
+     lat (usec): min=15, max=493329, avg=55.96, stdev=313.14
+    clat percentiles (usec):
+     |  1.00th=[   14],  5.00th=[   20], 10.00th=[   25], 20.00th=[   27],
+     | 30.00th=[   28], 40.00th=[   29], 50.00th=[   30], 60.00th=[   30],
+     | 70.00th=[   32], 80.00th=[   34], 90.00th=[   39], 95.00th=[   53],
+     | 99.00th=[  239], 99.50th=[  840], 99.90th=[ 3359], 99.95th=[ 3949],
+     | 99.99th=[ 5669]
+   bw (  KiB/s): min=136679, max=1210330, per=100.00%, avg=548508.63, stdev=39338.54, samples=3058
+   iops        : min=17084, max=151291, avg=68563.01, stdev=4917.32, samples=3058
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.02%, 10=0.06%, 20=5.47%, 50=87.90%
+  lat (usec)   : 100=5.01%, 250=0.58%, 500=0.32%, 750=0.12%, 1000=0.08%
+  lat (msec)   : 2=0.21%, 4=0.19%, 10=0.04%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%
+  cpu          : usr=12.04%, sys=25.57%, ctx=26455854, majf=0, minf=356
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,26214400,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=524MiB/s (550MB/s), 524MiB/s-524MiB/s (550MB/s-550MB/s), io=200GiB (215GB), run=390542-390542msec
+
+Disk stats (read/write):
+  nvme1n1: ios=0/26209205, merge=0/78, ticks=0/849367, in_queue=850213, util=100.00%
+
+Test Time: 2024-05-08 20:38:22
+Device Name: filetest.txt
+Device Info: 

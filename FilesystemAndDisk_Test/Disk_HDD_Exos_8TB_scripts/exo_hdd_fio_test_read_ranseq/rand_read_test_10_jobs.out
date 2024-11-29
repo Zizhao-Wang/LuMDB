@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 10 processes
+
+rand_read_test: (groupid=0, jobs=10): err= 0: pid=527298: Thu May  2 00:39:31 2024
+  read: IOPS=332, BW=1331KiB/s (1363kB/s)(4680MiB/3600058msec)
+    slat (usec): min=3, max=1030, avg=38.68, stdev=14.29
+    clat (usec): min=144, max=748253, avg=30003.54, stdev=32574.56
+     lat (usec): min=167, max=748291, avg=30042.84, stdev=32574.56
+    clat percentiles (msec):
+     |  1.00th=[    3],  5.00th=[    4], 10.00th=[    5], 20.00th=[    8],
+     | 30.00th=[   10], 40.00th=[   14], 50.00th=[   19], 60.00th=[   25],
+     | 70.00th=[   34], 80.00th=[   47], 90.00th=[   71], 95.00th=[   96],
+     | 99.00th=[  157], 99.50th=[  182], 99.90th=[  241], 99.95th=[  271],
+     | 99.99th=[  330]
+   bw (  KiB/s): min=  216, max= 6240, per=99.99%, avg=1331.37, stdev=35.58, samples=71986
+   iops        : min=   54, max= 1560, avg=332.84, stdev= 8.90, samples=71986
+  lat (usec)   : 250=0.03%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.14%, 4=5.67%, 10=24.59%, 20=22.71%, 50=28.55%
+  lat (msec)   : 100=13.79%, 250=4.42%, 500=0.08%, 750=0.01%
+  cpu          : usr=0.06%, sys=0.12%, ctx=2132621, majf=0, minf=3475
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=1198059,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=1331KiB/s (1363kB/s), 1331KiB/s-1331KiB/s (1363kB/s-1363kB/s), io=4680MiB (4907MB), run=3600058-3600058msec
+
+Disk stats (read/write):
+  sdb: ios=1198052/0, merge=0/0, ticks=35958819/0, in_queue=35958819, util=100.00%
+
+Test Time: 2024-05-02 00:39:31
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

@@ -1,0 +1,35 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 16 processes
+
+rand_read_test: (groupid=0, jobs=16): err= 0: pid=3117766: Tue May 14 02:42:32 2024
+  read: IOPS=174k, BW=681MiB/s (714MB/s)(200GiB/300846msec)
+    slat (usec): min=2, max=26092, avg=11.98, stdev= 8.12
+    clat (nsec): min=852, max=724843k, avg=76075.37, stdev=665442.61
+     lat (usec): min=10, max=724859, avg=88.30, stdev=666.92
+    clat percentiles (usec):
+     |  1.00th=[   30],  5.00th=[   37], 10.00th=[   39], 20.00th=[   41],
+     | 30.00th=[   43], 40.00th=[   48], 50.00th=[   80], 60.00th=[   87],
+     | 70.00th=[   90], 80.00th=[   95], 90.00th=[  102], 95.00th=[  110],
+     | 99.00th=[  133], 99.50th=[  153], 99.90th=[ 1795], 99.95th=[ 1942],
+     | 99.99th=[ 2311]
+   bw (  KiB/s): min=24054, max=1510289, per=100.00%, avg=704812.07, stdev=20801.41, samples=9498
+   iops        : min= 6012, max=377572, avg=176201.42, stdev=5200.34, samples=9498
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.04%, 20=0.56%, 50=41.43%
+  lat (usec)   : 100=45.85%, 250=11.67%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.37%, 4=0.04%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%
+  cpu          : usr=9.08%, sys=19.82%, ctx=52411355, majf=0, minf=1710
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=681MiB/s (714MB/s), 681MiB/s-681MiB/s (714MB/s-714MB/s), io=200GiB (215GB), run=300846-300846msec
+
+Disk stats (read/write):
+  nvme5n1: ios=131560514/0, merge=353/0, ticks=277274641/0, in_queue=277274640, util=100.00%

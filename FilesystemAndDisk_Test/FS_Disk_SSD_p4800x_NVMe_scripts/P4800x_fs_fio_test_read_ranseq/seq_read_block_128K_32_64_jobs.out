@@ -1,0 +1,35 @@
+seq_read_test: (g=0): rw=read, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=libaio, iodepth=32
+...
+fio-3.28
+Starting 64 processes
+
+seq_read_test: (groupid=0, jobs=64): err= 0: pid=419133: Tue May 14 14:42:42 2024
+  read: IOPS=7286, BW=911MiB/s (955MB/s)(200GiB/224868msec)
+    slat (usec): min=6, max=84586, avg=41.75, stdev=298.95
+    clat (usec): min=281, max=1458.4k, avg=243119.76, stdev=252732.76
+     lat (usec): min=292, max=1458.4k, avg=243161.90, stdev=252752.41
+    clat percentiles (usec):
+     |  1.00th=[   1500],  5.00th=[   5342], 10.00th=[  11076],
+     | 20.00th=[  22152], 30.00th=[  40109], 40.00th=[  85459],
+     | 50.00th=[ 145753], 60.00th=[ 214959], 70.00th=[ 329253],
+     | 80.00th=[ 488637], 90.00th=[ 675283], 95.00th=[ 759170],
+     | 99.00th=[ 868221], 99.50th=[ 893387], 99.90th=[ 935330],
+     | 99.95th=[ 952108], 99.99th=[1002439]
+   bw (  MiB/s): min=   55, max=15166, per=100.00%, avg=1085.52, stdev=26.19, samples=24629
+   iops        : min=  396, max=121312, avg=8659.14, stdev=209.56, samples=24629
+  lat (usec)   : 500=0.06%, 750=0.14%, 1000=0.19%
+  lat (msec)   : 2=1.41%, 4=2.03%, 10=5.26%, 20=8.74%, 50=14.93%
+  lat (msec)   : 100=9.47%, 250=21.61%, 500=16.72%, 750=13.98%, 1000=5.46%
+  lat (msec)   : 2000=0.01%
+  cpu          : usr=0.13%, sys=0.51%, ctx=1632718, majf=0, minf=69185
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=99.9%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.1%, 64=0.0%, >=64=0.0%
+     issued rwts: total=1638400,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=32
+
+Run status group 0 (all jobs):
+   READ: bw=911MiB/s (955MB/s), 911MiB/s-911MiB/s (955MB/s-955MB/s), io=200GiB (215GB), run=224868-224868msec
+
+Disk stats (read/write):
+  nvme5n1: ios=9851409/0, merge=0/0, ticks=18446744071507620571/0, in_queue=18446744071507620571, util=100.00%

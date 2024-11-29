@@ -1,0 +1,39 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 32 processes
+
+rand_write_test: (groupid=0, jobs=32): err= 0: pid=447034: Wed May  1 03:56:56 2024
+  write: IOPS=494, BW=1980KiB/s (2027kB/s)(6960MiB/3600047msec); 0 zone resets
+    slat (usec): min=3, max=936, avg=44.89, stdev=14.11
+    clat (usec): min=208, max=377136, avg=64607.12, stdev=24931.84
+     lat (usec): min=220, max=377189, avg=64652.67, stdev=24932.00
+    clat percentiles (msec):
+     |  1.00th=[   41],  5.00th=[   45], 10.00th=[   47], 20.00th=[   48],
+     | 30.00th=[   51], 40.00th=[   53], 50.00th=[   56], 60.00th=[   64],
+     | 70.00th=[   70], 80.00th=[   74], 90.00th=[   89], 95.00th=[  117],
+     | 99.00th=[  163], 99.50th=[  188], 99.90th=[  239], 99.95th=[  259],
+     | 99.99th=[  296]
+   bw (  KiB/s): min=  536, max=10200, per=100.00%, avg=1980.89, stdev=13.68, samples=230230
+   iops        : min=  134, max= 2550, avg=495.21, stdev= 3.42, samples=230230
+  lat (usec)   : 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 4=0.01%, 10=0.15%, 20=0.25%, 50=30.00%, 100=62.07%
+  lat (msec)   : 250=7.47%, 500=0.07%
+  cpu          : usr=0.03%, sys=0.07%, ctx=3258388, majf=0, minf=48521
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,1781648,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=1980KiB/s (2027kB/s), 1980KiB/s-1980KiB/s (2027kB/s-2027kB/s), io=6960MiB (7298MB), run=3600047-3600047msec
+
+Disk stats (read/write):
+  sdb: ios=265/1781528, merge=0/0, ticks=190526/115097540, in_queue=115288066, util=100.00%
+
+Test Time: 2024-05-01 03:56:56
+Device Name: sdb
+Device Info: sdb      7.3T ST8000NM0055-1RM112
+├─sdb3 920.1G 
+└─sdb4   1.7T 

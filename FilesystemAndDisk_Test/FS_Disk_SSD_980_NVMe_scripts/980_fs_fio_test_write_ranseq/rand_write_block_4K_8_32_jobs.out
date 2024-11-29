@@ -1,0 +1,36 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 32 processes
+
+rand_write_test: (groupid=0, jobs=32): err= 0: pid=798413: Sun May 12 08:30:42 2024
+  write: IOPS=5606, BW=21.9MiB/s (23.0MB/s)(200GiB/9350849msec); 0 zone resets
+    slat (usec): min=2, max=6807.8k, avg=93.59, stdev=10459.46
+    clat (usec): min=3, max=11445k, avg=4196.89, stdev=42917.81
+     lat (usec): min=20, max=11445k, avg=4290.97, stdev=45593.55
+    clat percentiles (usec):
+     |  1.00th=[    153],  5.00th=[    251], 10.00th=[    371],
+     | 20.00th=[    766], 30.00th=[   1057], 40.00th=[   1287],
+     | 50.00th=[   1467], 60.00th=[   1663], 70.00th=[   1958],
+     | 80.00th=[   2507], 90.00th=[   4228], 95.00th=[  15270],
+     | 99.00th=[  33162], 99.50th=[  40633], 99.90th=[ 204473],
+     | 99.95th=[ 501220], 99.99th=[2139096]
+   bw (  KiB/s): min=  224, max=478450, per=100.00%, avg=35348.26, stdev=1479.15, samples=390954
+   iops        : min=   32, max=119607, avg=8833.48, stdev=369.72, samples=390954
+  lat (usec)   : 4=0.01%, 10=0.01%, 20=0.02%, 50=0.01%, 100=0.09%
+  lat (usec)   : 250=4.80%, 500=8.18%, 750=6.38%, 1000=8.24%
+  lat (msec)   : 2=43.36%, 4=18.40%, 10=4.40%, 20=1.80%, 50=3.90%
+  lat (msec)   : 100=0.18%, 250=0.18%, 500=0.02%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2000=0.02%, >=2000=0.01%
+  cpu          : usr=0.33%, sys=0.72%, ctx=52448340, majf=0, minf=7143
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428800,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=21.9MiB/s (23.0MB/s), 21.9MiB/s-21.9MiB/s (23.0MB/s-23.0MB/s), io=200GiB (215GB), run=9350849-9350849msec
+
+Disk stats (read/write):
+  nvme2n1: ios=0/207829955, merge=0/1838, ticks=0/1800764073, in_queue=1801015217, util=100.00%

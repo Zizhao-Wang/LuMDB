@@ -1,0 +1,35 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 64 processes
+
+rand_read_test: (groupid=0, jobs=64): err= 0: pid=402689: Mon May 20 23:17:31 2024
+  read: IOPS=18.3k, BW=143MiB/s (150MB/s)(200GiB/1430388msec)
+    slat (usec): min=3, max=123560, avg=20.04, stdev=78.22
+    clat (usec): min=5, max=4326.2k, avg=3296.52, stdev=12177.80
+     lat (usec): min=151, max=4445.2k, avg=3317.02, stdev=12209.97
+    clat percentiles (usec):
+     |  1.00th=[  553],  5.00th=[  766], 10.00th=[  914], 20.00th=[ 1123],
+     | 30.00th=[ 1303], 40.00th=[ 1516], 50.00th=[ 1745], 60.00th=[ 2073],
+     | 70.00th=[ 2573], 80.00th=[ 3556], 90.00th=[ 5604], 95.00th=[12518],
+     | 99.00th=[28181], 99.50th=[32900], 99.90th=[41681], 99.95th=[43779],
+     | 99.99th=[47449]
+   bw (  KiB/s): min= 1164, max=680868, per=100.00%, avg=155960.99, stdev=2127.96, samples=172547
+   iops        : min=  100, max=85089, avg=19482.05, stdev=265.92, samples=172547
+  lat (usec)   : 10=0.01%, 50=0.01%, 100=0.01%, 250=0.01%, 500=0.58%
+  lat (usec)   : 750=3.93%, 1000=9.53%
+  lat (msec)   : 2=44.11%, 4=24.97%, 10=10.68%, 20=3.75%, 50=2.44%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%, 2000=0.01%
+  lat (msec)   : >=2000=0.01%
+  cpu          : usr=0.40%, sys=0.85%, ctx=26216083, majf=2, minf=3632
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=26214400,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=143MiB/s (150MB/s), 143MiB/s-143MiB/s (150MB/s-150MB/s), io=200GiB (215GB), run=1430388-1430388msec
+
+Disk stats (read/write):
+  nvme2n1: ios=131473645/0, merge=4/0, ticks=538225608/0, in_queue=538225608, util=100.00%

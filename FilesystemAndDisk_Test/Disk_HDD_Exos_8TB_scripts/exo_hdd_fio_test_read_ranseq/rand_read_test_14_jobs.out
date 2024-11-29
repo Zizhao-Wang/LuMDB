@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 14 processes
+
+rand_read_test: (groupid=0, jobs=14): err= 0: pid=531169: Thu May  2 08:39:35 2024
+  read: IOPS=359, BW=1440KiB/s (1474kB/s)(5062MiB/3600062msec)
+    slat (usec): min=6, max=1065, avg=52.64, stdev=10.32
+    clat (usec): min=132, max=727291, avg=38834.59, stdev=43498.59
+     lat (usec): min=166, max=727347, avg=38888.09, stdev=43498.61
+    clat percentiles (msec):
+     |  1.00th=[    3],  5.00th=[    5], 10.00th=[    6], 20.00th=[    9],
+     | 30.00th=[   12], 40.00th=[   18], 50.00th=[   24], 60.00th=[   32],
+     | 70.00th=[   44], 80.00th=[   61], 90.00th=[   93], 95.00th=[  127],
+     | 99.00th=[  207], 99.50th=[  243], 99.90th=[  326], 99.95th=[  363],
+     | 99.99th=[  447]
+   bw (  KiB/s): min=  136, max= 8232, per=99.95%, avg=1440.00, stdev=32.37, samples=100779
+   iops        : min=   34, max= 2056, avg=360.00, stdev= 8.09, samples=100779
+  lat (usec)   : 250=0.04%, 500=0.01%, 750=0.01%, 1000=0.02%
+  lat (msec)   : 2=0.12%, 4=4.30%, 10=20.24%, 20=20.59%, 50=28.94%
+  lat (msec)   : 100=17.14%, 250=8.19%, 500=0.43%, 750=0.01%
+  cpu          : usr=0.05%, sys=0.12%, ctx=2531774, majf=0, minf=5989
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=1295787,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=1440KiB/s (1474kB/s), 1440KiB/s-1440KiB/s (1474kB/s-1474kB/s), io=5062MiB (5308MB), run=3600062-3600062msec
+
+Disk stats (read/write):
+  sdb: ios=1295734/0, merge=0/0, ticks=50287243/0, in_queue=50287242, util=100.00%
+
+Test Time: 2024-05-02 08:39:35
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

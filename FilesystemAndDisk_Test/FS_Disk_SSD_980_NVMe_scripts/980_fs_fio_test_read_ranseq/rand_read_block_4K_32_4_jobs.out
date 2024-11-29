@@ -1,0 +1,38 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=32
+...
+fio-3.28
+Starting 4 processes
+
+rand_read_test: (groupid=0, jobs=4): err= 0: pid=735568: Sun May 19 08:01:00 2024
+  read: IOPS=176k, BW=686MiB/s (719MB/s)(200GiB/298556msec)
+    slat (usec): min=2, max=575, avg= 5.19, stdev= 1.77
+    clat (usec): min=29, max=350182, avg=715.69, stdev=2660.92
+     lat (usec): min=32, max=350194, avg=720.95, stdev=2661.49
+    clat percentiles (usec):
+     |  1.00th=[  217],  5.00th=[  314], 10.00th=[  367], 20.00th=[  437],
+     | 30.00th=[  482], 40.00th=[  519], 50.00th=[  562], 60.00th=[  611],
+     | 70.00th=[  685], 80.00th=[  783], 90.00th=[  914], 95.00th=[ 1037],
+     | 99.00th=[ 1352], 99.50th=[ 1532], 99.90th=[44827], 99.95th=[58459],
+     | 99.99th=[99091]
+   bw (  KiB/s): min= 3504, max=1816960, per=100.00%, avg=709186.58, stdev=84010.73, samples=2361
+   iops        : min=  876, max=454236, avg=177296.04, stdev=21002.63, samples=2361
+  lat (usec)   : 50=0.01%, 100=0.13%, 250=1.50%, 500=33.46%, 750=41.34%
+  lat (usec)   : 1000=17.40%
+  lat (msec)   : 2=5.91%, 4=0.01%, 10=0.01%, 20=0.02%, 50=0.14%
+  lat (msec)   : 100=0.07%, 250=0.01%, 500=0.01%
+  cpu          : usr=13.27%, sys=31.12%, ctx=26632465, majf=0, minf=2451
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=100.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.1%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=32
+
+Run status group 0 (all jobs):
+   READ: bw=686MiB/s (719MB/s), 686MiB/s-686MiB/s (719MB/s-719MB/s), io=200GiB (215GB), run=298556-298556msec
+
+Disk stats (read/write):
+  nvme2n1: ios=52447909/0, merge=0/0, ticks=52666815/0, in_queue=52666815, util=100.00%
+
+Test Time: 2024-05-19 08:01:00
+Device Name: filetest.txt
+Device Info: 

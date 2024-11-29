@@ -1,0 +1,38 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 32 processes
+
+rand_write_test: (groupid=0, jobs=32): err= 0: pid=2652908: Fri May 10 04:51:54 2024
+  write: IOPS=103k, BW=804MiB/s (843MB/s)(200GiB/254753msec); 0 zone resets
+    slat (usec): min=3, max=909, avg=16.85, stdev= 4.81
+    clat (usec): min=4, max=488997, avg=289.68, stdev=517.66
+     lat (usec): min=41, max=489016, avg=306.80, stdev=518.06
+    clat percentiles (usec):
+     |  1.00th=[  157],  5.00th=[  174], 10.00th=[  178], 20.00th=[  186],
+     | 30.00th=[  202], 40.00th=[  210], 50.00th=[  217], 60.00th=[  227],
+     | 70.00th=[  237], 80.00th=[  247], 90.00th=[  281], 95.00th=[  482],
+     | 99.00th=[ 2507], 99.50th=[ 3851], 99.90th=[ 5080], 99.95th=[ 5407],
+     | 99.99th=[ 8979]
+   bw (  KiB/s): min=359968, max=1407904, per=100.00%, avg=826736.92, stdev=8411.37, samples=16221
+   iops        : min=44996, max=175976, avg=103337.74, stdev=1051.38, samples=16221
+  lat (usec)   : 10=0.01%, 20=0.01%, 50=0.01%, 100=0.18%, 250=80.96%
+  lat (usec)   : 500=14.05%, 750=1.61%, 1000=0.87%
+  lat (msec)   : 2=0.90%, 4=0.97%, 10=0.44%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%
+  cpu          : usr=3.04%, sys=7.10%, ctx=26216140, majf=0, minf=2210
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,26214400,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=804MiB/s (843MB/s), 804MiB/s-804MiB/s (843MB/s-843MB/s), io=200GiB (215GB), run=254753-254753msec
+
+Disk stats (read/write):
+  nvme0n1: ios=0/26212631, merge=0/50, ticks=0/7083788, in_queue=7084402, util=100.00%
+
+Test Time: 2024-05-10 04:51:54
+Device Name: filetest.txt
+Device Info: 

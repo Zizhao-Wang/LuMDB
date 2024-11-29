@@ -1,0 +1,35 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 14 processes
+
+rand_write_test: (groupid=0, jobs=14): err= 0: pid=617514: Thu May  2 20:19:52 2024
+  write: IOPS=260k, BW=1017MiB/s (1066MB/s)(200GiB/201360msec); 0 zone resets
+    slat (usec): min=2, max=7163, avg= 7.73, stdev= 3.35
+    clat (nsec): min=842, max=350980k, avg=43436.54, stdev=207850.35
+     lat (usec): min=11, max=350987, avg=51.32, stdev=207.83
+    clat percentiles (usec):
+     |  1.00th=[   19],  5.00th=[   22], 10.00th=[   23], 20.00th=[   25],
+     | 30.00th=[   26], 40.00th=[   26], 50.00th=[   26], 60.00th=[   27],
+     | 70.00th=[   28], 80.00th=[   29], 90.00th=[   31], 95.00th=[   34],
+     | 99.00th=[  465], 99.50th=[  857], 99.90th=[ 3785], 99.95th=[ 4817],
+     | 99.99th=[ 5145]
+   bw (  KiB/s): min=779272, max=1590776, per=100.00%, avg=1044775.73, stdev=4205.64, samples=5611
+   iops        : min=194818, max=397691, avg=261193.02, stdev=1051.41, samples=5611
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.12%, 10=0.10%, 20=1.88%, 50=95.32%
+  lat (usec)   : 100=0.62%, 250=0.36%, 500=0.77%, 750=0.22%, 1000=0.24%
+  lat (msec)   : 2=0.09%, 4=0.17%, 10=0.09%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%, 500=0.01%
+  cpu          : usr=14.39%, sys=22.16%, ctx=52242818, majf=0, minf=639
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428796,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=1017MiB/s (1066MB/s), 1017MiB/s-1017MiB/s (1066MB/s-1066MB/s), io=200GiB (215GB), run=201360-201360msec
+
+Disk stats (read/write):
+  nvme0n1: ios=420/52382829, merge=0/0, ticks=50/1858892, in_queue=1858943, util=100.00%

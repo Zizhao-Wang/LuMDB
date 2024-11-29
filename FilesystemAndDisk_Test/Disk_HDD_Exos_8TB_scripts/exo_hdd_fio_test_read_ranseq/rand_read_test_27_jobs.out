@@ -1,0 +1,38 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 27 processes
+
+rand_read_test: (groupid=0, jobs=27): err= 0: pid=1285008: Sat May  4 15:55:26 2024
+  read: IOPS=415, BW=1661KiB/s (1701kB/s)(5839MiB/3600097msec)
+    slat (usec): min=4, max=8552, avg=50.55, stdev=14.46
+    clat (usec): min=176, max=1521.4k, avg=64971.80, stdev=76328.61
+     lat (usec): min=228, max=1521.4k, avg=65023.18, stdev=76328.63
+    clat percentiles (msec):
+     |  1.00th=[    4],  5.00th=[    5], 10.00th=[    8], 20.00th=[   13],
+     | 30.00th=[   19], 40.00th=[   28], 50.00th=[   39], 60.00th=[   53],
+     | 70.00th=[   72], 80.00th=[  103], 90.00th=[  159], 95.00th=[  218],
+     | 99.00th=[  363], 99.50th=[  430], 99.90th=[  592], 99.95th=[  659],
+     | 99.99th=[  818]
+   bw (  KiB/s): min=  216, max= 4679, per=100.00%, avg=1667.03, stdev=25.40, samples=193647
+   iops        : min=   54, max= 1169, avg=416.74, stdev= 6.35, samples=193647
+  lat (usec)   : 250=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.05%, 4=2.61%, 10=13.27%, 20=15.90%, 50=26.78%
+  lat (msec)   : 100=20.71%, 250=17.27%, 500=3.18%, 750=0.22%, 1000=0.02%
+  lat (msec)   : 2000=0.01%
+  cpu          : usr=0.03%, sys=0.07%, ctx=2987712, majf=0, minf=9288
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=1494697,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=1661KiB/s (1701kB/s), 1661KiB/s-1661KiB/s (1701kB/s-1701kB/s), io=5839MiB (6122MB), run=3600097-3600097msec
+
+Disk stats (read/write):
+  sdb: ios=1494693/0, merge=0/0, ticks=97088957/0, in_queue=97088956, util=100.00%
+
+Test Time: 2024-05-04 15:55:26
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

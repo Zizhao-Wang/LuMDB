@@ -1,0 +1,36 @@
+seq_read_test: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=64
+...
+fio-3.28
+Starting 16 processes
+
+seq_read_test: (groupid=0, jobs=16): err= 0: pid=3625964: Tue May 14 06:55:16 2024
+  read: IOPS=70.2k, BW=274MiB/s (288MB/s)(200GiB/746867msec)
+    slat (usec): min=2, max=149361, avg=11.37, stdev=140.55
+    clat (usec): min=4, max=2434.5k, avg=11698.28, stdev=29916.75
+     lat (usec): min=58, max=2434.5k, avg=11709.83, stdev=29943.88
+    clat percentiles (usec):
+     |  1.00th=[   1369],  5.00th=[   1876], 10.00th=[   1991],
+     | 20.00th=[   2573], 30.00th=[   3195], 40.00th=[   4178],
+     | 50.00th=[   5669], 60.00th=[   6980], 70.00th=[   9765],
+     | 80.00th=[  14746], 90.00th=[  24249], 95.00th=[  44827],
+     | 99.00th=[  82314], 99.50th=[  90702], 99.90th=[ 126354],
+     | 99.95th=[ 683672], 99.99th=[1266680]
+   bw (  KiB/s): min=  416, max=2199685, per=100.00%, avg=362226.55, stdev=25401.99, samples=18999
+   iops        : min=   98, max=549918, avg=90553.52, stdev=6350.50, samples=18999
+  lat (usec)   : 10=0.01%, 50=0.01%, 100=0.01%, 250=0.11%, 500=0.19%
+  lat (usec)   : 750=0.19%, 1000=0.20%
+  lat (msec)   : 2=10.43%, 4=26.95%, 10=32.40%, 20=16.41%, 50=8.68%
+  lat (msec)   : 100=4.20%, 250=0.16%, 500=0.02%, 750=0.01%, 1000=0.02%
+  lat (msec)   : 2000=0.03%, >=2000=0.01%
+  cpu          : usr=3.66%, sys=8.31%, ctx=50906371, majf=0, minf=8024
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=0.1%, >=64=100.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.1%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=64
+
+Run status group 0 (all jobs):
+   READ: bw=274MiB/s (288MB/s), 274MiB/s-274MiB/s (288MB/s-288MB/s), io=200GiB (215GB), run=746867-746867msec
+
+Disk stats (read/write):
+  nvme5n1: ios=192844695/0, merge=372/0, ticks=18446744072778523665/0, in_queue=18446744072778523664, util=100.00%

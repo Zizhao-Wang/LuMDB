@@ -1,0 +1,39 @@
+seq_read_test: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 30 processes
+
+seq_read_test: (groupid=0, jobs=30): err= 0: pid=1385655: Sat May  4 20:55:30 2024
+  read: IOPS=10.3k, BW=40.1MiB/s (42.1MB/s)(141GiB/3600002msec)
+    slat (usec): min=2, max=25102, avg=41.76, stdev=23.50
+    clat (nsec): min=1607, max=2584.9M, avg=2873191.08, stdev=12923352.27
+     lat (usec): min=30, max=2585.0k, avg=2915.57, stdev=12924.15
+    clat percentiles (usec):
+     |  1.00th=[    30],  5.00th=[    37], 10.00th=[    85], 20.00th=[  2311],
+     | 30.00th=[  2442], 40.00th=[  2507], 50.00th=[  2606], 60.00th=[  2671],
+     | 70.00th=[  2802], 80.00th=[  3064], 90.00th=[  4228], 95.00th=[  4686],
+     | 99.00th=[ 11076], 99.50th=[ 12649], 99.90th=[ 23200], 99.95th=[ 46400],
+     | 99.99th=[316670]
+   bw (  KiB/s): min=  240, max=2493700, per=100.00%, avg=41891.45, stdev=2927.07, samples=211988
+   iops        : min=   60, max=623419, avg=10467.15, stdev=731.77, samples=211988
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=6.61%
+  lat (usec)   : 100=4.10%, 250=1.31%, 500=0.05%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.70%, 4=74.63%, 10=11.48%, 20=0.96%, 50=0.08%
+  lat (msec)   : 100=0.02%, 250=0.02%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2000=0.01%, >=2000=0.01%
+  cpu          : usr=0.46%, sys=1.28%, ctx=70144808, majf=0, minf=1299
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=36983218,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=40.1MiB/s (42.1MB/s), 40.1MiB/s-40.1MiB/s (42.1MB/s-42.1MB/s), io=141GiB (151GB), run=3600002-3600002msec
+
+Disk stats (read/write):
+  sdb: ios=36860283/0, merge=121571/0, ticks=104941807/0, in_queue=104941806, util=100.00%
+
+Test Time: 2024-05-04 20:55:30
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

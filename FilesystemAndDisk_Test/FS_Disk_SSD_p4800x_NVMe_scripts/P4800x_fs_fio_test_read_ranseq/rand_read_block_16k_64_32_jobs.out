@@ -1,0 +1,34 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 16.0KiB-16.0KiB, (W) 16.0KiB-16.0KiB, (T) 16.0KiB-16.0KiB, ioengine=libaio, iodepth=64
+...
+fio-3.28
+Starting 32 processes
+
+rand_read_test: (groupid=0, jobs=32): err= 0: pid=4164823: Tue May 14 11:10:49 2024
+  read: IOPS=29.4k, BW=460MiB/s (482MB/s)(200GiB/445604msec)
+    slat (usec): min=3, max=28986, avg=28.16, stdev=163.62
+    clat (usec): min=5, max=639779, avg=66931.94, stdev=74126.48
+     lat (usec): min=57, max=639788, avg=66960.35, stdev=74148.22
+    clat percentiles (usec):
+     |  1.00th=[   873],  5.00th=[  3490], 10.00th=[  5604], 20.00th=[  9110],
+     | 30.00th=[ 13435], 40.00th=[ 20841], 50.00th=[ 33162], 60.00th=[ 54789],
+     | 70.00th=[ 86508], 80.00th=[128451], 90.00th=[175113], 95.00th=[217056],
+     | 99.00th=[316670], 99.50th=[346031], 99.90th=[379585], 99.95th=[396362],
+     | 99.99th=[413139]
+   bw (  KiB/s): min=67739, max=5813025, per=100.00%, avg=491234.45, stdev=18360.02, samples=27351
+   iops        : min= 4221, max=363302, avg=30695.35, stdev=1147.48, samples=27351
+  lat (usec)   : 10=0.01%, 50=0.01%, 100=0.01%, 250=0.01%, 500=0.38%
+  lat (usec)   : 750=0.38%, 1000=0.42%
+  lat (msec)   : 2=1.40%, 4=3.30%, 10=16.85%, 20=16.26%, 50=19.24%
+  lat (msec)   : 100=15.31%, 250=23.82%, 500=2.63%, 750=0.01%
+  cpu          : usr=0.77%, sys=1.87%, ctx=12649906, majf=0, minf=18333
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=0.1%, >=64=100.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.1%, >=64=0.0%
+     issued rwts: total=13107200,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=64
+
+Run status group 0 (all jobs):
+   READ: bw=460MiB/s (482MB/s), 460MiB/s-460MiB/s (482MB/s-482MB/s), io=200GiB (215GB), run=445604-445604msec
+
+Disk stats (read/write):
+  nvme5n1: ios=49030196/0, merge=0/0, ticks=18446744072725259194/0, in_queue=18446744072725259194, util=100.00%

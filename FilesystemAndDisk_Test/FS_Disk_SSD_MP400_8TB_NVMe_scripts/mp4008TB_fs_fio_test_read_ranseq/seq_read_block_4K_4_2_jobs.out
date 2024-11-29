@@ -1,0 +1,38 @@
+seq_read_test: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=4
+...
+fio-3.28
+Starting 2 processes
+
+seq_read_test: (groupid=0, jobs=2): err= 0: pid=1194177: Sun May 12 21:15:06 2024
+  read: IOPS=54.2k, BW=212MiB/s (222MB/s)(200GiB/967209msec)
+    slat (usec): min=2, max=4155, avg= 6.74, stdev= 3.73
+    clat (nsec): min=839, max=23021k, avg=138977.05, stdev=339637.12
+     lat (usec): min=9, max=23028, avg=145.82, stdev=340.66
+    clat percentiles (usec):
+     |  1.00th=[   13],  5.00th=[   14], 10.00th=[   15], 20.00th=[   16],
+     | 30.00th=[   21], 40.00th=[   25], 50.00th=[   30], 60.00th=[   40],
+     | 70.00th=[   47], 80.00th=[  198], 90.00th=[  453], 95.00th=[  709],
+     | 99.00th=[  988], 99.50th=[ 1090], 99.90th=[ 5604], 99.95th=[ 7308],
+     | 99.99th=[ 9241]
+   bw (  KiB/s): min= 9192, max=1569896, per=100.00%, avg=218476.45, stdev=87129.74, samples=3841
+   iops        : min= 2298, max=392476, avg=54618.83, stdev=21782.44, samples=3841
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.03%, 20=27.79%, 50=44.93%
+  lat (usec)   : 100=2.02%, 250=7.32%, 500=9.85%, 750=5.11%, 1000=2.01%
+  lat (msec)   : 2=0.78%, 4=0.03%, 10=0.13%, 20=0.01%, 50=0.01%
+  cpu          : usr=9.76%, sys=24.29%, ctx=12085878, majf=0, minf=68
+  IO depths    : 1=0.1%, 2=0.1%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=4
+
+Run status group 0 (all jobs):
+   READ: bw=212MiB/s (222MB/s), 212MiB/s-212MiB/s (222MB/s-222MB/s), io=200GiB (215GB), run=967209-967209msec
+
+Disk stats (read/write):
+  nvme0n1: ios=52415385/0, merge=0/0, ticks=6408607/0, in_queue=6408607, util=100.00%
+
+Test Time: 2024-05-12 21:15:06
+Device Name: filetest.txt
+Device Info: 

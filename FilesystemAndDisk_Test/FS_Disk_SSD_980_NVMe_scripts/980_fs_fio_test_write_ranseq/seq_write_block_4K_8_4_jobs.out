@@ -1,0 +1,34 @@
+seq_write_test: (g=0): rw=write, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 4 processes
+
+seq_write_test: (groupid=0, jobs=4): err= 0: pid=2127235: Wed May  8 05:28:07 2024
+  write: IOPS=15.7k, BW=61.5MiB/s (64.4MB/s)(200GiB/3332593msec); 0 zone resets
+    slat (usec): min=3, max=279996, avg=10.81, stdev=129.45
+    clat (nsec): min=1600, max=680510k, avg=240813.58, stdev=2682877.35
+     lat (usec): min=22, max=708984, avg=251.78, stdev=2693.53
+    clat percentiles (usec):
+     |  1.00th=[   30],  5.00th=[   32], 10.00th=[   34], 20.00th=[   36],
+     | 30.00th=[   38], 40.00th=[   42], 50.00th=[   61], 60.00th=[   69],
+     | 70.00th=[   74], 80.00th=[   84], 90.00th=[  176], 95.00th=[  330],
+     | 99.00th=[ 1663], 99.50th=[ 4686], 99.90th=[30278], 99.95th=[30802],
+     | 99.99th=[46924]
+   bw (  KiB/s): min=   32, max=290849, per=100.00%, avg=63066.54, stdev=12825.92, samples=26624
+   iops        : min=    8, max=72712, avg=15766.00, stdev=3206.47, samples=26624
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.03%, 50=45.11%
+  lat (usec)   : 100=38.31%, 250=10.06%, 500=3.19%, 750=1.00%, 1000=0.55%
+  lat (msec)   : 2=0.91%, 4=0.29%, 10=0.11%, 20=0.03%, 50=0.39%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%
+  cpu          : usr=2.90%, sys=5.86%, ctx=52577094, majf=0, minf=149
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428800,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=61.5MiB/s (64.4MB/s), 61.5MiB/s-61.5MiB/s (64.4MB/s-64.4MB/s), io=200GiB (215GB), run=3332593-3332593msec
+
+Disk stats (read/write):
+  nvme4n1: ios=0/127996860, merge=0/664, ticks=0/41135894, in_queue=41147874, util=100.00%

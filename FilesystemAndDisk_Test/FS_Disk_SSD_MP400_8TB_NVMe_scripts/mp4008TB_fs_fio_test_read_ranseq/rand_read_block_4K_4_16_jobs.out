@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=4
+...
+fio-3.28
+Starting 16 processes
+
+rand_read_test: (groupid=0, jobs=16): err= 0: pid=3299777: Tue May 14 04:09:46 2024
+  read: IOPS=202k, BW=788MiB/s (826MB/s)(200GiB/259849msec)
+    slat (usec): min=2, max=17715, avg=11.80, stdev= 5.75
+    clat (nsec): min=1562, max=46678k, avg=301073.52, stdev=477242.29
+     lat (usec): min=23, max=46697, avg=313.11, stdev=477.51
+    clat percentiles (usec):
+     |  1.00th=[   74],  5.00th=[   83], 10.00th=[   92], 20.00th=[  116],
+     | 30.00th=[  153], 40.00th=[  184], 50.00th=[  225], 60.00th=[  258],
+     | 70.00th=[  314], 80.00th=[  392], 90.00th=[  529], 95.00th=[  668],
+     | 99.00th=[ 1106], 99.50th=[ 3130], 99.90th=[ 7832], 99.95th=[ 8455],
+     | 99.99th=[ 9896]
+   bw (  KiB/s): min=229864, max=1092928, per=100.00%, avg=812187.89, stdev=15322.06, samples=8258
+   iops        : min=57466, max=273232, avg=203045.55, stdev=3830.58, samples=8258
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (usec)   : 100=13.03%, 250=45.23%, 500=30.38%, 750=8.00%, 1000=2.05%
+  lat (msec)   : 2=0.76%, 4=0.18%, 10=0.38%, 20=0.01%, 50=0.01%
+  cpu          : usr=9.98%, sys=19.33%, ctx=37939876, majf=0, minf=2457
+  IO depths    : 1=0.1%, 2=0.1%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=4
+
+Run status group 0 (all jobs):
+   READ: bw=788MiB/s (826MB/s), 788MiB/s-788MiB/s (826MB/s-826MB/s), io=200GiB (215GB), run=259849-259849msec
+
+Disk stats (read/write):
+  nvme0n1: ios=52422987/0, merge=0/0, ticks=15226951/0, in_queue=15226951, util=100.00%
+
+Test Time: 2024-05-14 04:09:46
+Device Name: filetest.txt
+Device Info: 

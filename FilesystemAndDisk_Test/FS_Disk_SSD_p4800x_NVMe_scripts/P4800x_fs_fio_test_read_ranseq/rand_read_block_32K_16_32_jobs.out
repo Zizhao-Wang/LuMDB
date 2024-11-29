@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 32.0KiB-32.0KiB, (W) 32.0KiB-32.0KiB, (T) 32.0KiB-32.0KiB, ioengine=libaio, iodepth=16
+...
+fio-3.28
+Starting 32 processes
+
+rand_read_test: (groupid=0, jobs=32): err= 0: pid=4005813: Tue May 14 09:49:37 2024
+  read: IOPS=34.2k, BW=1070MiB/s (1122MB/s)(200GiB/191381msec)
+    slat (usec): min=4, max=2037, avg=17.72, stdev= 6.63
+    clat (usec): min=3, max=150926, avg=11320.31, stdev=16668.06
+     lat (usec): min=124, max=150946, avg=11338.24, stdev=16668.28
+    clat percentiles (usec):
+     |  1.00th=[   775],  5.00th=[  1450], 10.00th=[  1614], 20.00th=[  1860],
+     | 30.00th=[  2311], 40.00th=[  3392], 50.00th=[  4490], 60.00th=[  6194],
+     | 70.00th=[  9372], 80.00th=[ 16057], 90.00th=[ 29754], 95.00th=[ 51119],
+     | 99.00th=[ 80217], 99.50th=[ 89654], 99.90th=[105382], 99.95th=[109577],
+     | 99.99th=[120062]
+   bw (  MiB/s): min=  156, max= 9415, per=100.00%, avg=1463.28, stdev=53.72, samples=9270
+   iops        : min= 5009, max=301296, avg=46817.08, stdev=1719.14, samples=9270
+  lat (usec)   : 4=0.01%, 250=0.17%, 500=0.40%, 750=0.39%, 1000=0.43%
+  lat (msec)   : 2=23.33%, 4=21.52%, 10=25.17%, 20=12.37%, 50=10.99%
+  lat (msec)   : 100=5.03%, 250=0.18%
+  cpu          : usr=1.25%, sys=3.43%, ctx=6508508, majf=0, minf=6833
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=100.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.1%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=6553600,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=16
+
+Run status group 0 (all jobs):
+   READ: bw=1070MiB/s (1122MB/s), 1070MiB/s-1070MiB/s (1122MB/s-1122MB/s), io=200GiB (215GB), run=191381-191381msec
+
+Disk stats (read/write):
+  nvme5n1: ios=47230195/0, merge=0/0, ticks=464847657/0, in_queue=464847657, util=100.00%
+
+Test Time: 2024-05-14 09:53:05
+Device Name: filetest.txt
+Device Info: 

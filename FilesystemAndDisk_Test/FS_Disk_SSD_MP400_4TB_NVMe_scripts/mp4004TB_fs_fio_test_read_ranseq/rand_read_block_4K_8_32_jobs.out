@@ -1,0 +1,38 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=8
+...
+fio-3.28
+Starting 32 processes
+
+rand_read_test: (groupid=0, jobs=32): err= 0: pid=3818792: Tue May 14 08:19:17 2024
+  read: IOPS=238k, BW=930MiB/s (975MB/s)(200GiB/220264msec)
+    slat (usec): min=2, max=55988, avg=12.50, stdev=18.21
+    clat (nsec): min=1919, max=78252k, avg=1058640.17, stdev=1406723.90
+     lat (usec): min=67, max=78262, avg=1071.37, stdev=1407.00
+    clat percentiles (usec):
+     |  1.00th=[   86],  5.00th=[  125], 10.00th=[  174], 20.00th=[  265],
+     | 30.00th=[  371], 40.00th=[  498], 50.00th=[  652], 60.00th=[  840],
+     | 70.00th=[ 1090], 80.00th=[ 1467], 90.00th=[ 2212], 95.00th=[ 3163],
+     | 99.00th=[ 7898], 99.50th=[ 9241], 99.90th=[11863], 99.95th=[13566],
+     | 99.99th=[27919]
+   bw (  KiB/s): min=540923, max=1178825, per=100.00%, avg=955059.99, stdev=7075.42, samples=14053
+   iops        : min=135226, max=294701, avg=238758.93, stdev=1768.89, samples=14053
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (usec)   : 100=2.15%, 250=16.37%, 500=21.76%, 750=15.31%, 1000=11.07%
+  lat (msec)   : 2=21.43%, 4=8.66%, 10=2.95%, 20=0.29%, 50=0.02%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=6.04%, sys=12.20%, ctx=42505160, majf=0, minf=5870
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=100.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.1%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=8
+
+Run status group 0 (all jobs):
+   READ: bw=930MiB/s (975MB/s), 930MiB/s-930MiB/s (975MB/s-975MB/s), io=200GiB (215GB), run=220264-220264msec
+
+Disk stats (read/write):
+  nvme4n1: ios=52420063/0, merge=0/0, ticks=54794564/0, in_queue=54794563, util=100.00%
+
+Test Time: 2024-05-14 08:19:17
+Device Name: filetest.txt
+Device Info: 

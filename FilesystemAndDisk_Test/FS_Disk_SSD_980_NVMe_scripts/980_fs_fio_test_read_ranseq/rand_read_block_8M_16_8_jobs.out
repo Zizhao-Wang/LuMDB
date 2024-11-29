@@ -1,0 +1,32 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 8192KiB-8192KiB, (W) 8192KiB-8192KiB, (T) 8192KiB-8192KiB, ioengine=libaio, iodepth=16
+...
+fio-3.28
+Starting 8 processes
+
+rand_read_test: (groupid=0, jobs=8): err= 0: pid=2051982: Sun May 19 20:09:10 2024
+  read: IOPS=53, BW=428MiB/s (449MB/s)(200GiB/478422msec)
+    slat (usec): min=318, max=142719, avg=1017.34, stdev=1686.48
+    clat (msec): min=84, max=6691, avg=1529.74, stdev=1033.89
+     lat (msec): min=85, max=6692, avg=1530.76, stdev=1033.95
+    clat percentiles (msec):
+     |  1.00th=[  215],  5.00th=[  550], 10.00th=[  701], 20.00th=[  835],
+     | 30.00th=[  927], 40.00th=[  995], 50.00th=[ 1133], 60.00th=[ 1334],
+     | 70.00th=[ 1687], 80.00th=[ 2140], 90.00th=[ 2903], 95.00th=[ 3608],
+     | 99.00th=[ 5604], 99.50th=[ 6074], 99.90th=[ 6477], 99.95th=[ 6544],
+     | 99.99th=[ 6678]
+   bw (  KiB/s): min=163840, max=2360510, per=100.00%, avg=783945.27, stdev=51112.32, samples=4321
+   iops        : min=   20, max=  288, avg=95.64, stdev= 6.24, samples=4321
+  lat (msec)   : 100=0.05%, 250=1.22%, 500=2.29%, 750=8.65%, 1000=27.93%
+  lat (msec)   : 2000=38.40%, >=2000=21.46%
+  cpu          : usr=0.02%, sys=1.06%, ctx=26276, majf=0, minf=267594
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.2%, 16=99.5%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.1%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=25600,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=16
+
+Run status group 0 (all jobs):
+   READ: bw=428MiB/s (449MB/s), 428MiB/s-428MiB/s (449MB/s-449MB/s), io=200GiB (215GB), run=478422-478422msec
+
+Disk stats (read/write):
+  nvme2n1: ios=520234/0, merge=0/0, ticks=872197285/0, in_queue=872197286, util=100.00%

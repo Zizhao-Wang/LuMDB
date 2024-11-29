@@ -1,0 +1,38 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 4 processes
+
+rand_write_test: (groupid=0, jobs=4): err= 0: pid=117029: Sat May 11 05:58:14 2024
+  write: IOPS=126k, BW=987MiB/s (1035MB/s)(200GiB/207523msec); 0 zone resets
+    slat (usec): min=3, max=690, avg= 7.10, stdev= 2.79
+    clat (nsec): min=851, max=4189.3k, avg=21072.05, stdev=7577.76
+     lat (usec): min=14, max=4198, avg=28.28, stdev= 8.98
+    clat percentiles (nsec):
+     |  1.00th=[12352],  5.00th=[12864], 10.00th=[13376], 20.00th=[16064],
+     | 30.00th=[18048], 40.00th=[19072], 50.00th=[20096], 60.00th=[22144],
+     | 70.00th=[23424], 80.00th=[24448], 90.00th=[26752], 95.00th=[30080],
+     | 99.00th=[49408], 99.50th=[54016], 99.90th=[61696], 99.95th=[64768],
+     | 99.99th=[81408]
+   bw (  MiB/s): min=  767, max= 1686, per=100.00%, avg=1055.02, stdev=52.01, samples=1558
+   iops        : min=98204, max=215856, avg=135042.71, stdev=6656.91, samples=1558
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.56%, 20=49.15%, 50=49.38%
+  lat (usec)   : 100=0.88%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.01%, 4=0.01%, 10=0.01%
+  cpu          : usr=14.39%, sys=31.74%, ctx=27628555, majf=0, minf=343
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,26214400,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=987MiB/s (1035MB/s), 987MiB/s-987MiB/s (1035MB/s-1035MB/s), io=200GiB (215GB), run=207523-207523msec
+
+Disk stats (read/write):
+  nvme5n1: ios=0/26205776, merge=0/42, ticks=0/344692, in_queue=344692, util=100.00%
+
+Test Time: 2024-05-11 05:58:14
+Device Name: filetest.txt
+Device Info: 

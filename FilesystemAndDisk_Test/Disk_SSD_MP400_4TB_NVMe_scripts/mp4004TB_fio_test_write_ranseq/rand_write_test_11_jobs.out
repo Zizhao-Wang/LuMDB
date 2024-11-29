@@ -1,0 +1,34 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 11 processes
+
+rand_write_test: (groupid=0, jobs=11): err= 0: pid=656649: Thu May  2 21:55:56 2024
+  write: IOPS=119k, BW=466MiB/s (489MB/s)(200GiB/439115msec); 0 zone resets
+    slat (usec): min=2, max=10623, avg= 8.38, stdev= 4.25
+    clat (nsec): min=1143, max=511061k, avg=80457.38, stdev=537324.22
+     lat (usec): min=10, max=511071, avg=89.00, stdev=537.35
+    clat percentiles (usec):
+     |  1.00th=[   23],  5.00th=[   42], 10.00th=[   46], 20.00th=[   49],
+     | 30.00th=[   51], 40.00th=[   53], 50.00th=[   55], 60.00th=[   56],
+     | 70.00th=[   58], 80.00th=[   63], 90.00th=[   73], 95.00th=[   83],
+     | 99.00th=[  529], 99.50th=[ 1516], 99.90th=[ 4686], 99.95th=[ 6128],
+     | 99.99th=[ 7373]
+   bw (  KiB/s): min=53928, max=1114283, per=100.00%, avg=481220.45, stdev=7831.97, samples=9582
+   iops        : min=13479, max=278568, avg=120303.75, stdev=1958.00, samples=9582
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.29%, 50=24.20%
+  lat (usec)   : 100=72.76%, 250=1.19%, 500=0.52%, 750=0.19%, 1000=0.11%
+  lat (msec)   : 2=0.33%, 4=0.27%, 10=0.14%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%
+  cpu          : usr=9.19%, sys=14.50%, ctx=52417428, majf=0, minf=869
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428794,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=466MiB/s (489MB/s), 466MiB/s-466MiB/s (489MB/s-489MB/s), io=200GiB (215GB), run=439115-439115msec
+
+Disk stats (read/write):
+  nvme1n1: ios=428/52428505, merge=0/0, ticks=265/3751683, in_queue=3751948, util=100.00%

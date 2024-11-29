@@ -1,0 +1,38 @@
+seq_write_test: (g=0): rw=write, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 8 processes
+
+seq_write_test: (groupid=0, jobs=8): err= 0: pid=1190784: Mon Apr 29 00:38:15 2024
+  write: IOPS=2585, BW=10.1MiB/s (10.6MB/s)(35.5GiB/3600002msec); 0 zone resets
+    slat (usec): min=3, max=881, avg=42.82, stdev=15.30
+    clat (usec): min=5, max=684295, avg=3045.34, stdev=2329.95
+     lat (usec): min=204, max=684320, avg=3088.77, stdev=2329.80
+    clat percentiles (usec):
+     |  1.00th=[ 1139],  5.00th=[ 1483], 10.00th=[ 1663], 20.00th=[ 1876],
+     | 30.00th=[ 2089], 40.00th=[ 2343], 50.00th=[ 2606], 60.00th=[ 2933],
+     | 70.00th=[ 3392], 80.00th=[ 3884], 90.00th=[ 4555], 95.00th=[ 5342],
+     | 99.00th=[ 9372], 99.50th=[15008], 99.90th=[24511], 99.95th=[31851],
+     | 99.99th=[69731]
+   bw (  KiB/s): min=   64, max=20451, per=100.00%, avg=10350.00, stdev=379.33, samples=57592
+   iops        : min=   16, max= 5111, avg=2585.83, stdev=94.81, samples=57592
+  lat (usec)   : 10=0.01%, 50=0.01%, 250=0.01%, 500=0.01%, 750=0.01%
+  lat (usec)   : 1000=0.37%
+  lat (msec)   : 2=25.73%, 4=56.21%, 10=16.81%, 20=0.72%, 50=0.15%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%
+  cpu          : usr=0.50%, sys=1.28%, ctx=18007379, majf=0, minf=477
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,9308525,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=10.1MiB/s (10.6MB/s), 10.1MiB/s-10.1MiB/s (10.6MB/s-10.6MB/s), io=35.5GiB (38.1GB), run=3600002-3600002msec
+
+Disk stats (read/write):
+  sdb: ios=92/9244222, merge=0/63816, ticks=63/28154458, in_queue=28154520, util=100.00%
+
+Test Time: 2024-04-29 00:38:15
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

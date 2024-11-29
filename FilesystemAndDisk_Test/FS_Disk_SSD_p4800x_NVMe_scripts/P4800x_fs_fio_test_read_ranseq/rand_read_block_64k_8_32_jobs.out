@@ -1,0 +1,34 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 64.0KiB-64.0KiB, (W) 64.0KiB-64.0KiB, (T) 64.0KiB-64.0KiB, ioengine=libaio, iodepth=8
+...
+fio-3.28
+Starting 32 processes
+
+rand_read_test: (groupid=0, jobs=32): err= 0: pid=3960054: Tue May 14 09:37:32 2024
+  read: IOPS=4148, BW=259MiB/s (272MB/s)(200GiB/789843msec)
+    slat (usec): min=4, max=18488, avg=24.63, stdev=20.59
+    clat (usec): min=53, max=1217.7k, avg=32903.00, stdev=73269.39
+     lat (usec): min=59, max=1217.7k, avg=32927.94, stdev=73271.16
+    clat percentiles (usec):
+     |  1.00th=[  1926],  5.00th=[  2900], 10.00th=[  3195], 20.00th=[  3818],
+     | 30.00th=[  5211], 40.00th=[  6456], 50.00th=[  9110], 60.00th=[ 13304],
+     | 70.00th=[ 21365], 80.00th=[ 37487], 90.00th=[ 76022], 95.00th=[127402],
+     | 99.00th=[413139], 99.50th=[484443], 99.90th=[775947], 99.95th=[859833],
+     | 99.99th=[952108]
+   bw (  KiB/s): min=38624, max=5675375, per=100.00%, avg=675700.62, stdev=25788.55, samples=26788
+   iops        : min=  589, max=88674, avg=10554.17, stdev=402.96, samples=26788
+  lat (usec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.06%
+  lat (msec)   : 2=1.03%, 4=19.81%, 10=31.51%, 20=16.35%, 50=16.00%
+  lat (msec)   : 100=8.56%, 250=4.11%, 500=2.14%, 750=0.32%, 1000=0.11%
+  lat (msec)   : 2000=0.01%
+  cpu          : usr=0.27%, sys=0.84%, ctx=3261342, majf=0, minf=6123
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=100.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.1%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=3276800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=8
+
+Run status group 0 (all jobs):
+   READ: bw=259MiB/s (272MB/s), 259MiB/s-259MiB/s (272MB/s-272MB/s), io=200GiB (215GB), run=789843-789843msec
+
+Disk stats (read/write):
+  nvme5n1: ios=19151807/0, merge=582/0, ticks=18446744071269587447/0, in_queue=18446744071269587447, util=100.00%

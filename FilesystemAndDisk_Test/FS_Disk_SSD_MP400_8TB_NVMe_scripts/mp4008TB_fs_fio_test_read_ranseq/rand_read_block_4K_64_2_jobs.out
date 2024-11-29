@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=64
+...
+fio-3.28
+Starting 2 processes
+
+rand_read_test: (groupid=0, jobs=2): err= 0: pid=1361741: Mon May 13 02:55:41 2024
+  read: IOPS=258k, BW=1008MiB/s (1057MB/s)(200GiB/203181msec)
+    slat (usec): min=2, max=742, avg= 3.87, stdev= 2.18
+    clat (usec): min=23, max=23154, avg=491.04, stdev=593.59
+     lat (usec): min=57, max=23165, avg=494.98, stdev=593.98
+    clat percentiles (usec):
+     |  1.00th=[   72],  5.00th=[   90], 10.00th=[  113], 20.00th=[  165],
+     | 30.00th=[  223], 40.00th=[  277], 50.00th=[  347], 60.00th=[  433],
+     | 70.00th=[  545], 80.00th=[  701], 90.00th=[  971], 95.00th=[ 1237],
+     | 99.00th=[ 2245], 99.50th=[ 3851], 99.90th=[ 8225], 99.95th=[ 8848],
+     | 99.99th=[10159]
+   bw (  KiB/s): min=208944, max=1202328, per=100.00%, avg=1033930.23, stdev=136428.97, samples=810
+   iops        : min=52236, max=300582, avg=258482.54, stdev=34107.24, samples=810
+  lat (usec)   : 50=0.01%, 100=7.31%, 250=28.40%, 500=30.83%, 750=15.78%
+  lat (usec)   : 1000=8.53%
+  lat (msec)   : 2=7.90%, 4=0.78%, 10=0.46%, 20=0.01%, 50=0.01%
+  cpu          : usr=26.81%, sys=51.28%, ctx=7981650, majf=0, minf=183
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=0.1%, >=64=100.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.1%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=64
+
+Run status group 0 (all jobs):
+   READ: bw=1008MiB/s (1057MB/s), 1008MiB/s-1008MiB/s (1057MB/s-1057MB/s), io=200GiB (215GB), run=203181-203181msec
+
+Disk stats (read/write):
+  nvme0n1: ios=52421804/0, merge=0/0, ticks=24259190/0, in_queue=24259190, util=100.00%
+
+Test Time: 2024-05-13 02:55:41
+Device Name: filetest.txt
+Device Info: 

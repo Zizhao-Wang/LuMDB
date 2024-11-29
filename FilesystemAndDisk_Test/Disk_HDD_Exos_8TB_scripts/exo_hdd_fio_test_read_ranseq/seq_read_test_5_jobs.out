@@ -1,0 +1,39 @@
+seq_read_test: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 5 processes
+
+seq_read_test: (groupid=0, jobs=5): err= 0: pid=522308: Wed May  1 13:39:24 2024
+  read: IOPS=8430, BW=32.9MiB/s (34.5MB/s)(116GiB/3600001msec)
+    slat (usec): min=3, max=1012, avg=25.57, stdev= 8.44
+    clat (nsec): min=1438, max=2507.9M, avg=565076.12, stdev=1386564.46
+     lat (usec): min=31, max=2507.9k, avg=590.95, stdev=1386.70
+    clat percentiles (usec):
+     |  1.00th=[  241],  5.00th=[  322], 10.00th=[  367], 20.00th=[  388],
+     | 30.00th=[  408], 40.00th=[  445], 50.00th=[  482], 60.00th=[  603],
+     | 70.00th=[  627], 80.00th=[  676], 90.00th=[  725], 95.00th=[  791],
+     | 99.00th=[ 1418], 99.50th=[ 2147], 99.90th=[ 9634], 99.95th=[10945],
+     | 99.99th=[16319]
+   bw (  KiB/s): min=  472, max=397831, per=100.00%, avg=33780.46, stdev=1892.56, samples=35960
+   iops        : min=  118, max=99457, avg=8444.46, stdev=473.14, samples=35960
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.83%
+  lat (usec)   : 100=0.06%, 250=0.13%, 500=50.68%, 750=40.94%, 1000=5.22%
+  lat (msec)   : 2=1.56%, 4=0.25%, 10=0.25%, 20=0.07%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 1000=0.01%, 2000=0.01%
+  lat (msec)   : >=2000=0.01%
+  cpu          : usr=1.37%, sys=3.60%, ctx=59647174, majf=0, minf=628
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=30348953,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=32.9MiB/s (34.5MB/s), 32.9MiB/s-32.9MiB/s (34.5MB/s-34.5MB/s), io=116GiB (124GB), run=3600001-3600001msec
+
+Disk stats (read/write):
+  sdb: ios=30347064/0, merge=945/0, ticks=17404769/0, in_queue=17404769, util=100.00%
+
+Test Time: 2024-05-01 13:39:24
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

@@ -1,0 +1,34 @@
+seq_write_test: (g=0): rw=write, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 25 processes
+
+seq_write_test: (groupid=0, jobs=25): err= 0: pid=838633: Fri May  3 06:34:18 2024
+  write: IOPS=49.9k, BW=195MiB/s (204MB/s)(200GiB/1051351msec); 0 zone resets
+    slat (usec): min=2, max=2328, avg= 9.27, stdev= 4.91
+    clat (nsec): min=1651, max=751629k, avg=481319.16, stdev=2244079.17
+     lat (usec): min=19, max=751637, avg=490.77, stdev=2244.03
+    clat percentiles (usec):
+     |  1.00th=[   35],  5.00th=[   56], 10.00th=[   80], 20.00th=[  105],
+     | 30.00th=[  113], 40.00th=[  120], 50.00th=[  137], 60.00th=[  174],
+     | 70.00th=[  233], 80.00th=[  363], 90.00th=[  775], 95.00th=[ 1696],
+     | 99.00th=[ 6587], 99.50th=[ 7570], 99.90th=[ 9241], 99.95th=[10683],
+     | 99.99th=[18220]
+   bw (  KiB/s): min=  280, max=603995, per=100.00%, avg=203485.43, stdev=1807.75, samples=51553
+   iops        : min=   70, max=150990, avg=50867.21, stdev=451.94, samples=51553
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.03%, 50=3.93%
+  lat (usec)   : 100=12.34%, 250=55.69%, 500=13.30%, 750=4.39%, 1000=2.76%
+  lat (msec)   : 2=2.80%, 4=1.20%, 10=3.50%, 20=0.06%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  cpu          : usr=1.73%, sys=3.08%, ctx=52421174, majf=0, minf=806
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428800,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=195MiB/s (204MB/s), 195MiB/s-195MiB/s (204MB/s-204MB/s), io=200GiB (215GB), run=1051351-1051351msec
+
+Disk stats (read/write):
+  nvme4n1: ios=1011/52427009, merge=0/0, ticks=1346/24428060, in_queue=24429406, util=100.00%

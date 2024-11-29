@@ -1,0 +1,34 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=16
+...
+fio-3.28
+Starting 4 processes
+
+rand_read_test: (groupid=0, jobs=4): err= 0: pid=1753106: Mon May 13 15:36:23 2024
+  read: IOPS=122k, BW=478MiB/s (501MB/s)(200GiB/428740msec)
+    slat (usec): min=2, max=16066, avg= 4.85, stdev= 5.00
+    clat (nsec): min=1611, max=621865k, avg=512562.33, stdev=5323066.98
+     lat (usec): min=57, max=622385, avg=517.48, stdev=5323.60
+    clat percentiles (usec):
+     |  1.00th=[   174],  5.00th=[   186], 10.00th=[   196], 20.00th=[   210],
+     | 30.00th=[   219], 40.00th=[   223], 50.00th=[   326], 60.00th=[   404],
+     | 70.00th=[   420], 80.00th=[   433], 90.00th=[   449], 95.00th=[   725],
+     | 99.00th=[  1680], 99.50th=[  6128], 99.90th=[ 14615], 99.95th=[141558],
+     | 99.99th=[267387]
+   bw (  KiB/s): min=  543, max=1789531, per=100.00%, avg=493934.66, stdev=108226.62, samples=3393
+   iops        : min=  135, max=447382, avg=123482.99, stdev=27056.59, samples=3393
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (usec)   : 100=0.27%, 250=48.06%, 500=46.41%, 750=0.43%, 1000=3.75%
+  lat (msec)   : 2=0.18%, 4=0.14%, 10=0.65%, 20=0.03%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.04%, 500=0.02%, 750=0.01%
+  cpu          : usr=9.24%, sys=23.72%, ctx=49513777, majf=0, minf=4964
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=100.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.1%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=16
+
+Run status group 0 (all jobs):
+   READ: bw=478MiB/s (501MB/s), 478MiB/s-478MiB/s (501MB/s-501MB/s), io=200GiB (215GB), run=428740-428740msec
+
+Disk stats (read/write):
+  nvme5n1: ios=135389978/0, merge=0/0, ticks=734236209/0, in_queue=734236209, util=100.00%

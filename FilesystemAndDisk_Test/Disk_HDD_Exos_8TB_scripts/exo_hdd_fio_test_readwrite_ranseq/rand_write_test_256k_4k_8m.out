@@ -1,0 +1,37 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 256KiB-256KiB, (W) 256KiB-256KiB, (T) 256KiB-256KiB, ioengine=libaio, iodepth=1
+fio-3.28
+Starting 1 process
+
+rand_write_test: (groupid=0, jobs=1): err= 0: pid=906061: Fri May  3 09:58:55 2024
+  write: IOPS=307, BW=76.9MiB/s (80.7MB/s)(200GiB/2661552msec); 0 zone resets
+    slat (usec): min=16, max=8512, avg=88.12, stdev=22.63
+    clat (usec): min=34, max=106432, avg=3153.16, stdev=2007.36
+     lat (usec): min=743, max=106520, avg=3242.02, stdev=2007.34
+    clat percentiles (usec):
+     |  1.00th=[  963],  5.00th=[ 2073], 10.00th=[ 2311], 20.00th=[ 2573],
+     | 30.00th=[ 2737], 40.00th=[ 2868], 50.00th=[ 2999], 60.00th=[ 3163],
+     | 70.00th=[ 3326], 80.00th=[ 3523], 90.00th=[ 3851], 95.00th=[ 4228],
+     | 99.00th=[ 7177], 99.50th=[10945], 99.90th=[53740], 99.95th=[54789],
+     | 99.99th=[62129]
+   bw (  KiB/s): min=48128, max=153088, per=100.00%, avg=78852.80, stdev=4438.02, samples=5321
+   iops        : min=  188, max=  598, avg=307.87, stdev=17.34, samples=5321
+  lat (usec)   : 50=0.01%, 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%
+  lat (usec)   : 1000=1.41%
+  lat (msec)   : 2=3.00%, 4=88.39%, 10=6.39%, 20=0.69%, 50=0.01%
+  lat (msec)   : 100=0.10%, 250=0.01%
+  cpu          : usr=0.79%, sys=2.03%, ctx=1638479, majf=0, minf=29
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,819200,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=76.9MiB/s (80.7MB/s), 76.9MiB/s-76.9MiB/s (80.7MB/s-80.7MB/s), io=200GiB (215GB), run=2661552-2661552msec
+
+Disk stats (read/write):
+  sdb: ios=47/819118, merge=0/0, ticks=382/2572659, in_queue=2573041, util=100.00%
+
+Test Time: 2024-05-03 09:58:55
+Device Name: sdb
+Device Info: sdb   7.3T ST8000NM0055-1RM112

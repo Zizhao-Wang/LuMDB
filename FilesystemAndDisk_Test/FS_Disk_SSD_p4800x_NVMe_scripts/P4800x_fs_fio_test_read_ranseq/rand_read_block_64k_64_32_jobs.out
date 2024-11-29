@@ -1,0 +1,37 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 64.0KiB-64.0KiB, (W) 64.0KiB-64.0KiB, (T) 64.0KiB-64.0KiB, ioengine=libaio, iodepth=64
+...
+fio-3.28
+Starting 32 processes
+
+rand_read_test: (groupid=0, jobs=32): err= 0: pid=4174885: Tue May 14 11:10:32 2024
+  read: IOPS=24.9k, BW=1556MiB/s (1632MB/s)(200GiB/131585msec)
+    slat (usec): min=5, max=23001, avg=25.79, stdev=105.69
+    clat (usec): min=230, max=440244, avg=67503.77, stdev=75081.29
+     lat (usec): min=240, max=440262, avg=67529.79, stdev=75090.19
+    clat percentiles (usec):
+     |  1.00th=[  1483],  5.00th=[  6915], 10.00th=[ 12256], 20.00th=[ 19006],
+     | 30.00th=[ 21627], 40.00th=[ 24249], 50.00th=[ 36439], 60.00th=[ 47449],
+     | 70.00th=[ 69731], 80.00th=[107480], 90.00th=[177210], 95.00th=[246416],
+     | 99.00th=[333448], 99.50th=[350225], 99.90th=[379585], 99.95th=[392168],
+     | 99.99th=[408945]
+   bw (  MiB/s): min=  276, max= 7828, per=100.00%, avg=1926.83, stdev=51.91, samples=6886
+   iops        : min= 4429, max=125252, avg=30827.92, stdev=830.47, samples=6886
+  lat (usec)   : 250=0.01%, 500=0.07%, 750=0.30%, 1000=0.22%
+  lat (msec)   : 2=0.80%, 4=1.47%, 10=4.93%, 20=15.50%, 50=38.21%
+  lat (msec)   : 100=16.97%, 250=16.73%, 500=4.80%
+  cpu          : usr=0.85%, sys=2.71%, ctx=3174067, majf=0, minf=39511
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=0.1%, >=64=99.9%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.1%, >=64=0.0%
+     issued rwts: total=3276800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=64
+
+Run status group 0 (all jobs):
+   READ: bw=1556MiB/s (1632MB/s), 1556MiB/s-1556MiB/s (1632MB/s-1632MB/s), io=200GiB (215GB), run=131585-131585msec
+
+Disk stats (read/write):
+  nvme5n1: ios=10592023/0, merge=0/0, ticks=730774999/0, in_queue=730774999, util=100.00%
+
+Test Time: 2024-05-14 11:10:49
+Device Name: filetest.txt
+Device Info: 

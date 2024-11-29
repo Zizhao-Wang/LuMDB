@@ -1,0 +1,36 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=64
+...
+fio-3.28
+Starting 64 processes
+
+rand_read_test: (groupid=0, jobs=64): err= 0: pid=458360: Tue May 14 15:07:35 2024
+  read: IOPS=89.9k, BW=351MiB/s (368MB/s)(200GiB/583406msec)
+    slat (usec): min=2, max=289244, avg=60.05, stdev=478.36
+    clat (usec): min=2, max=2412.4k, avg=42119.41, stdev=72162.95
+     lat (usec): min=58, max=2416.2k, avg=42179.62, stdev=72344.43
+    clat percentiles (usec):
+     |  1.00th=[    611],  5.00th=[   2376], 10.00th=[   2835],
+     | 20.00th=[   3884], 30.00th=[   6456], 40.00th=[  10683],
+     | 50.00th=[  20841], 60.00th=[  39584], 70.00th=[  52691],
+     | 80.00th=[  71828], 90.00th=[ 101188], 95.00th=[ 135267],
+     | 99.00th=[ 164627], 99.50th=[ 217056], 99.90th=[1166017],
+     | 99.95th=[1233126], 99.99th=[1417675]
+   bw (  KiB/s): min= 1044, max=6278363, per=100.00%, avg=394024.18, stdev=9570.49, samples=68192
+   iops        : min=  216, max=1569577, avg=98485.25, stdev=2392.64, samples=68192
+  lat (usec)   : 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%, 100=0.04%
+  lat (usec)   : 250=0.27%, 500=0.48%, 750=0.48%, 1000=0.50%
+  lat (msec)   : 2=2.24%, 4=16.36%, 10=18.38%, 20=10.65%, 50=18.84%
+  lat (msec)   : 100=21.61%, 250=9.68%, 500=0.07%, 750=0.10%, 1000=0.14%
+  lat (msec)   : 2000=0.15%, >=2000=0.01%
+  cpu          : usr=0.89%, sys=1.85%, ctx=52298133, majf=0, minf=36535
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=0.1%, >=64=100.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.1%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=64
+
+Run status group 0 (all jobs):
+   READ: bw=351MiB/s (368MB/s), 351MiB/s-351MiB/s (368MB/s-368MB/s), io=200GiB (215GB), run=583406-583406msec
+
+Disk stats (read/write):
+  nvme5n1: ios=171605035/0, merge=212/0, ticks=720372088/0, in_queue=720372088, util=100.00%

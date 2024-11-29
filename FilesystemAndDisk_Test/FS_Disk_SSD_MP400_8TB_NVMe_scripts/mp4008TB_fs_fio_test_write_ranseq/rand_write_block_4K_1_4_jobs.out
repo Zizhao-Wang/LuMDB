@@ -1,0 +1,40 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 4 processes
+rand_write_test: Laying out IO file (1 file / 51200MiB)
+
+rand_write_test: (groupid=0, jobs=4): err= 0: pid=2046838: Wed May  8 01:25:58 2024
+  write: IOPS=62.0k, BW=242MiB/s (254MB/s)(200GiB/845409msec); 0 zone resets
+    slat (usec): min=3, max=126440, avg=17.07, stdev=263.55
+    clat (nsec): min=879, max=126481k, avg=44588.75, stdev=351128.63
+     lat (usec): min=13, max=128062, avg=61.78, stdev=440.70
+    clat percentiles (usec):
+     |  1.00th=[   21],  5.00th=[   23], 10.00th=[   24], 20.00th=[   25],
+     | 30.00th=[   26], 40.00th=[   27], 50.00th=[   29], 60.00th=[   31],
+     | 70.00th=[   36], 80.00th=[   42], 90.00th=[   51], 95.00th=[   58],
+     | 99.00th=[   72], 99.50th=[  194], 99.90th=[ 1369], 99.95th=[ 8160],
+     | 99.99th=[16188]
+   bw (  KiB/s): min=118496, max=487122, per=100.00%, avg=250117.02, stdev=20873.90, samples=6710
+   iops        : min=29624, max=121780, avg=62528.65, stdev=5218.45, samples=6710
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.67%, 50=88.98%
+  lat (usec)   : 100=9.70%, 250=0.17%, 500=0.03%, 750=0.01%, 1000=0.02%
+  lat (msec)   : 2=0.35%, 4=0.01%, 10=0.01%, 20=0.04%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%
+  cpu          : usr=9.72%, sys=34.85%, ctx=52428360, majf=0, minf=554
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428800,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=242MiB/s (254MB/s), 242MiB/s-242MiB/s (254MB/s-254MB/s), io=200GiB (215GB), run=845409-845409msec
+
+Disk stats (read/write):
+  nvme0n1: ios=0/52730358, merge=0/3587399, ticks=0/2102461, in_queue=2102625, util=99.86%
+
+Test Time: 2024-05-08 01:25:58
+Device Name: filetest.txt
+Device Info: 

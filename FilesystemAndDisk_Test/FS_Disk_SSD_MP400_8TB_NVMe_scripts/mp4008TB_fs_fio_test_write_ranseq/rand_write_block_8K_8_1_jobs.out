@@ -1,0 +1,36 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=1
+fio-3.28
+Starting 1 process
+
+rand_write_test: (groupid=0, jobs=1): err= 0: pid=250094: Sat May 11 11:00:03 2024
+  write: IOPS=26.2k, BW=204MiB/s (214MB/s)(200GiB/1002277msec); 0 zone resets
+    slat (usec): min=3, max=4293, avg= 8.34, stdev= 2.66
+    clat (nsec): min=1065, max=33637k, avg=27843.18, stdev=33406.99
+     lat (usec): min=18, max=33648, avg=36.32, stdev=33.57
+    clat percentiles (usec):
+     |  1.00th=[   22],  5.00th=[   25], 10.00th=[   26], 20.00th=[   26],
+     | 30.00th=[   26], 40.00th=[   27], 50.00th=[   28], 60.00th=[   28],
+     | 70.00th=[   29], 80.00th=[   31], 90.00th=[   33], 95.00th=[   34],
+     | 99.00th=[   38], 99.50th=[   40], 99.90th=[   45], 99.95th=[   51],
+     | 99.99th=[  157]
+   bw (  KiB/s): min=143968, max=390896, per=100.00%, avg=209434.33, stdev=20194.61, samples=2003
+   iops        : min=17996, max=48862, avg=26179.23, stdev=2524.35, samples=2003
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.75%, 50=99.19%
+  lat (usec)   : 100=0.03%, 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  cpu          : usr=14.52%, sys=31.07%, ctx=26214233, majf=0, minf=2513
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,26214400,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=204MiB/s (214MB/s), 204MiB/s-204MiB/s (214MB/s-214MB/s), io=200GiB (215GB), run=1002277-1002277msec
+
+Disk stats (read/write):
+  nvme0n1: ios=0/26211923, merge=0/201, ticks=0/405922, in_queue=406939, util=100.00%
+
+Test Time: 2024-05-11 11:00:03
+Device Name: filetest.txt
+Device Info: 

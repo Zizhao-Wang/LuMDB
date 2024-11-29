@@ -1,0 +1,34 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 24 processes
+
+rand_write_test: (groupid=0, jobs=24): err= 0: pid=642011: Thu May  2 21:17:12 2024
+  write: IOPS=245k, BW=957MiB/s (1004MB/s)(200GiB/213976msec); 0 zone resets
+    slat (usec): min=2, max=9753, avg= 8.73, stdev= 3.98
+    clat (nsec): min=1328, max=509798k, avg=85054.42, stdev=422841.08
+     lat (usec): min=14, max=509805, avg=93.97, stdev=422.89
+    clat percentiles (usec):
+     |  1.00th=[   34],  5.00th=[   42], 10.00th=[   44], 20.00th=[   46],
+     | 30.00th=[   47], 40.00th=[   49], 50.00th=[   51], 60.00th=[   52],
+     | 70.00th=[   55], 80.00th=[   68], 90.00th=[   81], 95.00th=[  125],
+     | 99.00th=[  766], 99.50th=[ 1729], 99.90th=[ 3916], 99.95th=[ 4293],
+     | 99.99th=[ 5866]
+   bw (  KiB/s): min=358949, max=1860597, per=100.00%, avg=993090.98, stdev=10474.18, samples=10124
+   iops        : min=89736, max=465144, avg=248270.30, stdev=2618.55, samples=10124
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=0.01%, 20=0.25%, 50=47.18%
+  lat (usec)   : 100=46.59%, 250=2.97%, 500=1.30%, 750=0.62%, 1000=0.44%
+  lat (msec)   : 2=0.16%, 4=0.39%, 10=0.08%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%, 250=0.01%, 500=0.01%, 750=0.01%
+  cpu          : usr=8.92%, sys=13.52%, ctx=52416045, majf=0, minf=2549
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428792,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=957MiB/s (1004MB/s), 957MiB/s-957MiB/s (1004MB/s-1004MB/s), io=200GiB (215GB), run=213976-213976msec
+
+Disk stats (read/write):
+  nvme0n1: ios=1064/52425843, merge=0/0, ticks=135/3958311, in_queue=3958447, util=100.00%

@@ -1,0 +1,35 @@
+rand_write_test: (g=0): rw=randwrite, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 16 processes
+
+rand_write_test: (groupid=0, jobs=16): err= 0: pid=622720: Thu May  2 20:32:16 2024
+  write: IOPS=233k, BW=912MiB/s (956MB/s)(200GiB/224576msec); 0 zone resets
+    slat (usec): min=2, max=758, avg= 7.85, stdev= 2.98
+    clat (nsec): min=880, max=509794k, avg=57914.60, stdev=324538.80
+     lat (usec): min=10, max=509801, avg=65.91, stdev=324.55
+    clat percentiles (usec):
+     |  1.00th=[   21],  5.00th=[   27], 10.00th=[   29], 20.00th=[   30],
+     | 30.00th=[   31], 40.00th=[   32], 50.00th=[   32], 60.00th=[   34],
+     | 70.00th=[   36], 80.00th=[   38], 90.00th=[   46], 95.00th=[   67],
+     | 99.00th=[  553], 99.50th=[ 1057], 99.90th=[ 4113], 99.95th=[ 4752],
+     | 99.99th=[ 5735]
+   bw (  KiB/s): min=358450, max=1771007, per=100.00%, avg=936587.22, stdev=12677.59, samples=7151
+   iops        : min=89609, max=442749, avg=234145.49, stdev=3169.45, samples=7151
+  lat (nsec)   : 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.09%, 10=0.04%, 20=0.71%, 50=91.86%
+  lat (usec)   : 100=3.50%, 250=1.58%, 500=1.07%, 750=0.33%, 1000=0.30%
+  lat (msec)   : 2=0.19%, 4=0.21%, 10=0.11%, 20=0.01%, 50=0.01%
+  lat (msec)   : 250=0.01%, 500=0.01%, 750=0.01%
+  cpu          : usr=11.75%, sys=17.72%, ctx=52310663, majf=0, minf=967
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428800,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=912MiB/s (956MB/s), 912MiB/s-912MiB/s (956MB/s-956MB/s), io=200GiB (215GB), run=224576-224576msec
+
+Disk stats (read/write):
+  nvme0n1: ios=598/52417678, merge=0/0, ticks=78/2607587, in_queue=2607665, util=100.00%

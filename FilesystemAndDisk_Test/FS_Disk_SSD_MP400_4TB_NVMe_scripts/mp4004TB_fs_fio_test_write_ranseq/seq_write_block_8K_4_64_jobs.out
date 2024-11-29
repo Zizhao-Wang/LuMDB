@@ -1,0 +1,38 @@
+seq_write_test: (g=0): rw=write, bs=(R) 8192B-8192B, (W) 8192B-8192B, (T) 8192B-8192B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 64 processes
+
+seq_write_test: (groupid=0, jobs=64): err= 0: pid=2724722: Fri May 10 18:02:03 2024
+  write: IOPS=87.7k, BW=685MiB/s (718MB/s)(200GiB/299000msec); 0 zone resets
+    slat (usec): min=3, max=695, avg=18.30, stdev= 7.71
+    clat (usec): min=9, max=72749, avg=707.66, stdev=845.35
+     lat (usec): min=40, max=72767, avg=726.26, stdev=846.08
+    clat percentiles (usec):
+     |  1.00th=[  388],  5.00th=[  420], 10.00th=[  433], 20.00th=[  449],
+     | 30.00th=[  474], 40.00th=[  494], 50.00th=[  506], 60.00th=[  529],
+     | 70.00th=[  553], 80.00th=[  603], 90.00th=[  824], 95.00th=[ 1713],
+     | 99.00th=[ 4948], 99.50th=[ 5211], 99.90th=[ 6128], 99.95th=[ 6783],
+     | 99.99th=[24511]
+   bw (  KiB/s): min=387664, max=1260206, per=100.00%, avg=703086.57, stdev=3909.86, samples=38177
+   iops        : min=48458, max=157497, avg=87866.21, stdev=488.74, samples=38177
+  lat (usec)   : 10=0.01%, 20=0.01%, 50=0.01%, 100=0.01%, 250=0.07%
+  lat (usec)   : 500=44.93%, 750=43.76%, 1000=3.00%
+  lat (msec)   : 2=3.99%, 4=1.73%, 10=2.49%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=1.34%, sys=3.41%, ctx=26218316, majf=0, minf=2645
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,26214400,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=685MiB/s (718MB/s), 685MiB/s-685MiB/s (718MB/s-718MB/s), io=200GiB (215GB), run=299000-299000msec
+
+Disk stats (read/write):
+  nvme1n1: ios=0/26200242, merge=0/60, ticks=0/17902943, in_queue=17903957, util=100.00%
+
+Test Time: 2024-05-10 18:02:03
+Device Name: filetest.txt
+Device Info: 
