@@ -1,0 +1,77 @@
+PebblesDB:    version 1.17
+Date:       Thu Nov 28 19:22:46 2024
+CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
+CPUCache:   39424 KB
+../../../pebblesdb/release/db_bench --db=/mnt/hotdb_test/pebbles10B/PointRead_1.2 --num=100000000 --value_size=128 --batch_size=1000 --benchmarks=readrandom,stats --use_existing_db=true --Read_data_file=/home/jeff-wang/workloads/zipf1.2_random_select_1000_read_keys.csv --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=-1 --open_files=40000 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_zipf_hot_removal/Pebblesdb_memory_64MiB_10B_key16_val128_zipf1.2.log --compression=0 --reads=1000 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true 
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    100000000
+RawSize:    13732.9 MB (estimated)
+FileSize:   7629.4 MB (estimated)
+WARNING: Snappy compression is not enabled
+------------------------------------------------
+Recover Time : 18446744073708941233
+PebblesDB Open Time: 738587
+Write buffer: 1024.00 KB
+thread 0 (815 of 100000000 found)
+readrandom   :     885.613 micros/op 1129 ops/sec; (815 of 100000000 found)
+Microseconds per op:
+Count: 1000 Average: 885.5710  StdDev: 1417.74
+Min: 1  Median: 693.2192  Max: 38182
+Percentiles: P50: 693.22 P75: 1032.09 P99: 4109.68 P99.9: 33000.00 P99.99: 38182.00
+------------------------------------------------------
+[       0,       1 ]        7   0.700%   0.700% 
+(       1,       2 ]       25   2.500%   3.200% #
+(       2,       3 ]       10   1.000%   4.200% 
+(       3,       4 ]        1   0.100%   4.300% 
+(       4,       6 ]       28   2.800%   7.100% #
+(       6,      10 ]       23   2.300%   9.400% 
+(      10,      15 ]        2   0.200%   9.600% 
+(      15,      22 ]        3   0.300%   9.900% 
+(      22,      34 ]        4   0.400%  10.300% 
+(      34,      51 ]        1   0.100%  10.400% 
+(      51,      76 ]        2   0.200%  10.600% 
+(      76,     110 ]        3   0.300%  10.900% 
+(     110,     170 ]        6   0.600%  11.500% 
+(     170,     250 ]       28   2.800%  14.300% #
+(     250,     380 ]       56   5.600%  19.900% #
+(     380,     580 ]      187  18.700%  38.600% ####
+(     580,     870 ]      292  29.200%  67.800% ######
+(     870,    1300 ]      191  19.100%  86.900% ####
+(    1300,    1900 ]       41   4.100%  91.000% #
+(    1900,    2900 ]       55   5.500%  96.500% #
+(    2900,    4400 ]       31   3.100%  99.600% #
+(    4400,    6600 ]        2   0.200%  99.800% 
+(    6600,    9900 ]        1   0.100%  99.900% 
+(   33000,   50000 ]        1   0.100% 100.000% 
+
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        1        1         0        0         0
+  1        2        1         0        0         0
+  3        4        1         0        0         0
+  4       15       13         0        7         5
+  5       42       25         0        0         0
+  6      341      880         0        0         0
+WriteAmplification: inf
+
+-------------------------- Timer information ----------------------
+
+-------------------------------------------------------------------
+-------------------------- Individual static timer information 0 --------------------
+
+-------------------------------------------------------------------
+-------------------------- Individual static timer information 1 --------------------
+
+-------------------------------------------------------------------
+-------------------------- Individual static timer information 2 --------------------
+
+-------------------------------------------------------------------
+-------------------------- Individual static timer information 3 --------------------
+
+-------------------------------------------------------------------
+-------------------------- Cumulative static timer information --------------------
+
+-------------------------------------------------------------------
