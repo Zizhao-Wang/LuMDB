@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/point_lock_manager_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/point_lock_manager_test[1]_tests.cmake")
+else()
+  add_test(point_lock_manager_test_NOT_BUILT point_lock_manager_test_NOT_BUILT)
+endif()

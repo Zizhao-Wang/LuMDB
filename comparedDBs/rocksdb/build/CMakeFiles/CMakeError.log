@@ -1,0 +1,27 @@
+Determining if the F_FULLFSYNC exist failed with the following output:
+Change Dir: /home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/ninja cmTC_82e96 && [1/2] Building CXX object CMakeFiles/cmTC_82e96.dir/CheckSymbolExists.cxx.o
+FAILED: CMakeFiles/cmTC_82e96.dir/CheckSymbolExists.cxx.o 
+/usr/bin/g++   -W -Wextra -Wall -pthread -Wsign-compare -Wshadow -Wno-unused-parameter -Wno-unused-variable -Woverloaded-virtual -Wnon-virtual-dtor -Wno-missing-field-initializers -Wno-strict-aliasing -Wno-invalid-offsetof -march=native -Werror -fno-builtin-memcmp -o CMakeFiles/cmTC_82e96.dir/CheckSymbolExists.cxx.o -c /home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx
+/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx: In function ‘int main(int, char**)’:
+/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx:8:19: error: ‘F_FULLFSYNC’ was not declared in this scope
+    8 |   return ((int*)(&F_FULLFSYNC))[argc];
+      |                   ^~~~~~~~~~~
+ninja: build stopped: subcommand failed.
+
+
+File /home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx:
+/* */
+#include <fcntl.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef F_FULLFSYNC
+  return ((int*)(&F_FULLFSYNC))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}

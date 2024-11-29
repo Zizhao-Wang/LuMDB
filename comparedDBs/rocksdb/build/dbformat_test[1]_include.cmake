@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/dbformat_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/dbformat_test[1]_tests.cmake")
+else()
+  add_test(dbformat_test_NOT_BUILT dbformat_test_NOT_BUILT)
+endif()

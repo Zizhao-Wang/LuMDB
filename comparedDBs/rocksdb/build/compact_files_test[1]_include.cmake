@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/compact_files_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/compact_files_test[1]_tests.cmake")
+else()
+  add_test(compact_files_test_NOT_BUILT compact_files_test_NOT_BUILT)
+endif()

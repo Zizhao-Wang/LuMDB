@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/compact_on_deletion_collector_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/compact_on_deletion_collector_test[1]_tests.cmake")
+else()
+  add_test(compact_on_deletion_collector_test_NOT_BUILT compact_on_deletion_collector_test_NOT_BUILT)
+endif()

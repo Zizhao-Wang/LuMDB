@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/sst_dump_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/sst_dump_test[1]_tests.cmake")
+else()
+  add_test(sst_dump_test_NOT_BUILT sst_dump_test_NOT_BUILT)
+endif()

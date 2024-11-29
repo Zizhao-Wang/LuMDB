@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/rate_limiter_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/rate_limiter_test[1]_tests.cmake")
+else()
+  add_test(rate_limiter_test_NOT_BUILT rate_limiter_test_NOT_BUILT)
+endif()

@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/env_timed_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/env_timed_test[1]_tests.cmake")
+else()
+  add_test(env_timed_test_NOT_BUILT env_timed_test_NOT_BUILT)
+endif()

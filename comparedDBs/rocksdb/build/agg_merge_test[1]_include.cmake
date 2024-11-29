@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/agg_merge_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/agg_merge_test[1]_tests.cmake")
+else()
+  add_test(agg_merge_test_NOT_BUILT agg_merge_test_NOT_BUILT)
+endif()

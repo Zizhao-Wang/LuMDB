@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/range_del_aggregator_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/range_del_aggregator_test[1]_tests.cmake")
+else()
+  add_test(range_del_aggregator_test_NOT_BUILT range_del_aggregator_test_NOT_BUILT)
+endif()

@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/memory_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/memory_test[1]_tests.cmake")
+else()
+  add_test(memory_test_NOT_BUILT memory_test_NOT_BUILT)
+endif()

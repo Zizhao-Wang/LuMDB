@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/cassandra_row_merge_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/cassandra_row_merge_test[1]_tests.cmake")
+else()
+  add_test(cassandra_row_merge_test_NOT_BUILT cassandra_row_merge_test_NOT_BUILT)
+endif()

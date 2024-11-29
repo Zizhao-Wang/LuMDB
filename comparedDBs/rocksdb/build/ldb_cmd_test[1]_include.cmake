@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/ldb_cmd_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/ldb_cmd_test[1]_tests.cmake")
+else()
+  add_test(ldb_cmd_test_NOT_BUILT ldb_cmd_test_NOT_BUILT)
+endif()

@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/ttl_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/ttl_test[1]_tests.cmake")
+else()
+  add_test(ttl_test_NOT_BUILT ttl_test_NOT_BUILT)
+endif()

@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/tiered_secondary_cache_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/tiered_secondary_cache_test[1]_tests.cmake")
+else()
+  add_test(tiered_secondary_cache_test_NOT_BUILT tiered_secondary_cache_test_NOT_BUILT)
+endif()

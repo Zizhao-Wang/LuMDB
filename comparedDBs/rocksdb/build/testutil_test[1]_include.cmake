@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/testutil_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/testutil_test[1]_tests.cmake")
+else()
+  add_test(testutil_test_NOT_BUILT testutil_test_NOT_BUILT)
+endif()

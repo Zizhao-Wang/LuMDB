@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/stats_history_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/stats_history_test[1]_tests.cmake")
+else()
+  add_test(stats_history_test_NOT_BUILT stats_history_test_NOT_BUILT)
+endif()

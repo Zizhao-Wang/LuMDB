@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/udt_util_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/udt_util_test[1]_tests.cmake")
+else()
+  add_test(udt_util_test_NOT_BUILT udt_util_test_NOT_BUILT)
+endif()

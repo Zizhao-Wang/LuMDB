@@ -1,0 +1,5 @@
+if(EXISTS "/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/stringappend_test[1]_tests.cmake")
+  include("/home/jeff-wang/WorkloadAnalysis/comparedDBs/rocksdb/build/stringappend_test[1]_tests.cmake")
+else()
+  add_test(stringappend_test_NOT_BUILT stringappend_test_NOT_BUILT)
+endif()
