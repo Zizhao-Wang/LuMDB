@@ -1,0 +1,38 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 12 processes
+
+rand_read_test: (groupid=0, jobs=12): err= 0: pid=304685: Tue May  7 05:11:28 2024
+  read: IOPS=193k, BW=754MiB/s (790MB/s)(200GiB/271725msec)
+    slat (nsec): min=563, max=1059.1k, avg=2191.50, stdev=1913.57
+    clat (nsec): min=196, max=2623.7k, avg=56477.00, stdev=22799.45
+     lat (usec): min=7, max=2664, avg=58.73, stdev=23.13
+    clat percentiles (usec):
+     |  1.00th=[   10],  5.00th=[   12], 10.00th=[   16], 20.00th=[   55],
+     | 30.00th=[   57], 40.00th=[   59], 50.00th=[   61], 60.00th=[   63],
+     | 70.00th=[   65], 80.00th=[   69], 90.00th=[   77], 95.00th=[   88],
+     | 99.00th=[  106], 99.50th=[  116], 99.90th=[  137], 99.95th=[  149],
+     | 99.99th=[  202]
+   bw (  KiB/s): min=753160, max=894624, per=100.00%, avg=808474.18, stdev=2038.82, samples=6219
+   iops        : min=188290, max=223656, avg=202118.54, stdev=509.71, samples=6219
+  lat (nsec)   : 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=1.76%, 20=12.53%, 50=3.42%
+  lat (usec)   : 100=80.62%, 250=1.66%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.01%, 4=0.01%
+  cpu          : usr=2.74%, sys=7.78%, ctx=52468553, majf=0, minf=198
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428792,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=754MiB/s (790MB/s), 754MiB/s-754MiB/s (790MB/s-790MB/s), io=200GiB (215GB), run=271725-271725msec
+
+Disk stats (read/write):
+  nvme1n1: ios=52427081/0, merge=0/0, ticks=2779785/0, in_queue=2779784, util=100.00%
+
+Test Time: 2024-05-07 05:11:28
+Device Name: nvme1n1 
+Device Info: 

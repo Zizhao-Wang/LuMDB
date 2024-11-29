@@ -1,0 +1,38 @@
+rand_read_test: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 2 processes
+
+rand_read_test: (groupid=0, jobs=2): err= 0: pid=240819: Tue May  7 03:01:15 2024
+  read: IOPS=56.9k, BW=222MiB/s (233MB/s)(200GiB/920765msec)
+    slat (nsec): min=555, max=1924.7k, avg=1507.29, stdev=1292.86
+    clat (nsec): min=190, max=3999.2k, avg=31522.23, stdev=34393.86
+     lat (usec): min=7, max=3999, avg=33.07, stdev=34.51
+    clat percentiles (usec):
+     |  1.00th=[    9],  5.00th=[   10], 10.00th=[   10], 20.00th=[   11],
+     | 30.00th=[   12], 40.00th=[   13], 50.00th=[   15], 60.00th=[   18],
+     | 70.00th=[   21], 80.00th=[   62], 90.00th=[   99], 95.00th=[  104],
+     | 99.00th=[  111], 99.50th=[  115], 99.90th=[  133], 99.95th=[  139],
+     | 99.99th=[  186]
+   bw (  KiB/s): min=206344, max=390416, per=100.00%, avg=238917.49, stdev=6331.81, samples=3519
+   iops        : min=51586, max=97604, avg=59729.25, stdev=1582.96, samples=3519
+  lat (nsec)   : 250=0.01%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=12.12%, 20=57.28%, 50=7.94%
+  lat (usec)   : 100=13.73%, 250=8.92%, 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (msec)   : 2=0.01%, 4=0.01%
+  cpu          : usr=3.46%, sys=14.87%, ctx=52433807, majf=0, minf=39
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=52428800,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=222MiB/s (233MB/s), 222MiB/s-222MiB/s (233MB/s-233MB/s), io=200GiB (215GB), run=920765-920765msec
+
+Disk stats (read/write):
+  nvme1n1: ios=52420369/0, merge=0/0, ticks=1447363/0, in_queue=1447363, util=100.00%
+
+Test Time: 2024-05-07 03:01:16
+Device Name: nvme1n1 
+Device Info: 

@@ -1,0 +1,39 @@
+seq_write_test: (g=0): rw=write, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+...
+fio-3.28
+Starting 17 processes
+
+seq_write_test: (groupid=0, jobs=17): err= 0: pid=89909: Fri May  3 23:09:03 2024
+  write: IOPS=321k, BW=1252MiB/s (1313MB/s)(200GiB/163536msec); 0 zone resets
+    slat (nsec): min=557, max=1005.4k, avg=2097.36, stdev=1554.12
+    clat (nsec): min=289, max=50405k, avg=50145.26, stdev=124448.52
+     lat (usec): min=5, max=50406, avg=52.31, stdev=124.45
+    clat percentiles (usec):
+     |  1.00th=[    9],  5.00th=[   11], 10.00th=[   15], 20.00th=[   42],
+     | 30.00th=[   44], 40.00th=[   44], 50.00th=[   45], 60.00th=[   45],
+     | 70.00th=[   46], 80.00th=[   48], 90.00th=[   54], 95.00th=[   76],
+     | 99.00th=[  273], 99.50th=[  449], 99.90th=[  685], 99.95th=[ 1037],
+     | 99.99th=[ 4113]
+   bw (  MiB/s): min=  101, max= 2081, per=100.00%, avg=1253.26, stdev=14.93, samples=5538
+   iops        : min=25906, max=532956, avg=320835.24, stdev=3821.54, samples=5538
+  lat (nsec)   : 500=0.01%, 750=0.01%, 1000=0.01%
+  lat (usec)   : 2=0.01%, 4=0.01%, 10=2.04%, 20=11.37%, 50=73.06%
+  lat (usec)   : 100=9.88%, 250=2.57%, 500=0.70%, 750=0.29%, 1000=0.04%
+  lat (msec)   : 2=0.03%, 4=0.01%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (msec)   : 100=0.01%
+  cpu          : usr=3.97%, sys=7.42%, ctx=52444955, majf=0, minf=325
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,52428816,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=1252MiB/s (1313MB/s), 1252MiB/s-1252MiB/s (1313MB/s-1313MB/s), io=200GiB (215GB), run=163536-163536msec
+
+Disk stats (read/write):
+  nvme0n1: ios=474/52383757, merge=0/0, ticks=85/2488515, in_queue=2488600, util=99.98%
+
+Test Time: 2024-05-03 23:09:03
+Device Name: nvme0n1 
+Device Info: 
