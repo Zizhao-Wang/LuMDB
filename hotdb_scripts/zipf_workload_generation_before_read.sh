@@ -72,7 +72,7 @@ for i in {10..10}; do
                 echo "$num_format"
 
                     
-                ../../hotdb/release/db_bench \
+                gdb --args ../../hotdb/release/db_bench \
                 --db=$db_directory \
                 --num=$num_entries \
                 --value_size=$value_size \
