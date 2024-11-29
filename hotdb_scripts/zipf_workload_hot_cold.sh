@@ -11,7 +11,7 @@ billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
-
+mem=64
 
 convert_to_billion_format() {
     local num=$1
@@ -31,7 +31,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_hotdb_zipf_hc"
+    dir1="${i}B_hotdb_zipf_hc_7.3"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -43,21 +43,21 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_format=100000000
 
-            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
-                    log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
+                    log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}_mem${mem}.log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
                     
 
-                    如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
-                    fi
+                    # 如果日志文件存在，则跳过当前迭代
+                    # if [ -f "$log_file" ]; then
+                    #     echo "Log file $log_file already exists. Skipping this iteration."
+                    #     continue
+                    # fi
 
                     echo "base_num: $base_num"
                     echo "num_entries: $num_entries"
@@ -65,7 +65,7 @@ for i in {10..10}; do
                     echo "stats_interval: $stats_interva"
                     echo "$num_format"
 
-                    db_directory="/mnt/hotdb_test/hotdb10B/${zipf_a}"
+                    db_directory="/mnt/hotdb_test/hotdb10B/mem${mem}_${zipf_a}"
                     if [ ! -d "$db_directory" ]; then
                         mkdir -p "$db_directory"
                     fi
@@ -75,18 +75,12 @@ for i in {10..10}; do
                         rm -rf "${db_directory:?}/"*
                     fi
 
-                    # 如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
-                    fi
-
 
 
                     iostat -d 100 -x $DEVICE_NAME > leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
                     PID_IOSTAT=$!
                     
-                    ../hotdb/release/db_bench \
+                    ../../hotdb/release/db_bench \
                     --db=$db_directory \
                     --num=$num_entries \
                     --value_size=$value_size \
@@ -101,7 +95,6 @@ for i in {10..10}; do
                     --compression=0 \
                     --stats_interval=$stats_interva \
                     --histogram=1 \
-                    --write_buffer_size=1048576 \
                     --max_file_size=2097152   \
                     --print_wa=true \
                     &> >( tee $log_file) &  

@@ -29,9 +29,9 @@ int kL0_StopWritesTrigger = 384;
 // Tiering strategy limit multiplier
 int kTiering_and_leveling_Multiplier = 24;
 
-int kPartitionLevelingCompactionTrigger = 64;
+int kPartitionLevelingCompactionTrigger = 20;
 
-int kPartitionLevelingL1CompactionTrigger = 12;
+int kPartitionLevelingL1CompactionTrigger = 5;
 
 int kLevelingL0PartitionSize = 128 * 1024 * 1024;
 
