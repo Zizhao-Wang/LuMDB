@@ -1,5 +1,5 @@
 
-./config.sh
+# ./config.sh
 
 # rm -rf /mnt/hotdb_test*
 # rm  /mnt/logs/*.log
@@ -15,7 +15,7 @@ percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
 DEVICE_NAME="nvme0n1"
 Mem=64
-partition=40
+partition=1
 
 convert_to_billion_format() {
     local num=$1
@@ -35,7 +35,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_LuMDB_zipf"
+    dir1="${i}B_LuMDB_7.3"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -45,9 +45,10 @@ for i in {10..10}; do
             stats_interva=$((num_entries / 1000))
 
             num_format=$(convert_to_billion_format $num_entries)
-            num_format=100000000
+            num_entries=100000000
+            
 
-            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
                     percentages1=() # 1 5 10 15 20 25 30
                     No_hot_percentages=(10 20 30 40 50 60 70 80 90 100)
 
@@ -78,16 +79,16 @@ for i in {10..10}; do
                     fi
 
                     # 如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
-                    fi
+                    # if [ -f "$log_file" ]; then
+                    #     echo "Log file $log_file already exists. Skipping this iteration."
+                    #     continue
+                    # fi
 
 
                     iostat -d 100 -x $DEVICE_NAME > LuMDB_${num_format}_val_${value_size}_zipf${zipf_a}_IOstatsMem${Mem}_Partition${partition}.log &
                     PID_IOSTAT=$!
                     
-                     ../../hotdb/release/db_bench \
+                    ../../hotdb/release/db_bench \
                     --db=$db_directory \
                     --num=$num_entries \
                     --value_size=$value_size \

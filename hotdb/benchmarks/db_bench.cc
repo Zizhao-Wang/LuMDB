@@ -978,6 +978,7 @@ class Benchmark {
     std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks.c_str());
     std::fprintf(stdout, "  hot_file_path: %s\n", FLAGS_hot_file.c_str());
     std::fprintf(stdout, "  data_file_path: %s\n", FLAGS_data_file.c_str());
+    std::fprintf(stdout, "  Write buffer size: %lu\n", FLAGS_write_buffer_size);
     std::fprintf(stdout, "  percentages: %s\n", FLAGS_percentages.c_str());
     std::fprintf(stdout, "  Print Interval: %ld\n", FLAGS_stats_interval);
     // std::fprintf(stdout, "  Print Interval: %ld\n", );
@@ -1364,6 +1365,7 @@ class Benchmark {
     options.percentages = FLAGS_percentages;
 
     std::fprintf(stderr, "open dbs:in Open()\n");
+
     fflush(stderr);
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {

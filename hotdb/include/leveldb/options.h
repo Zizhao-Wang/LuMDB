@@ -85,7 +85,7 @@ struct LEVELDB_EXPORT Options {
   // so you may wish to adjust this parameter to control memory usage.
   // Also, a larger write buffer will result in a longer recovery time
   // the next time the database is opened.
-  size_t write_buffer_size = 64 * 1024 * 1024;
+  size_t write_buffer_size = 1 * 1024 * 1024;
 
   size_t write_hot_buffer_size = 1 * 1024 * 1024;
 
@@ -128,7 +128,7 @@ struct LEVELDB_EXPORT Options {
 
   size_t max_tiering_file_size = 2 * 1024 * 1024;
 
-  size_t min_file_size = 40*1024 * 1024;
+  size_t min_file_size = 1*1024 * 1024;
 
   size_t too_small_file_size = 1 * 1024;
 
