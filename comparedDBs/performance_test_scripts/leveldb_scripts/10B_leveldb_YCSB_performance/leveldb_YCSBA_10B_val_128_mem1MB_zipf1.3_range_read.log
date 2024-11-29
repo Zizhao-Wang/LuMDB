@@ -4,7 +4,7 @@ value_size:128
 stats_interval: 10000000
 10B
 LevelDB:    version 1.23
-Date:       Fri Nov 29 01:18:57 2024
+Date:       Fri Nov 29 12:24:35 2024
 CPU:        112 * Intel(R) Xeon(R) Platinum 8180 CPU @ 2.50GHz
 CPUCache:   39424 KB
 open dbs:in Open()
@@ -12,7 +12,7 @@ entering db_impl.cc:/mnt/hotdb_test/level10B/Pointread_1.3
 initialize 0 objects(LevelHotColdStats) for 7 levels
 Enter YCSB_E
 Processing 1 entries in every Batch, FLAGS_ycsb_num = 5000000
-Selected DB_BENCH_PID: 3027719
+Selected DB_BENCH_PID: 3356551
 Error reading key from file in YCSB_A
 ../../../leveldb/release/db_bench --db=/mnt/hotdb_test/level10B/Pointread_1.3 --num=100000000 --value_size=128 --batch_size=1000 --benchmarks=ycsbe,stats --data_file=/home/jeff-wang/workloads/zipf1.3_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=8388608 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage1MB_10B_key16_val128.log --open_files=40000 --ycsb_num=5000000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --YCSB_data_file=/home/jeff-wang/workloads/random_read_workload1.3.csv --use_existing_db=true --max_file_size=1048576 --print_wa=true
 Keys:       16 bytes each
@@ -34,92 +34,81 @@ some command parameters have been selected:
   percentages:
 ------------------------------------------------
 500000 operations have been finished (0.000 MB data have been written into db)
-ycsbe        :      77.225 micros/op 12949 ops/sec;
+ycsbe        :      37.567 micros/op 26618 ops/sec;
 Microseconds per op:
-Count: 500000  Average: 77.2242  StdDev: 936.42
-Percentiles: P50: 27.99 P75: 32.73 P99: 1035.77 P99.9: 2452.08 P99.99: 73243.24
+Count: 500000  Average: 37.5672  StdDev: 168.08
+Percentiles: P50: 21.28 P75: 24.04 P99: 414.43 P99.9: 774.81 P99.99: 976.47
 ------------------------------------------------------
-[      14,      16 )      12   0.002%   0.002%
-[      16,      18 )    4390   0.878%   0.880%
-[      18,      20 )   20307   4.061%   4.942% #
-[      20,      25 )  113585  22.717%  27.659% #####
-[      25,      30 )  186498  37.300%  64.958% #######
-[      30,      35 )   92026  18.405%  83.364% ####
-[      35,      40 )   21218   4.244%  87.607% #
-[      40,      45 )    9930   1.986%  89.593%
-[      45,      50 )    6507   1.301%  90.895%
-[      50,      60 )    7621   1.524%  92.419%
-[      60,      70 )    3759   0.752%  93.171%
-[      70,      80 )    1975   0.395%  93.566%
-[      80,      90 )    2056   0.411%  93.977%
-[      90,     100 )    1651   0.330%  94.307%
-[     100,     120 )    1801   0.360%  94.667%
-[     120,     140 )     616   0.123%  94.790%
-[     140,     160 )     368   0.074%  94.864%
-[     160,     180 )     655   0.131%  94.995%
-[     180,     200 )     723   0.145%  95.140%
-[     200,     250 )    1314   0.263%  95.402%
-[     250,     300 )    1502   0.300%  95.703%
-[     300,     350 )    1904   0.381%  96.084%
-[     350,     400 )    1606   0.321%  96.405%
-[     400,     450 )    1610   0.322%  96.727%
-[     450,     500 )    1360   0.272%  96.999%
-[     500,     600 )    2374   0.475%  97.474%
-[     600,     700 )    2206   0.441%  97.915%
-[     700,     800 )    2177   0.435%  98.350%
-[     800,     900 )    1742   0.348%  98.699%
-[     900,    1000 )    1231   0.246%  98.945%
-[    1000,    1200 )    1543   0.309%  99.253%
-[    1200,    1400 )    1334   0.267%  99.520%
-[    1400,    1600 )     881   0.176%  99.696%
-[    1600,    1800 )     490   0.098%  99.794%
-[    1800,    2000 )     245   0.049%  99.843%
-[    2000,    2500 )     313   0.063%  99.906%
-[    2500,    3000 )     162   0.032%  99.938%
-[    3000,    3500 )      75   0.015%  99.953%
-[    3500,    4000 )      30   0.006%  99.959%
-[    4000,    4500 )      29   0.006%  99.965%
-[    4500,    5000 )      13   0.003%  99.968%
-[    5000,    6000 )      10   0.002%  99.970%
-[    6000,    7000 )      17   0.003%  99.973%
-[    7000,    8000 )       8   0.002%  99.975%
-[    8000,    9000 )       9   0.002%  99.977%
-[    9000,   10000 )       6   0.001%  99.978%
-[   10000,   12000 )       8   0.002%  99.979%
-[   12000,   14000 )       9   0.002%  99.981%
-[   14000,   16000 )       7   0.001%  99.983%
-[   16000,   18000 )       4   0.001%  99.983%
-[   18000,   20000 )       1   0.000%  99.984%
-[   60000,   70000 )       8   0.002%  99.985%
-[   70000,   80000 )      74   0.015% 100.000%
+[      12,      14 )       1   0.000%   0.000%
+[      14,      16 )    7778   1.556%   1.556%
+[      16,      18 )   58749  11.750%  13.306% ##
+[      18,      20 )  125296  25.059%  38.365% #####
+[      20,      25 )  226972  45.394%  83.759% #########
+[      25,      30 )   26232   5.246%  89.006% #
+[      30,      35 )    4167   0.833%  89.839%
+[      35,      40 )    2432   0.486%  90.325%
+[      40,      45 )    1423   0.285%  90.610%
+[      45,      50 )    1125   0.225%  90.835%
+[      50,      60 )    2043   0.409%  91.244%
+[      60,      70 )    5639   1.128%  92.371%
+[      70,      80 )    7755   1.551%  93.922%
+[      80,      90 )    3811   0.762%  94.685%
+[      90,     100 )    2293   0.459%  95.143%
+[     100,     120 )     799   0.160%  95.303%
+[     120,     140 )     788   0.158%  95.461%
+[     140,     160 )     433   0.087%  95.547%
+[     160,     180 )    2621   0.524%  96.071%
+[     180,     200 )    1248   0.250%  96.321%
+[     200,     250 )    2736   0.547%  96.868%
+[     250,     300 )    2938   0.588%  97.456%
+[     300,     350 )    4055   0.811%  98.267%
+[     350,     400 )    2897   0.579%  98.846%
+[     400,     450 )    2665   0.533%  99.379%
+[     450,     500 )    1549   0.310%  99.689%
+[     500,     600 )     312   0.062%  99.751%
+[     600,     700 )     354   0.071%  99.822%
+[     700,     800 )     520   0.104%  99.926%
+[     800,     900 )     267   0.053%  99.980%
+[     900,    1000 )      68   0.014%  99.993%
+[    1000,    1200 )      25   0.005%  99.998%
+[    1200,    1400 )       1   0.000%  99.998%
+[    1400,    1600 )       1   0.000%  99.999%
+[    6000,    7000 )       1   0.000%  99.999%
+[   10000,   12000 )       1   0.000%  99.999%
+[   14000,   16000 )       1   0.000%  99.999%
+[   30000,   35000 )       1   0.000%  99.999%
+[   45000,   50000 )       2   0.000% 100.000%
+[   70000,   80000 )       1   0.000% 100.000%
 
 entering io_statistics1
 
-                               Compactions
-Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
---------------------------------------------------
-  1        9        7         0        0         0
-  2       79       64         0        0         0
-  3      960      928         0        0         0
-  4      947      913         0        0         0
-user_io:0.000MB total_ios: 0.000MB WriteAmplification: -nan
 
-Checking if iostat process with PID 3027718 is still running...
-    PID TTY          TIME CMD
-3027718 pts/12   00:00:00 iostat
-iostat process 3027718 is still running, killing now...
-iostat process 3027718 has been successfully killed.
-./zipf_workload_YCSB_E.sh: line 133: 3027718 Killed                  iostat -d 100 -x $DEVICE_NAME > leveldb_HDD_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_IOstats.log
-(base) root@jeffwang-S2600STB:/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts#
- Performance counter stats for process id '3027719':
 
-         15,810.61 msec task-clock                       #    0.427 CPUs utilized
-            33,386      context-switches                 #    2.112 K/sec
-                21      cpu-migrations                   #    1.328 /sec
-            44,065      page-faults                      #    2.787 K/sec
-    50,578,284,054      cycles                           #    3.199 GHz
-    73,067,716,696      instructions                     #    1.44  insn per cycle
-    11,844,347,017      branches                         #  749.139 M/sec
-        68,834,054      branch-misses                    #    0.58% of all branches
 
-      37.040868201 seconds time elapsed
+
+
+
+
+
+Disk nvme0n1: Read: 2376751 MB | Write: 74599926 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB
+Disk nvme0n1: Read: 277 MB | Write: 0 MB
+Disk nvme0n1: Read: 185 MB | Write: 0 MB
+Disk nvme0n1: Read: 177 MB | Write: 0 MB
+Disk nvme0n1: Read: 154 MB | Write: 0 MB
+Disk nvme0n1: Read: 135 MB | Write: 0 MB
+Disk nvme0n1: Read: 107 MB | Write: 0 MB
+Disk nvme0n1: Read: 90 MB | Write: 0 MB
+Disk nvme0n1: Read: 75 MB | Write: 0 MB
+Disk nvme0n1: Read: 66 MB | Write: 0 MB
+Disk nvme0n1: Read: 48 MB | Write: 0 MB
+Disk nvme0n1: Read: 24 MB | Write: 0 MB
+Disk nvme0n1: Read: 7 MB | Write: 0 MB
+Disk nvme0n1: Read: 2 MB | Write: 0 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB
+Disk nvme0n1: Read: 0 MB | Write: 0 MB

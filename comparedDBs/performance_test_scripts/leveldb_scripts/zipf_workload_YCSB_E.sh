@@ -39,7 +39,7 @@ for i in {10..10}; do
             num_entries=100000000
             ycsb_num_entries=5000000
 
-            for zipf_a in 1.3; do  #  1.2 
+            for zipf_a in 1.2; do  #  1.2 
                 for buffer_size in 1048576; do
                     buffer_size_mb=$((buffer_size / 1048576))
                     log_file="leveldb_YCSBA_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_YCSBE.log"
@@ -61,6 +61,7 @@ for i in {10..10}; do
 
                     # 创建相应的目录
                     db_dir="/mnt/hotdb_test/level10B/Pointread_${zipf_a}"
+                    db_dir="/mnt/hotdb_test/level10B/YCSBa_mem${buffer_size_mb}_${zipf_a}_iterator2"
                     # if [ ! -d "$db_dir" ]; then
                     #     mkdir -p "$db_dir"
                     # fi

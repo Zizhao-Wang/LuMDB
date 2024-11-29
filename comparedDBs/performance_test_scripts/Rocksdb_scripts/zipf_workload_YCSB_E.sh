@@ -47,6 +47,7 @@ for i in {10..10}; do
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径 
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal/RocksDB_memoryusage${MEM}MB_${num_format}_key16_val${value_size}_zipf${zipf_a}_mem${MEM}MiB.log"      
                 ycsb_data_file="/home/jeff-wang/workloads/ycsb_e_workload.csv" # 构建数据文件路径
+                ycsb_data_file="/home/jeff-wang/workloads/random_read_workload${zipf_a}.csv"
 
 
                 # 创建相应的目录

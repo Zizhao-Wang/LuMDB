@@ -76,7 +76,7 @@ for i in {10..10}; do
                 --bloom_bits=10 \
                 --log=1  \
                 --Read_data_file=$reads_data_file \
-                --cache_size=8388608 \
+                --cache_size=0 \
                 --open_files=40000 \
                 --use_existing_db=true \
                 --reads=1000 \

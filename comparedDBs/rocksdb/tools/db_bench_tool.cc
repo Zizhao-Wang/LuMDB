@@ -5508,7 +5508,7 @@ class Benchmark {
 
         const uint64_t k = std::stoull(row_data[1]);
 
-        if (row_data[0]=="SCAN"){
+        if (row_data[0]=="READ"){
           // fprintf(stdout,"The key is %lu!\n",k);
           char key1[100];
           snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)(k+2000000));

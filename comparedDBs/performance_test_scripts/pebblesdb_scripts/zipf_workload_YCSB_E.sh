@@ -39,7 +39,7 @@ for i in {10..10}; do
             ycsb_num_entries=1000000
 
             
-            for zipf_a in 1.3; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.4; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem${Mem}MB_zipf${zipf_a}_iterator${iteration}E.log"
@@ -61,7 +61,9 @@ for i in {10..10}; do
                 echo "$num_format"
 
                 # 创建相应的目录
-                db_dir="/mnt/hotdb_test/pebbles10B/ycsb_mem${Mem}_${zipf_a}_2"
+                
+                
+                db_dir="/mnt/hotdb_test/pebbles10B/ycsb_mem${Mem}_${zipf_a}_1"
                 db_dir="/mnt/hotdb_test/pebbles10B/PointRead_${zipf_a}"
                 echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
                     
