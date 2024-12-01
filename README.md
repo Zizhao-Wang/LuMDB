@@ -1,2 +1,2 @@
 # LuMDB
-Performance evaluation of LSM-based KV stores under dynamic workloads
+Official repository of LuMDB
