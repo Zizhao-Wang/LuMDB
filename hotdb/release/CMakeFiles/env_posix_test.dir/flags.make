@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DLEVELDB_PLATFORM_POSIX=1
 
-CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/hotdb/release/include -I/home/jeff-wang/WorkloadAnalysis/hotdb/. -I/home/jeff-wang/WorkloadAnalysis/hotdb/include -isystem /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock/include -isystem /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googlemock -isystem /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googletest/include -isystem /home/jeff-wang/WorkloadAnalysis/hotdb/third_party/googletest/googletest
+CXX_INCLUDES = -I/home/jeff-wang/LuMDB/hotdb/release/include -I/home/jeff-wang/LuMDB/hotdb/. -I/home/jeff-wang/LuMDB/hotdb/include -isystem /home/jeff-wang/LuMDB/hotdb/third_party/googletest/googlemock/include -isystem /home/jeff-wang/LuMDB/hotdb/third_party/googletest/googlemock -isystem /home/jeff-wang/LuMDB/hotdb/third_party/googletest/googletest/include -isystem /home/jeff-wang/LuMDB/hotdb/third_party/googletest/googletest
 
 CXX_FLAGS =  -fno-exceptions -fno-rtti -g -std=c++11
 

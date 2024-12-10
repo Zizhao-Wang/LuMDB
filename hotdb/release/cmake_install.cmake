@@ -1,4 +1,4 @@
-# Install script for directory: /home/jeff-wang/WorkloadAnalysis/hotdb
+# Install script for directory: /home/jeff-wang/LuMDB/hotdb
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -43,26 +43,26 @@ if(NOT DEFINED CMAKE_OBJDUMP)
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/jeff-wang/WorkloadAnalysis/hotdb/release/libleveldb.a")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/jeff-wang/LuMDB/hotdb/release/libleveldb.a")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/leveldb" TYPE FILE FILES
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/c.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/cache.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/comparator.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/db.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/dumpfile.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/env.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/export.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/filter_policy.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/iterator.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/options.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/slice.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/status.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/table_builder.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/table.h"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/write_batch.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/c.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/cache.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/comparator.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/db.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/dumpfile.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/env.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/export.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/filter_policy.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/iterator.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/options.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/slice.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/status.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/table_builder.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/table.h"
+    "/home/jeff-wang/LuMDB/hotdb/include/leveldb/write_batch.h"
     )
 endif()
 
@@ -70,7 +70,7 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets.cmake")
     file(DIFFERENT EXPORT_FILE_CHANGED FILES
          "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets.cmake"
-         "/home/jeff-wang/WorkloadAnalysis/hotdb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets.cmake")
+         "/home/jeff-wang/LuMDB/hotdb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets.cmake")
     if(EXPORT_FILE_CHANGED)
       file(GLOB OLD_CONFIG_FILES "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb/leveldbTargets-*.cmake")
       if(OLD_CONFIG_FILES)
@@ -79,23 +79,23 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
       endif()
     endif()
   endif()
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/jeff-wang/WorkloadAnalysis/hotdb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets.cmake")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/jeff-wang/LuMDB/hotdb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets.cmake")
   if("${CMAKE_INSTALL_CONFIG_NAME}" MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")
-    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/jeff-wang/WorkloadAnalysis/hotdb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets-debug.cmake")
+    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES "/home/jeff-wang/LuMDB/hotdb/release/CMakeFiles/Export/lib/cmake/leveldb/leveldbTargets-debug.cmake")
   endif()
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/leveldb" TYPE FILE FILES
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/release/cmake/leveldbConfig.cmake"
-    "/home/jeff-wang/WorkloadAnalysis/hotdb/release/cmake/leveldbConfigVersion.cmake"
+    "/home/jeff-wang/LuMDB/hotdb/release/cmake/leveldbConfig.cmake"
+    "/home/jeff-wang/LuMDB/hotdb/release/cmake/leveldbConfigVersion.cmake"
     )
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/jeff-wang/WorkloadAnalysis/hotdb/release/third_party/googletest/cmake_install.cmake")
-  include("/home/jeff-wang/WorkloadAnalysis/hotdb/release/third_party/benchmark/cmake_install.cmake")
+  include("/home/jeff-wang/LuMDB/hotdb/release/third_party/googletest/cmake_install.cmake")
+  include("/home/jeff-wang/LuMDB/hotdb/release/third_party/benchmark/cmake_install.cmake")
 
 endif()
 
@@ -107,5 +107,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/jeff-wang/WorkloadAnalysis/hotdb/release/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/jeff-wang/LuMDB/hotdb/release/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

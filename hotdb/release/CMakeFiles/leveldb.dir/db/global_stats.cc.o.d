@@ -1,7 +1,6 @@
 CMakeFiles/leveldb.dir/db/global_stats.cc.o: \
- /home/jeff-wang/WorkloadAnalysis/hotdb/db/global_stats.cc \
- /usr/include/stdc-predef.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/db/global_stats.h \
+ /home/jeff-wang/LuMDB/hotdb/db/global_stats.cc \
+ /usr/include/stdc-predef.h /home/jeff-wang/LuMDB/hotdb/db/global_stats.h \
  /usr/include/c++/11/atomic /usr/include/c++/11/bits/atomic_base.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \

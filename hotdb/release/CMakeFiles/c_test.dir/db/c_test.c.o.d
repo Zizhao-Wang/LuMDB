@@ -1,7 +1,6 @@
 CMakeFiles/c_test.dir/db/c_test.c.o: \
- /home/jeff-wang/WorkloadAnalysis/hotdb/db/c_test.c \
- /usr/include/stdc-predef.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/c.h \
+ /home/jeff-wang/LuMDB/hotdb/db/c_test.c /usr/include/stdc-predef.h \
+ /home/jeff-wang/LuMDB/hotdb/include/leveldb/c.h \
  /usr/lib/gcc/x86_64-linux-gnu/12/include/stdarg.h \
  /usr/lib/gcc/x86_64-linux-gnu/12/include/stddef.h \
  /usr/lib/gcc/x86_64-linux-gnu/12/include/stdint.h /usr/include/stdint.h \
@@ -19,7 +18,7 @@ CMakeFiles/c_test.dir/db/c_test.c.o: \
  /usr/include/x86_64-linux-gnu/bits/wchar.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
- /home/jeff-wang/WorkloadAnalysis/hotdb/include/leveldb/export.h \
+ /home/jeff-wang/LuMDB/hotdb/include/leveldb/export.h \
  /usr/include/stdio.h /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \

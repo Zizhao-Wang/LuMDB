@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_PLATFORM_POSIX=1
 
-CXX_INCLUDES = -I/home/jeff-wang/WorkloadAnalysis/hotdb/release/include -I/home/jeff-wang/WorkloadAnalysis/hotdb/. -I/home/jeff-wang/WorkloadAnalysis/hotdb/include
+CXX_INCLUDES = -I/home/jeff-wang/LuMDB/hotdb/release/include -I/home/jeff-wang/LuMDB/hotdb/. -I/home/jeff-wang/LuMDB/hotdb/include
 
 CXX_FLAGS =  -fno-exceptions -fno-rtti -g -std=c++11
 

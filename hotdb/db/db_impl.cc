@@ -1911,23 +1911,24 @@ void DBImpl::BackgroundCompaction() {
   } else{
     for (Compaction* c : Partitionleveling_compactions) {
       // fprintf(stdout,"start a leveling compaction from !\n");
-      uint64_t need_partition_num = c->partition_num();
+      // uint64_t need_partition_num = c->partition_num();
       mem_partition_guard* temp_partition = nullptr;
-      for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
-        if((*it)->partition_num == need_partition_num){
-          temp_partition = *it;
-          break;
-        }
-      }
-      if(c->level() == 0){
-        auto map_it = partition_first_L0flush_map_.find(need_partition_num);
-        if (map_it == partition_first_L0flush_map_.end()) {
-          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
-          delete c;
-          continue;  
-        }
-      }
-      bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
+      // for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
+      //   if((*it)->partition_num == need_partition_num){
+      //     temp_partition = *it;
+      //     break;
+      //   }
+      // }
+      // if(c->level() == 0){
+      //   auto map_it = partition_first_L0flush_map_.find(need_partition_num);
+      //   if (map_it == partition_first_L0flush_map_.end()) {
+      //     fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+      //     delete c;
+      //     continue;  
+      //   }
+      // }
+      // bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
+      bool is_first_L0flush = false;
       if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
         std::vector<uint64_t> deleted_partition_nums;
         Merge_all_supersmall_partitions(deleted_partition_nums);

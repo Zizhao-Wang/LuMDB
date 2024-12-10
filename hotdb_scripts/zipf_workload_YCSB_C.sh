@@ -45,7 +45,7 @@ for i in {10..10}; do
 
                 log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator3"
+                db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator1"
                 ycsb_data_file="/home/jeff-wang/workloads/ycsb_c_workload.csv" # 构建数据文件路径
 
                 # 如果日志文件存在，则跳过当前迭代
