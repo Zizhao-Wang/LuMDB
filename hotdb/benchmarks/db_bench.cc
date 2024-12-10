@@ -996,6 +996,8 @@ class Benchmark {
     std::fprintf(stdout, "  write_buffer_size: %ld\n", FLAGS_write_buffer_size);
     std::fprintf(stdout, "  Hot data definition: %d\n", FLAGS_hot_frequency_identification);
     std::fprintf(stdout, "  Print Interval: %ld\n", FLAGS_stats_interval);
+    std::fprintf(stdout, "  L0InitialPartitionLevelingCompactionTrigger: %d\n", config::kInitialPartitionLevelingCompactionTrigger);
+    std::fprintf(stdout, "  L1InitialPartitionLevelingCompactionTrigger: %d\n", config::kPartitionLevelingL1CompactionTrigger);
     // std::fprintf(stdout, "  Print Interval: %ld\n", );
     std::fprintf(stdout, "------------------------------------------------\n");
   }
@@ -1023,7 +1025,7 @@ class Benchmark {
   }
 
   void PrintEnvironment() {
-    std::fprintf(stderr, "LevelDB:    version %d.%d\n", kMajorVersion,
+    std::fprintf(stderr, "LuMDB:    version %d.%d\n", kMajorVersion,
                  kMinorVersion);
 
 #if defined(__linux)
@@ -1757,6 +1759,13 @@ class Benchmark {
     
     options.hot_file_path = FLAGS_hot_file;
     options.percentages = FLAGS_percentages;
+
+    fprintf(stdout, "Some selected options of LuMDB\n");
+    fprintf(stdout, "------------------------------------------------\n");
+    fprintf(stdout, "  mem_ Size: %d\n", options.write_buffer_size);
+    fprintf(stdout, "  L0PartitionSize: %d\n", options.min_file_size);
+    fprintf(stdout, "  L1PartitionSize: %d\n", options.min_file_size);
+    fprintf(stdout, "------------------------------------------------\n");
 
     std::fprintf(stderr, "open dbs:in Open()\n");
     fflush(stderr);

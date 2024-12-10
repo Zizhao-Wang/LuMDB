@@ -31,10 +31,11 @@ int kTiering_and_leveling_Multiplier = 48;
 
 int kInitialPartitionLevelingCompactionTrigger = 48;
 
-int kDynamicallPartitionLevelingCompactionTrigger = 64;
+// int kDynamicallPartitionLevelingCompactionTrigger = 64;
 
-int kPartitionLevelingL1CompactionTrigger = 1;
+int kPartitionLevelingL1CompactionTrigger = 8;
 
+// The following two parameters are not used 
 int kLevelingL0PartitionSize = 128 * 1024 * 1024;
 
 int kLevelingL1PartitionSize = 64 * 1024 * 1024;
