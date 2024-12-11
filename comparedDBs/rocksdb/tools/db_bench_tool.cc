@@ -1546,6 +1546,8 @@ DEFINE_double(key_dist_a, 0.0,
               "The parameter 'a' of key access distribution model f(x)=a*x^b");
 DEFINE_double(key_dist_b, 0.0,
               "The parameter 'b' of key access distribution model f(x)=a*x^b");
+
+              
 DEFINE_double(value_theta, 0.0,
               "The parameter 'theta' of Generized Pareto Distribution "
               "f(x)=(1/sigma)*(1+k*(x-theta)/sigma)^-(1/k+1)");
@@ -1557,6 +1559,8 @@ DEFINE_double(value_k, 0.2615,
 DEFINE_double(value_sigma, 25.45,
               "The parameter 'theta' of Generized Pareto Distribution "
               "f(x)=(1/sigma)*(1+k*(x-theta)/sigma)^-(1/k+1)");
+
+
 DEFINE_double(iter_theta, 0.0,
               "The parameter 'theta' of Generized Pareto Distribution "
               "f(x)=(1/sigma)*(1+k*(x-theta)/sigma)^-(1/k+1)");
@@ -1568,6 +1572,8 @@ DEFINE_double(iter_k, 2.517,
 DEFINE_double(iter_sigma, 14.236,
               "The parameter 'sigma' of Generized Pareto Distribution "
               "f(x)=(1/sigma)*(1+k*(x-theta)/sigma)^-(1/k+1)");
+
+
 DEFINE_double(mix_get_ratio, 1.0,
               "The ratio of Get queries of mix_graph workload");
 DEFINE_double(mix_put_ratio, 0.0,
@@ -6762,6 +6768,7 @@ class Benchmark {
     }
     return static_cast<int64_t>(ceil(ret));
   }
+  
   // The inverse function of power distribution (y=ax^b)
   int64_t PowerCdfInversion(double u, double a, double b) {
     double ret;
