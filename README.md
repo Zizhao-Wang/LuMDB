@@ -1,6 +1,6 @@
 # LuMDB
 
-Hello, welcome! 👋 This is the official repository of **LuMDB**. **LuMDB** (i.e., <u>L</u>ow <u>U</u>nleashes <u>M</u>ore) is the first **LSM-based KV store** that uses the variance of data access frequencies to represent and exploit workload skewness.
+Hello, welcome! 👋 This is the official repository of **LuMDB**. **LuMDB (i.e., <u>L</u>ow <u>U</u>nleashes <u>M</u>ore)** is the first **LSM-based KV store** that uses the variance of data access frequencies to represent and exploit workload skewness.
 
 ## Table of Contents
 - [Background](#background)
