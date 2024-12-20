@@ -87,7 +87,7 @@ int main() {
 
 ## Contributing
 
-Feel free to dive in! [Open an issue](https://github.com/Zizhao-Wang/LuMDB/issues/new) or submit PRs.
+Feel free to dive in! [Open an issue](https://github.com/Zizhao-Wang/LuMDB/issues/new) or submit [PRs](https://github.com/Zizhao-Wang/LuMDB/compare).
 
 
 ## License
