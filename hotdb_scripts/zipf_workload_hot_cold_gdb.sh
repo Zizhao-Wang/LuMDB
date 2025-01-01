@@ -42,13 +42,14 @@ for i in {10..10}; do
             for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
 
                     log_file="hotdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
-                    data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                    data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     read_data_file="/home/jeff-wang/workloads/uniform_read_keys16_value128_1M.csv" 
+                    db_directory="/mntdisk/hot10B/zipf1.2_hotdefinition1"
 
-                    db_directory="/mnt/hotdb_test/hot10B/zipf1.2_hotdefinition1"
-                    # 创建相应的目录
-                    if [ ! -d "$db_directory" ]; then
-                        mkdir -p "$db_directory"
+                    # 如果日志文件存在，则跳过当前迭代
+                    if [ -f "$log_file" ]; then
+                        echo "Log file $log_file already exists. Skipping this iteration."
+                        continue
                     fi
 
                     # 检查目录是否为空，如果不为空则删除所有内容
@@ -56,11 +57,9 @@ for i in {10..10}; do
                         rm -rf "${db_directory:?}/"*
                     fi
 
-
-                    # 如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
+                    # 创建相应的目录
+                    if [ ! -d "$db_directory" ]; then
+                        mkdir -p "$db_directory"
                     fi
 
                     echo "base_num: $base_num"
@@ -86,7 +85,7 @@ for i in {10..10}; do
                     --num=$num_entries \
                     --value_size=$value_size \
                     --batch_size=1000 \
-                    --benchmarks=fillzipf,stats \
+                    --benchmarks=fillzipf2,stats \
                     --data_file=$data_file  \
                     --logpath=/mnt/logs \
                     --bloom_bits=10 \

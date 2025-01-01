@@ -156,6 +156,11 @@ CMakeFiles/leveldb.dir/table/table_builder.cc.o: \
  /home/jeff-wang/LuMDB/hotdb/./port/port.h \
  /home/jeff-wang/LuMDB/hotdb/./port/port_stdcxx.h \
  /home/jeff-wang/LuMDB/hotdb/release/include/port/port_config.h \
+ /usr/include/snappy.h /usr/include/snappy-stubs-public.h \
+ /usr/include/x86_64-linux-gnu/sys/uio.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio-ext.h \
  /usr/include/c++/11/condition_variable /usr/include/c++/11/chrono \
  /usr/include/c++/11/ratio /usr/include/c++/11/limits \
  /usr/include/c++/11/ctime /usr/include/c++/11/bits/parse_numbers.h \

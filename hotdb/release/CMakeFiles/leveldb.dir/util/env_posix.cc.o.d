@@ -208,6 +208,10 @@ CMakeFiles/leveldb.dir/util/env_posix.cc.o: \
  /home/jeff-wang/LuMDB/hotdb/./port/port.h \
  /home/jeff-wang/LuMDB/hotdb/./port/port_stdcxx.h \
  /home/jeff-wang/LuMDB/hotdb/release/include/port/port_config.h \
+ /usr/include/snappy.h /usr/include/snappy-stubs-public.h \
+ /usr/include/x86_64-linux-gnu/sys/uio.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio-ext.h \
  /usr/include/c++/11/condition_variable \
  /usr/include/c++/11/bits/std_mutex.h /usr/include/c++/11/system_error \
  /usr/include/x86_64-linux-gnu/c++/11/bits/error_constants.h \

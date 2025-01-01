@@ -118,11 +118,11 @@ CMAKE_C_COMPILER:FILEPATH=/usr/bin/cc
 
 //A wrapper around 'ar' adding the appropriate '--plugin' option
 // for the GCC compiler
-CMAKE_C_COMPILER_AR:FILEPATH=/usr/bin/gcc-ar-12
+CMAKE_C_COMPILER_AR:FILEPATH=/usr/bin/gcc-ar-11
 
 //A wrapper around 'ranlib' adding the appropriate '--plugin' option
 // for the GCC compiler
-CMAKE_C_COMPILER_RANLIB:FILEPATH=/usr/bin/gcc-ranlib-12
+CMAKE_C_COMPILER_RANLIB:FILEPATH=/usr/bin/gcc-ranlib-11
 
 //Flags used by the C compiler during all build types.
 CMAKE_C_FLAGS:STRING=
@@ -424,6 +424,9 @@ leveldb_BINARY_DIR:STATIC=/home/jeff-wang/LuMDB/hotdb/release
 //Value Computed by CMake
 leveldb_IS_TOP_LEVEL:STATIC=ON
 
+//Dependencies for the target
+leveldb_LIB_DEPENDS:STATIC=general;snappy;
+
 //Value Computed by CMake
 leveldb_SOURCE_DIR:STATIC=/home/jeff-wang/LuMDB/hotdb
 
@@ -686,9 +689,9 @@ HAVE_LIB_RT:INTERNAL=1
 //Have symbol O_CLOEXEC
 HAVE_O_CLOEXEC:INTERNAL=1
 //Have library snappy
-HAVE_SNAPPY:INTERNAL=
+HAVE_SNAPPY:INTERNAL=1
 //Have library sqlite3
-HAVE_SQLITE3:INTERNAL=1
+HAVE_SQLITE3:INTERNAL=
 //Have library tcmalloc
 HAVE_TCMALLOC:INTERNAL=
 //Have include unistd.h

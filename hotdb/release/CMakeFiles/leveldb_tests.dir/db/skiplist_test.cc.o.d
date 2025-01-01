@@ -266,6 +266,11 @@ CMakeFiles/leveldb_tests.dir/db/skiplist_test.cc.o: \
  /usr/include/c++/11/cstring /home/jeff-wang/LuMDB/hotdb/./port/port.h \
  /home/jeff-wang/LuMDB/hotdb/./port/port_stdcxx.h \
  /home/jeff-wang/LuMDB/hotdb/release/include/port/port_config.h \
+ /usr/include/snappy.h /usr/include/snappy-stubs-public.h \
+ /usr/include/x86_64-linux-gnu/sys/uio.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \
+ /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
+ /usr/include/x86_64-linux-gnu/bits/uio-ext.h \
  /usr/include/c++/11/condition_variable /usr/include/c++/11/chrono \
  /usr/include/c++/11/ratio /usr/include/c++/11/bits/parse_numbers.h \
  /usr/include/c++/11/bits/std_mutex.h \
@@ -287,7 +292,6 @@ CMakeFiles/leveldb_tests.dir/db/skiplist_test.cc.o: \
  /usr/include/linux/limits.h \
  /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
  /usr/include/x86_64-linux-gnu/bits/xopen_lim.h \
- /usr/include/x86_64-linux-gnu/bits/uio_lim.h \
  /home/jeff-wang/LuMDB/hotdb/third_party/googletest/googlemock/include/gmock/gmock-function-mocker.h \
  /home/jeff-wang/LuMDB/hotdb/third_party/googletest/googlemock/include/gmock/gmock-spec-builders.h \
  /home/jeff-wang/LuMDB/hotdb/third_party/googletest/googlemock/include/gmock/gmock-matchers.h \

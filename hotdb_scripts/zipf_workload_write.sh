@@ -31,7 +31,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_LuMDB_Ablationstudy_perfromance"
+    dir1="${i}B_LuMDB_Ablation_perfromance"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
