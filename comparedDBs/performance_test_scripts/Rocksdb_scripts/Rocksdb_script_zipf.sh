@@ -6,7 +6,6 @@ bash -c 'ulimit -n 800000'
 BASE_VALUE_SIZE=128
 billion=1000000000
 
-DEVICE_NAME="nvme0n1"
 MEM=1
 
 convert_to_billion_format() {
@@ -25,104 +24,140 @@ convert_to_billion_format() {
     fi
 }
 
-for i in {10..10}; do
-    base_num=$(($billion * $i))
-    dir1="${i}B_RocksDB_zipf_hot_removal"
-    if [ ! -d "$dir1" ]; then
-        mkdir $dir1
+#!/usr/bin/env bash
+
+convert_to_billion_format() {
+    # 这里是示例函数，你可以根据实际需要进行改动
+    local num=$1
+    if (( num >= 1000000000 )); then
+        local billions=$((num / 1000000000))
+        echo "${billions}B"
+    else
+        echo "${num}"
     fi
-        cd $dir1
-        for value_size in 128; do
-            num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+}
 
-            num_format=$(convert_to_billion_format $num_entries)
+billion=1000000000
+BASE_VALUE_SIZE=128
+DEVICE_NAME="sdc"  # 你的设备名称
+MEM=512                # 你的 MEM 大小（MB）
 
-            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
+for i in {10..10}; do
+    base_num=$((billion * i))
+    dir1="${i}B_RocksDB_zipf_hot_removal_SATASSD"
+    if [ ! -d "$dir1" ]; then
+        mkdir "$dir1"
+    fi
+    cd "$dir1" || exit 1
 
-                # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
-                log_file="RocksDB_${num_format}_val${value_size}_mem${MEM}MB_zipf${zipf_a}.log"
-                data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径 
-                memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal/RocksDB_memoryusage_${num_format}_key16_val${value_size}_zipf${zipf_a}_mem${MEM}MiB.log"      
+    for value_size in 128; do
+        num_entries=$((base_num * BASE_VALUE_SIZE / value_size))
+        stats_interva=$((num_entries / 1000))
+        num_format=$(convert_to_billion_format "$num_entries")
 
+        for zipf_a in 1.1 1.2 1.3 1.4 1.5; do
 
-                # 创建相应的目录
-                db_dir="/mnt/hotdb_test/rocks10B/write_10B_mem${MEM}MB_${zipf_a}"
+            # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
+            for wbs_mb in 64 32 16 8 1; do
+                # 将 MB 转换为字节
+                wbs_bytes=$((wbs_mb * 1024 * 1024))
+                # target_file_size_base 同样用这个值
+                tfsb_bytes=$wbs_bytes
+
+                # 在日志文件名加上 wbs{MB}MB
+                log_file="RocksDB_${num_format}_val${value_size}_zipf${zipf_a}_mem${wbs_mb}MB.log"
+                data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv"
+                memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal_SATASSD/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}.log"
+
+                db_dir="/mntdisk/rocks10B/write_10B_${zipf_a}_mem${wbs_mb}MB"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
                 fi
 
-                # 检查目录是否为空，如果不为空则删除所有内容
-                if [ "$(ls -A $db_dir)" ]; then
+                # 如果目录不空，清空目录
+                if [ "$(ls -A "$db_dir")" ]; then
                     rm -rf "${db_dir:?}/"*
                 fi
 
-                # 如果日志文件存在，则跳过当前迭代
+                # 如果日志文件已存在，跳过
                 if [ -f "$log_file" ]; then
-                    echo "Log file $log_file already exists. Skipping this iteration."
+                    echo "Log file $log_file already exists. Skipping..."
                     continue
                 fi
 
-                        echo "base_num: $base_num"
-                        echo "num_entries: $num_entries"
-                        echo "value_size:$value_size"
-                        echo "stats_interval: $stats_interva"
-                        echo "$num_format"
+                echo "=================================================="
+                echo "Running test with parameters:"
+                echo "  base_num       = $base_num"
+                echo "  num_entries    = $num_entries"
+                echo "  value_size     = $value_size"
+                echo "  stats_interval = $stats_interva"
+                echo "  num_format     = $num_format"
+                echo "  zipf_a         = $zipf_a"
+                echo "  wbs_bytes      = $wbs_bytes  (${wbs_mb}MB)"
+                echo "  tfsb_bytes     = $tfsb_bytes (${wbs_mb}MB)"
+                echo "=================================================="
 
-                        iostat -d 100 -x $DEVICE_NAME > RocksDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${MEM}MiB_IOstats.log &
-                        PID_IOSTAT=$!
-                    
-                        ../../../rocksdb/release/db_bench \
-                        --db=$db_dir \
-                        --num=$num_entries \
-                        --value_size_=$value_size \
-                        --batch_size=1 \
-                        --benchmarks=fillzipf,stats \
-                        --data_file_path=$data_file  \
-                        --bloom_bits=10 \
-                        --cache_size=8388608 \
-                        --open_files=80000 \
-                        --compression_ratio=0 \
-                        --stats_interval=$stats_interva \
-                        --stats_per_interval=$stats_interva \
-                        --histogram=1 \
-                        --write_buffer_size=1048576 \
-                        --mem_log_file=$memory_log_file \
-                        --target_file_size_base=1048576   \
-                        --compression_type=none \
-                        &> >( tee $log_file) &  
+                # 启动 iostat
+                iostat_log="RocksDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_IOstats.log"
+                iostat -d 100 -x "$DEVICE_NAME" > "$iostat_log" &
+                PID_IOSTAT=$!
 
-                        # 保存 db_bench 的 PID 供监控使用
-                        sleep 1
+                # 运行 db_bench
+                ../../../rocksdb/release/db_bench \
+                    --db="$db_dir" \
+                    --num="$num_entries" \
+                    --value_size_="$value_size" \
+                    --batch_size=1 \
+                    --benchmarks=fillzipf,stats \
+                    --data_file_path="$data_file" \
+                    --bloom_bits=10 \
+                    --cache_size=8388608 \
+                    --open_files=80000 \
+                    --compression_ratio=0 \
+                    --stats_interval="$stats_interva" \
+                    --stats_per_interval="$stats_interva" \
+                    --histogram=1 \
+                    --write_buffer_size="$wbs_bytes" \
+                    --mem_log_file="$memory_log_file" \
+                    --target_file_size_base="$tfsb_bytes" \
+                    --compression_type=none \
+                    &> >(tee "$log_file") &
 
-                        DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
-                        echo "Selected DB_BENCH_PID: $DB_BENCH_PID"
+                # 等待1秒，让 db_bench 进程启动
+                sleep 1
 
-                        perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_mem${MEM}MiB.txt" &
-                        PERF_PID=$!
+                # 找到 db_bench 的 PID 供 perf 监控
+                DB_BENCH_PID=$(pgrep -af "db_bench --db=$db_dir" | grep -v 'sudo' | awk '{print $1}')
+                echo "DB_BENCH_PID: $DB_BENCH_PID"
 
-                        wait $DB_BENCH_PID
+                # perf stat 监控
+                perf_file="perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB.txt"
+                perf stat -p "$DB_BENCH_PID" 2>&1 | tee "$perf_file" &
+                PERF_PID=$!
 
-                        # 结束 iostat 进程
-                        echo "Checking if iostat process with PID $PID_IOSTAT is still running..."
-                        ps -p $PID_IOSTAT
-                        if [ $? -eq 0 ]; then
-                            echo "iostat process $PID_IOSTAT is still running, killing now..."
-                            kill -9 $PID_IOSTAT
-                            if [ $? -eq 0 ]; then
-                                echo "iostat process $PID_IOSTAT has been successfully killed."
-                            else
-                                echo "Failed to kill iostat process $PID_IOSTAT."
-                            fi
-                        else
-                            echo "iostat process $PID_IOSTAT is no longer running."
-                        fi
+                # 等待 db_bench 进程结束
+                wait "$DB_BENCH_PID"
 
+                # 结束 iostat 进程
+                echo "Checking iostat process $PID_IOSTAT..."
+                if ps -p "$PID_IOSTAT" > /dev/null; then
+                    echo "iostat process is still running, killing now..."
+                    kill -9 "$PID_IOSTAT"
+                    if [ $? -eq 0 ]; then
+                        echo "iostat process $PID_IOSTAT killed."
+                    else
+                        echo "Failed to kill iostat process $PID_IOSTAT."
+                    fi
+                else
+                    echo "iostat process $PID_IOSTAT is no longer running."
+                fi
 
-                    
-            done
-        done
+            done  # end of wbs_mb loop
+        done      # end of zipf_a loop
+    done          # end of value_size loop
+    cd ..
 done
+
 
 
 
