@@ -69,6 +69,12 @@ for i in {10..10}; do
                 data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv"
                 memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal_SATASSD/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}.log"
 
+                # 如果日志文件已存在，跳过
+                if [ -f "$log_file" ]; then
+                    echo "Log file $log_file already exists. Skipping..."
+                    continue
+                fi
+
                 db_dir="/mntdisk/rocks10B/write_10B_${zipf_a}_mem${wbs_mb}MB"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
@@ -77,12 +83,6 @@ for i in {10..10}; do
                 # 如果目录不空，清空目录
                 if [ "$(ls -A "$db_dir")" ]; then
                     rm -rf "${db_dir:?}/"*
-                fi
-
-                # 如果日志文件已存在，跳过
-                if [ -f "$log_file" ]; then
-                    echo "Log file $log_file already exists. Skipping..."
-                    continue
                 fi
 
                 echo "=================================================="

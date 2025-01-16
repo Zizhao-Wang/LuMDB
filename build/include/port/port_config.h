@@ -27,7 +27,7 @@
 
 // Define to 1 if you have Google Snappy.
 #if !defined(HAVE_SNAPPY)
-#define HAVE_SNAPPY 0
+#define HAVE_SNAPPY 1
 #endif  // !defined(HAVE_SNAPPY)
 
 // Define to 1 if you have Zstd.

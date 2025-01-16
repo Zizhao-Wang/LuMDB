@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb
+CMAKE_SOURCE_DIR = /home/jeff-wang/LuMDB/hotdb
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/jeff-wang/WorkloadAnalysis/build
+CMAKE_BINARY_DIR = /home/jeff-wang/LuMDB/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/c_test.dir/depend.make
@@ -70,32 +70,32 @@ include CMakeFiles/c_test.dir/progress.make
 include CMakeFiles/c_test.dir/flags.make
 
 CMakeFiles/c_test.dir/util/testutil.cc.o: CMakeFiles/c_test.dir/flags.make
-CMakeFiles/c_test.dir/util/testutil.cc.o: /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc
+CMakeFiles/c_test.dir/util/testutil.cc.o: /home/jeff-wang/LuMDB/hotdb/util/testutil.cc
 CMakeFiles/c_test.dir/util/testutil.cc.o: CMakeFiles/c_test.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/WorkloadAnalysis/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/c_test.dir/util/testutil.cc.o"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/c_test.dir/util/testutil.cc.o -MF CMakeFiles/c_test.dir/util/testutil.cc.o.d -o CMakeFiles/c_test.dir/util/testutil.cc.o -c /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/LuMDB/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/c_test.dir/util/testutil.cc.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/c_test.dir/util/testutil.cc.o -MF CMakeFiles/c_test.dir/util/testutil.cc.o.d -o CMakeFiles/c_test.dir/util/testutil.cc.o -c /home/jeff-wang/LuMDB/hotdb/util/testutil.cc
 
 CMakeFiles/c_test.dir/util/testutil.cc.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/c_test.dir/util/testutil.cc.i"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc > CMakeFiles/c_test.dir/util/testutil.cc.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/LuMDB/hotdb/util/testutil.cc > CMakeFiles/c_test.dir/util/testutil.cc.i
 
 CMakeFiles/c_test.dir/util/testutil.cc.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/c_test.dir/util/testutil.cc.s"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc -o CMakeFiles/c_test.dir/util/testutil.cc.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/LuMDB/hotdb/util/testutil.cc -o CMakeFiles/c_test.dir/util/testutil.cc.s
 
 CMakeFiles/c_test.dir/db/c_test.c.o: CMakeFiles/c_test.dir/flags.make
-CMakeFiles/c_test.dir/db/c_test.c.o: /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/db/c_test.c
+CMakeFiles/c_test.dir/db/c_test.c.o: /home/jeff-wang/LuMDB/hotdb/db/c_test.c
 CMakeFiles/c_test.dir/db/c_test.c.o: CMakeFiles/c_test.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/WorkloadAnalysis/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/c_test.dir/db/c_test.c.o"
-	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/c_test.dir/db/c_test.c.o -MF CMakeFiles/c_test.dir/db/c_test.c.o.d -o CMakeFiles/c_test.dir/db/c_test.c.o -c /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/db/c_test.c
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/LuMDB/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/c_test.dir/db/c_test.c.o"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/c_test.dir/db/c_test.c.o -MF CMakeFiles/c_test.dir/db/c_test.c.o.d -o CMakeFiles/c_test.dir/db/c_test.c.o -c /home/jeff-wang/LuMDB/hotdb/db/c_test.c
 
 CMakeFiles/c_test.dir/db/c_test.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/c_test.dir/db/c_test.c.i"
-	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/db/c_test.c > CMakeFiles/c_test.dir/db/c_test.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/jeff-wang/LuMDB/hotdb/db/c_test.c > CMakeFiles/c_test.dir/db/c_test.c.i
 
 CMakeFiles/c_test.dir/db/c_test.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/c_test.dir/db/c_test.c.s"
-	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/db/c_test.c -o CMakeFiles/c_test.dir/db/c_test.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/jeff-wang/LuMDB/hotdb/db/c_test.c -o CMakeFiles/c_test.dir/db/c_test.c.s
 
 # Object files for target c_test
 c_test_OBJECTS = \
@@ -112,7 +112,7 @@ c_test: libleveldb.a
 c_test: lib/libgmockd.a
 c_test: lib/libgtestd.a
 c_test: CMakeFiles/c_test.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jeff-wang/WorkloadAnalysis/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable c_test"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jeff-wang/LuMDB/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable c_test"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/c_test.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -124,6 +124,6 @@ CMakeFiles/c_test.dir/clean:
 .PHONY : CMakeFiles/c_test.dir/clean
 
 CMakeFiles/c_test.dir/depend:
-	cd /home/jeff-wang/WorkloadAnalysis/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb /home/jeff-wang/WorkloadAnalysis/build /home/jeff-wang/WorkloadAnalysis/build /home/jeff-wang/WorkloadAnalysis/build/CMakeFiles/c_test.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/jeff-wang/LuMDB/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/jeff-wang/LuMDB/hotdb /home/jeff-wang/LuMDB/hotdb /home/jeff-wang/LuMDB/build /home/jeff-wang/LuMDB/build /home/jeff-wang/LuMDB/build/CMakeFiles/c_test.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/c_test.dir/depend
 

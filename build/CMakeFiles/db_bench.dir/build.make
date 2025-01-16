@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb
+CMAKE_SOURCE_DIR = /home/jeff-wang/LuMDB/hotdb
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/jeff-wang/WorkloadAnalysis/build
+CMAKE_BINARY_DIR = /home/jeff-wang/LuMDB/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/db_bench.dir/depend.make
@@ -70,46 +70,46 @@ include CMakeFiles/db_bench.dir/progress.make
 include CMakeFiles/db_bench.dir/flags.make
 
 CMakeFiles/db_bench.dir/util/histogram.cc.o: CMakeFiles/db_bench.dir/flags.make
-CMakeFiles/db_bench.dir/util/histogram.cc.o: /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/histogram.cc
+CMakeFiles/db_bench.dir/util/histogram.cc.o: /home/jeff-wang/LuMDB/hotdb/util/histogram.cc
 CMakeFiles/db_bench.dir/util/histogram.cc.o: CMakeFiles/db_bench.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/WorkloadAnalysis/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/db_bench.dir/util/histogram.cc.o"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/db_bench.dir/util/histogram.cc.o -MF CMakeFiles/db_bench.dir/util/histogram.cc.o.d -o CMakeFiles/db_bench.dir/util/histogram.cc.o -c /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/histogram.cc
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/LuMDB/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/db_bench.dir/util/histogram.cc.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/db_bench.dir/util/histogram.cc.o -MF CMakeFiles/db_bench.dir/util/histogram.cc.o.d -o CMakeFiles/db_bench.dir/util/histogram.cc.o -c /home/jeff-wang/LuMDB/hotdb/util/histogram.cc
 
 CMakeFiles/db_bench.dir/util/histogram.cc.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/db_bench.dir/util/histogram.cc.i"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/histogram.cc > CMakeFiles/db_bench.dir/util/histogram.cc.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/LuMDB/hotdb/util/histogram.cc > CMakeFiles/db_bench.dir/util/histogram.cc.i
 
 CMakeFiles/db_bench.dir/util/histogram.cc.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/db_bench.dir/util/histogram.cc.s"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/histogram.cc -o CMakeFiles/db_bench.dir/util/histogram.cc.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/LuMDB/hotdb/util/histogram.cc -o CMakeFiles/db_bench.dir/util/histogram.cc.s
 
 CMakeFiles/db_bench.dir/util/testutil.cc.o: CMakeFiles/db_bench.dir/flags.make
-CMakeFiles/db_bench.dir/util/testutil.cc.o: /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc
+CMakeFiles/db_bench.dir/util/testutil.cc.o: /home/jeff-wang/LuMDB/hotdb/util/testutil.cc
 CMakeFiles/db_bench.dir/util/testutil.cc.o: CMakeFiles/db_bench.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/WorkloadAnalysis/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/db_bench.dir/util/testutil.cc.o"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/db_bench.dir/util/testutil.cc.o -MF CMakeFiles/db_bench.dir/util/testutil.cc.o.d -o CMakeFiles/db_bench.dir/util/testutil.cc.o -c /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/LuMDB/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/db_bench.dir/util/testutil.cc.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/db_bench.dir/util/testutil.cc.o -MF CMakeFiles/db_bench.dir/util/testutil.cc.o.d -o CMakeFiles/db_bench.dir/util/testutil.cc.o -c /home/jeff-wang/LuMDB/hotdb/util/testutil.cc
 
 CMakeFiles/db_bench.dir/util/testutil.cc.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/db_bench.dir/util/testutil.cc.i"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc > CMakeFiles/db_bench.dir/util/testutil.cc.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/LuMDB/hotdb/util/testutil.cc > CMakeFiles/db_bench.dir/util/testutil.cc.i
 
 CMakeFiles/db_bench.dir/util/testutil.cc.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/db_bench.dir/util/testutil.cc.s"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/util/testutil.cc -o CMakeFiles/db_bench.dir/util/testutil.cc.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/LuMDB/hotdb/util/testutil.cc -o CMakeFiles/db_bench.dir/util/testutil.cc.s
 
 CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o: CMakeFiles/db_bench.dir/flags.make
-CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o: /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/benchmarks/db_bench.cc
+CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o: /home/jeff-wang/LuMDB/hotdb/benchmarks/db_bench.cc
 CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o: CMakeFiles/db_bench.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/WorkloadAnalysis/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o -MF CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o.d -o CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o -c /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/benchmarks/db_bench.cc
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jeff-wang/LuMDB/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o -MF CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o.d -o CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.o -c /home/jeff-wang/LuMDB/hotdb/benchmarks/db_bench.cc
 
 CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.i"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/benchmarks/db_bench.cc > CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jeff-wang/LuMDB/hotdb/benchmarks/db_bench.cc > CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.i
 
 CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.s"
-	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/benchmarks/db_bench.cc -o CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jeff-wang/LuMDB/hotdb/benchmarks/db_bench.cc -o CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.s
 
 # Object files for target db_bench
 db_bench_OBJECTS = \
@@ -129,7 +129,7 @@ db_bench: lib/libgmockd.a
 db_bench: lib/libgtestd.a
 db_bench: third_party/benchmark/src/libbenchmark.a
 db_bench: CMakeFiles/db_bench.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jeff-wang/WorkloadAnalysis/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable db_bench"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jeff-wang/LuMDB/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable db_bench"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/db_bench.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -141,6 +141,6 @@ CMakeFiles/db_bench.dir/clean:
 .PHONY : CMakeFiles/db_bench.dir/clean
 
 CMakeFiles/db_bench.dir/depend:
-	cd /home/jeff-wang/WorkloadAnalysis/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb /home/jeff-wang/WorkloadAnalysis/build /home/jeff-wang/WorkloadAnalysis/build /home/jeff-wang/WorkloadAnalysis/build/CMakeFiles/db_bench.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/jeff-wang/LuMDB/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/jeff-wang/LuMDB/hotdb /home/jeff-wang/LuMDB/hotdb /home/jeff-wang/LuMDB/build /home/jeff-wang/LuMDB/build /home/jeff-wang/LuMDB/build/CMakeFiles/db_bench.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/db_bench.dir/depend
 
