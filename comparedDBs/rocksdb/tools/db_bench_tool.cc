@@ -311,10 +311,13 @@ DEFINE_int64(ycsb_num, 10000000, "Number of key/values to place in database");
 DEFINE_string(Read_data_file, "", "Value size distribution type: fixed, uniform, normal");
 
 DEFINE_string(mem_log_file,"", "mem usage path");
-              
+
+DEFINE_string(ZippyDB_FILE_PATH,"", "ZippyDB");
 
 DEFINE_int32(value_size, 128, "Size of each value in fixed distribution");
 static unsigned int value_size = 128;
+
+DEFINE_uint64(TOP_K, 10, "removal of top k");
 
 DEFINE_int32(value_size_min, 100, "Min size of random value");
 
@@ -5265,6 +5268,9 @@ class Benchmark {
 
         const uint64_t k = std::stoull(row_data[0]);
         // fprintf(stderr, "Read key: %llu\n", (unsigned long long)k); // 输出读取的键
+        if(k <= FLAGS_TOP_K){
+          continue;
+        }
 
         char key[100];
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
@@ -6976,7 +6982,26 @@ class Benchmark {
   // can use two-term-exponential distribution to fit the workload. User
   // needs to decide the ratio between Get, Put, Iterator queries before
   // starting the benchmark.
+  // Function to log the key, key size, and value size to a CSV file
+  void LogKeyToCSV(const int64_t key, size_t key_size, size_t val_size) {
+    std::ofstream log_file(FLAGS_ZippyDB_FILE_PATH, std::ios::app); // Open file in append mode
+    if (!log_file.is_open()) {
+      fprintf(stderr, "Error opening log file: %s\n", FLAGS_ZippyDB_FILE_PATH.c_str());
+      return;
+    }
+
+    // If file is empty, write the header (column names)
+    if (log_file.tellp() == 0) {
+      log_file << "Key,Key Size,Value Size\n";
+    }
+
+    // Write the key, key size, and value size to the file
+    log_file << key << "," << key_size << "," << val_size << "\n";
+    log_file.close();
+  }
+
   void MixGraph(ThreadState* thread) {
+    int64_t actual_key = 0;
     int64_t gets = 0;
     int64_t puts = 0;
     int64_t get_found = 0;
@@ -7003,6 +7028,14 @@ class Benchmark {
       value_max = FLAGS_mix_max_value_size;
     }
 
+
+    // Check if the log file exists and remove it if it does
+    if (access(FLAGS_ZippyDB_FILE_PATH.c_str(), F_OK) != -1) {
+        // File exists, so remove it
+        remove(FLAGS_ZippyDB_FILE_PATH.c_str());
+    }
+
+    
     std::unique_ptr<const char[]> key_guard;
     Slice key = AllocateKey(&key_guard);
     PinnableSlice pinnable_val;
@@ -7047,6 +7080,7 @@ class Benchmark {
         Random64 rand(key_seed);
         key_rand = static_cast<int64_t>(rand.Next()) % FLAGS_num;
       }
+      actual_key = key_rand;
       GenerateKeyFromInt(key_rand, FLAGS_num, &key);
       int query_type = query.GetType(rand_v);
 
@@ -7117,6 +7151,9 @@ class Benchmark {
           val_size = val_size % value_max;
         }
         total_val_size += val_size;
+
+        // Log the key to CSV
+        LogKeyToCSV(actual_key, key.size(), val_size);
 
         s = db_with_cfh->db->Put(
             write_options_, key,
