@@ -105,7 +105,7 @@ for i in {10..10}; do
 
                     # 运行 db_bench
                     ../../../rocksdb/release/db_bench \
-                        --db="$db_dir" \ #kv_exe
+                        --db="$db_dir" \
                         --num="$num_entries" \
                         --value_size_="$value_size" \
                         --batch_size=1 \
