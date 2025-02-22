@@ -55,7 +55,7 @@ for i in {10..10}; do
         stats_interva=$((num_entries / 1000))
         num_format=$(convert_to_billion_format "$num_entries")
 
-        for zipf_a in 1.1 1.2 1.3 1.4 1.5; do
+        for zipf_a in 1.1; do
 
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
             for wbs_mb in 64; do
@@ -68,7 +68,7 @@ for i in {10..10}; do
                     # 在日志文件名加上 wbs{MB}MB
                     log_file="RocksDB_${num_format}_val${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_Remove${top_k}.log"
                     data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv"
-                    memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal_SATASSD/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}.log"
+                    memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal_SATASSD/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}_Remove${top_k}.log"
 
                     # 如果日志文件已存在，跳过
                     if [ -f "$log_file" ]; then
@@ -99,7 +99,7 @@ for i in {10..10}; do
                     echo "=================================================="
 
                     # 启动 iostat
-                    iostat_log="RocksDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_IOstats.log"
+                    iostat_log="RocksDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_Remove${top_k}_IOstats.log"
                     iostat -d 100 -x "$DEVICE_NAME" > "$iostat_log" &
                     PID_IOSTAT=$!
 
@@ -133,7 +133,7 @@ for i in {10..10}; do
                     echo "DB_BENCH_PID: $DB_BENCH_PID"
 
                     # perf stat 监控
-                    perf_file="perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB.txt"
+                    perf_file="perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_Remove${top_k}.txt"
                     perf stat -p "$DB_BENCH_PID" 2>&1 | tee "$perf_file" &
                     PERF_PID=$!
 

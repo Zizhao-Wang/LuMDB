@@ -18,7 +18,7 @@ static const std::string rocksdb_build_date = "rocksdb_build_date:";
 #else
 // If HAS_GIT_CHANGES is > 0, the branch/tag has modifications.
 // Use the time the build was created.
-static const std::string rocksdb_build_date = "rocksdb_build_date:2025-02-18 14:19:29";
+static const std::string rocksdb_build_date = "rocksdb_build_date:2025-02-22 05:04:49";
 #endif
 
 extern "C" {

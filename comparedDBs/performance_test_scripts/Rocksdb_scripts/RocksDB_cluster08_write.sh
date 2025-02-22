@@ -5,7 +5,7 @@ bash -c 'ulimit -n 800000'
 
 BASE_VALUE_SIZE=128
 billion=1000000000
-
+cluster=49
 MEM=1
 
 convert_to_billion_format() {
@@ -58,16 +58,16 @@ for i in {10..10}; do
         for zipf_a in 1.1; do
 
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
-            for wbs_mb in 64 32; do
+            for wbs_mb in 64 32 8 1; do
                 # 将 MB 转换为字节
                 wbs_bytes=$((wbs_mb * 1024 * 1024))
                 # target_file_size_base 同样用这个值
                 tfsb_bytes=$wbs_bytes
 
                 # 在日志文件名加上 wbs{MB}MB
-                log_file="RocksDB_${num_format}_val${value_size}_zipf${zipf_a}_mem${wbs_mb}MB.log"
-                data_file="/mnt/nvm/second_cluster8.csv"
-                memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_TwitterCluster_workloads/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}.log"
+                log_file="RocksDB_${num_format}_val${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_cluster${cluster}.log"
+                data_file="/mnt/nvm/second_cluster${cluster}.sort"
+                memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_TwitterCluster_workloads/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}_cluster${cluster}.log"
 
                 # 如果日志文件已存在，跳过
                 if [ -f "$log_file" ]; then
@@ -75,7 +75,7 @@ for i in {10..10}; do
                     continue
                 fi
 
-                db_dir="/mntdisk/rocks10B/twitter_write_10B_${zipf_a}_mem${wbs_mb}MB"
+                db_dir="/mntdisk/rocks10B/twitter${cluster}_write_10B_${zipf_a}_mem${wbs_mb}MB"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
                 fi
@@ -98,7 +98,7 @@ for i in {10..10}; do
                 echo "=================================================="
 
                 # 启动 iostat
-                iostat_log="RocksDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_IOstats.log"
+                iostat_log="RocksDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_cluster${cluster}_IOstats.log"
                 iostat -d 100 -x "$DEVICE_NAME" > "$iostat_log" &
                 PID_IOSTAT=$!
 
@@ -131,7 +131,7 @@ for i in {10..10}; do
                 echo "DB_BENCH_PID: $DB_BENCH_PID"
 
                 # perf stat 监控
-                perf_file="perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB.txt"
+                perf_file="perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_mem${wbs_mb}MB_cluster${cluster}.txt"
                 perf stat -p "$DB_BENCH_PID" 2>&1 | tee "$perf_file" &
                 PERF_PID=$!
 
