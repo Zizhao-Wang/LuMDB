@@ -60,16 +60,17 @@ for i in {10..10}; do
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
             for wbs_mb in 64; do
                 # for top_k in 10 20 30 40 50 60 70 80 90 100; do
-                for top_k in 100 90 80 70 60 50 40 30 20 10; do
+                # for top_k in 100 90 80 70 60 50 40 30 20 10; do
+                for top_k in 100 10; do
                     # 将 MB 转换为字节
                     wbs_bytes=$((wbs_mb * 1024 * 1024))
                     # target_file_size_base 同样用这个值
                     tfsb_bytes=$wbs_bytes
 
                     # 在日志文件名加上 wbs{MB}MB
-                    log_file="RocksDB_${num_format}_val${value_size}_cluster${clsuternum_a}_mem${wbs_mb}MB_Remove${top_k}.log"
+                    log_file="RocksDB_${num_format}_val${value_size}_cluster${clsuternum_a}_mem${wbs_mb}MB_Removal${top_k}.log"
                     data_file="/mnt/nvm/second_cluster${clsuternum_a}.sort"
-                    memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_TwitterCluster_workloads/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_cluster${clsuternum_a}_Remove${top_k}.log"
+                    memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_TwitterCluster_workloads/RocksDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_cluster${clsuternum_a}_Removal${top_k}.log"
 
                     # 如果日志文件已存在，跳过
                     if [ -f "$log_file" ]; then
@@ -77,7 +78,7 @@ for i in {10..10}; do
                         continue
                     fi
 
-                    db_dir="/mntdisk/rocks10B/write_cluster${clsuternum_a}_mem${wbs_mb}MiB_top${top_k}"
+                    db_dir="/mntdisk/rocks10B/write_cluster${clsuternum_a}_mem${wbs_mb}MiB_Removaltop${top_k}"
                     if [ ! -d "$db_dir" ]; then
                         mkdir -p "$db_dir"
                     fi
@@ -85,6 +86,11 @@ for i in {10..10}; do
                     # 如果目录不空，清空目录
                     if [ "$(ls -A "$db_dir")" ]; then
                         rm -rf "${db_dir:?}/"*
+                    fi
+
+                    # Check if clsuternum_a is 19 and set num_entries accordingly
+                    if [ "$clsuternum_a" -eq 19 ]; then
+                        num_entries=600000000
                     fi
 
                     echo "=================================================="
@@ -100,7 +106,7 @@ for i in {10..10}; do
                     echo "=================================================="
 
                     # 启动 iostat
-                    iostat_log="RocksDB_${num_format}_val_${value_size}_cluster${clsuternum_a}_mem${wbs_mb}MB_Remove${top_k}_IOstats.log"
+                    iostat_log="RocksDB_${num_format}_val_${value_size}_cluster${clsuternum_a}_mem${wbs_mb}MB_Removal${top_k}_IOstats.log"
                     iostat -d 100 -x "$DEVICE_NAME" > "$iostat_log" &
                     PID_IOSTAT=$!
 
@@ -134,7 +140,7 @@ for i in {10..10}; do
                     echo "DB_BENCH_PID: $DB_BENCH_PID"
 
                     # perf stat 监控
-                    perf_file="perf_stat_${num_format}_val_${value_size}_cluster${clsuternum_a}_mem${wbs_mb}MB_Remove${top_k}.txt"
+                    perf_file="perf_stat_${num_format}_val_${value_size}_cluster${clsuternum_a}_mem${wbs_mb}MB_Removal${top_k}.txt"
                     perf stat -p "$DB_BENCH_PID" 2>&1 | tee "$perf_file" &
                     PERF_PID=$!
 

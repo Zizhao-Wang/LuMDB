@@ -5369,14 +5369,15 @@ class Benchmark {
           continue;
         }
 
-        if(row_data[4] !="set" || row_data[4] !="add" || row_data[4] !="prepend"){
+        if(row_data[4] =="get" || row_data[4] =="cas" || row_data[4] =="delete"){
           continue;
         }
 
         const uint64_t k = std::stoull(row_data[1]);
         // fprintf(stderr, "Read key: %llu\n", (unsigned long long)k); // 输出读取的键
 
-        const int32_t v_size = std::stoull(row_data[6]);
+        // const int32_t v_size = std::stoull(row_data[6]);
+        const int32_t v_size = 1380;
 
         char key[100];
         snprintf(key, sizeof(key), "%024llu", (unsigned long long)k);

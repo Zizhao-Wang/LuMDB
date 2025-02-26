@@ -2,6 +2,8 @@
 
 # 定义 cgroup 名称和对应的内存和 CPU 限制
 cgroups=(
+    "group1 1G 100"
+    "group1 2G 100"
     "group4 4G 100"
     "group8 8G 100"
     "group16 16G 100"
