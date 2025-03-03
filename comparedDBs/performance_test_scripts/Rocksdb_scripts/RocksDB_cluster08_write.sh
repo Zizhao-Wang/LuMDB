@@ -5,7 +5,7 @@ bash -c 'ulimit -n 800000'
 
 BASE_VALUE_SIZE=128
 billion=1000000000
-cluster=49
+cluster=19
 MEM=1
 
 convert_to_billion_format() {
@@ -58,7 +58,7 @@ for i in {10..10}; do
         for zipf_a in 1.1; do
 
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
-            for wbs_mb in 64 32 8 1; do
+            for wbs_mb in 64 32 16 8; do
                 # 将 MB 转换为字节
                 wbs_bytes=$((wbs_mb * 1024 * 1024))
                 # target_file_size_base 同样用这个值

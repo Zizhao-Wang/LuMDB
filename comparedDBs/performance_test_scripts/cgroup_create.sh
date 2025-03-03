@@ -3,13 +3,15 @@
 # 定义 cgroup 名称和对应的内存和 CPU 限制
 cgroups=(
     "group1 1G 100"
-    "group1 2G 100"
+    "group2 2G 100"
     "group4 4G 100"
     "group8 8G 100"
     "group16 16G 100"
     "group32 32G 100"
     "group64 64G 100"
     "group128 128G 100"
+    "group256 256M 100"    # 新增 cgroup 256M
+    "group512 512M 100"    # 新增 cgroup 512M
 )
 
 # 创建 cgroup 并设置内存和 CPU 限制
