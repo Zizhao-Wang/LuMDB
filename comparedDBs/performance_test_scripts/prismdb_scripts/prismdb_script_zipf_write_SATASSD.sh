@@ -172,7 +172,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.1 1.3 ; do  #  1.2 
+            for zipf_a in 1.1; do  #  1.2 
                     # buffer_size_mb=$((buffer_size / 1048576))
                     # log_file="prismdb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                     log_file="prismdb_${num_format}_val_${value_size}_zipf${zipf_a}memory_budget${memory_budget}G.log"
@@ -199,7 +199,7 @@ for i in {10..10}; do
                     echo "$num_format"        
 
                     # 创建相应的目录
-                    optane_path1="/mnt/pmem1/prismdb10B_optane/write_kv${kv_size}_zipf${zipf_a}"
+                    optane_path1="/mnt/pmem1/prismdb10B_optane/memory${memory_budget}G_write_kv${kv_size}_zipf${zipf_a}"
                     if [ ! -d "$optane_path1" ]; then
                         mkdir -p "$optane_path1"
                     fi
@@ -228,14 +228,16 @@ for i in {10..10}; do
                     # compile_src_changes "/path/to/prismdb" "/path/to/optane" "/path/to/qlc" "prismdb" 0.8 1024 0.9 1000000 16 4       
                     compile_src_changes $prismdb_srouce_path $optane_path1 $flash_path1 0.05 10000000000 0.7 $db_key_space $key_size1 $value_size $num_partitions
 
+                    pm_monitor_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot/pm_monitor_memory${memory_budget}G.log"
+
                     disk_device="sdb"  # 你可以根据需求传递不同的设备
                     disk_io_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot_removal/prismdb_zipf${zipf_a}_optane_diskio_stats.log"  # 你可以根据需求指定日志文件路径
-
+                    
                     echo "Getting disk I/O stats before starting the process..." >> "$disk_io_log_file"
                     get_disk_io_stats "$disk_device" "$disk_io_log_file"
                     # cgexec -g memory:group1
 
-                    cgexec -g memory:group8  ../../../prismdb/build/db_bench \
+                    cgexec -g memory:group64  ../../../prismdb/build/db_bench \
                         --data_file_path=$data_file1 \
                         --stats_interval=$stats_interva \
                         --benchmarks=fillzipf,stats \
@@ -265,6 +267,10 @@ for i in {10..10}; do
 
                         perf stat -p $DB_BENCH_PID 2>&1 | tee "perf_stat_${num_format}_val_${value_size}_zipf${zipf_a}_membudget${memory_budget}.txt" &
                         PERF_PID=$!
+
+                        # 启动 pcm-memory 性能监控，后台运行并将输出写入 CSV 文件
+                        /home/jeff-wang/pcm/build/bin/pcm-memory -pmm 1 -csv=$pm_monitor_log_file & 
+                        PCM_PID=$!
 
                         # 启动一个子进程来监控 db_bench 进程的 IO 情况
                         # iotop -p $DB_BENCH_PID -a -b > "prismdb_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log" &

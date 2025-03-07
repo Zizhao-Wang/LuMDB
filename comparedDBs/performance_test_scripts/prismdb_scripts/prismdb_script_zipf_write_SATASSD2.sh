@@ -234,8 +234,7 @@ for i in {10..10}; do
                     echo "Getting disk I/O stats before starting the process..." >> "$disk_io_log_file"
                     get_disk_io_stats "$disk_device" "$disk_io_log_file"
                     # cgexec -g memory:group1
-                    # remeber to change memory budget
-
+                    # remeber to change cgroup
                     cgexec -g memory:group4  ../../../prismdb/build/db_bench \
                         --data_file_path=$data_file1 \
                         --stats_interval=$stats_interva \

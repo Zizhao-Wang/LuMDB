@@ -7,8 +7,8 @@ BASE_VALUE_SIZE=128
 billion=1000000000
 percentages=(1 5 10 15 20 25 30) # 定义百分比值
 range_dividers=(1)
-DEVICE_NAME="sdb"
-
+DEVICE_NAME="pmem0"
+memory_budget=8
 
 convert_to_billion_format() {
     local num=$1
@@ -161,27 +161,27 @@ get_disk_io_stats() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_prismdb_zipf_hot_removal"
+    dir1="${i}B_prismdb_zipf_hot"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
         cd $dir1
-        for value_size in 880; do
+        for value_size in 128; do
             num_entries=$base_num 
             stats_interva=$((num_entries / 100))
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.3 1.1 ; do  #  1.2 
+            for zipf_a in 1.1; do  #  1.2 
                     # buffer_size_mb=$((buffer_size / 1048576))
                     # log_file="prismdb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
-                    log_file="prismdb_${num_format}_val_${value_size}_zipf${zipf_a}.log"
+                    log_file="prismdb_${num_format}_val_${value_size}_zipf${zipf_a}memory_budget${memory_budget}G.log"
                     data_file1="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                    memory_log_file1="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot_removal/prismdb_memory_usage_${num_format}_key16_val${value_size}zipf${zipf_a}.log"
+                    memory_log_file1="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot/prismdb_memory_usage_${num_format}_key16_val${value_size}zipf${zipf_a}membudget${memory_budget}.log"
                     code_type="prismdb"
                     prismdb_srouce_path="/home/jeff-wang/LuMDB/comparedDBs/prismdb"
                     num_partitions=1
-                    key_size1=30
+                    key_size1=16
                     loop_type="close"
                     kv_size=($key_size1+$value_size)
 
@@ -199,7 +199,7 @@ for i in {10..10}; do
                     echo "$num_format"        
 
                     # 创建相应的目录
-                    optane_path1="/mnt/db_test2/prismdb10B_optane/write_kv${kv_size}_zipf${zipf_a}"
+                    optane_path1="/mnt/pmem1/prismdb10B_optane/memory${memory_budget}G_write_kv${kv_size}_zipf${zipf_a}"
                     if [ ! -d "$optane_path1" ]; then
                         mkdir -p "$optane_path1"
                     fi
@@ -208,7 +208,7 @@ for i in {10..10}; do
                         rm -rf "${optane_path1:?}/"*
                     fi
 
-                    flash_path1="/mntdisk/prism10B_ssd/write_kv${kv_size}_zipf${zipf_a}"
+                    flash_path1="/mntdisk/prism10B_ssd/memory${memory_budget}G_write_kv${kv_size}_zipf${zipf_a}"
                     if [ ! -d "$flash_path1" ]; then
                         mkdir -p "$flash_path1"
                     fi
@@ -216,21 +216,17 @@ for i in {10..10}; do
                     if [ "$(ls -A $flash_path1)" ]; then
                         rm -rf "${flash_path1:?}/"*
                     fi
+                    
+                    db_key_space=20000000000
 
                     echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
 
-                    db_key_space=20000000000
+                    iostat -d 100 -x $DEVICE_NAME > prismdb_HDD_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
+                    PID_IOSTAT=$!
                     
                     # Example usage:
                     # compile_src_changes "/path/to/prismdb" "/path/to/optane" "/path/to/qlc" "prismdb" 0.8 1024 0.9 1000000 16 4       
-                    compile_src_changes $prismdb_srouce_path $optane_path1 $flash_path1 0.055 10000000000 0.7 $db_key_space $key_size1 $value_size $num_partitions
-
-                    disk_device="sdb"  # 你可以根据需求传递不同的设备
-                    disk_io_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot_removal/prismdb_zipf${zipf_a}_optane_diskio_stats.log"  # 你可以根据需求指定日志文件路径
-
-                    echo "Getting disk I/O stats before starting the process..." >> "$disk_io_log_file"
-                    get_disk_io_stats "$disk_device" "$disk_io_log_file"
-                    # cgexec -g memory:group1
+                    compile_src_changes $prismdb_srouce_path $optane_path1 $flash_path1 0.001 10000000000 0.7 $db_key_space $key_size1 $value_size $num_partitions
 
                     gdb --args  ../../../prismdb/build/db_bench \
                         --data_file_path=$data_file1 \
@@ -249,10 +245,9 @@ for i in {10..10}; do
                         --migration_rand_range_num=8 \
                         --migration_metric=1 \
                         --num=10000000000 \
+                        --value_size=$value_size \
                         --threads=$num_partitions \
-                        --open_loop=0  
-
-                        
+                        --open_loop=0 
                 done
         done
 done

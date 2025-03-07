@@ -57,6 +57,12 @@ for i in {10..10}; do
                     echo "stats_interval: $stats_interva"
                     echo "$num_format"
 
+                    # 如果日志文件已存在，跳过
+                    if [ -f "$log_file" ]; then
+                        echo "Log file $log_file already exists. Skipping..."
+                        continue
+                    fi
+
                     # 创建相应的目录
                     db_dir="/mntdisk/level10B/write_10B_${zipf_a}_mem${wbs_mb}MB"
                     if [ ! -d "$db_dir" ]; then
