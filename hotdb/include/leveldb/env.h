@@ -381,6 +381,7 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
     return target_->LockFile(f, l);
   }
   Status UnlockFile(FileLock* l) override { return target_->UnlockFile(l); }
+  
   void Schedule(void (*f)(void*), void* a) override {
     return target_->Schedule(f, a);
   }

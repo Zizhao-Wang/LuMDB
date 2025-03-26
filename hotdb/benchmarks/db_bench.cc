@@ -212,6 +212,8 @@ DEFINE_int32(seek_nexts, 50,
 // static const char* FLAGS_db = nullptr;
 DEFINE_string(db, "", "Use the db with the following name.");
 
+DEFINE_string(hotdb,"","Use the hotdb with the following name.");
+
 DEFINE_string(hot_file, "", "file for storing hot keys.");
 
 
@@ -727,8 +729,9 @@ class Stats {
       else if (next_report_ < 500000) next_report_ += 50000;
       else                            next_report_ += 100000;
 
-      if((FLAGS_stats_interval != -1) && done_ % FLAGS_stats_interval == 0) {
-        PrintSpeed(); 
+      if((FLAGS_stats_interval != -1) && (done_ % FLAGS_stats_interval == 0)) {
+        PrintSpeed();
+        print_mem_usage(); 
         if (FLAGS_print_wa && db) {
           std::string stats;
           if (!db->GetProperty_with_whole_lsm("leveldb.stats", &stats)) {
@@ -771,6 +774,7 @@ class Stats {
 
     if (g_env->NowMicros() > next_report_time_) {
         PrintSpeed(); 
+        print_mem_usage();
         next_report_time_ += FLAGS_report_interval * 1000000;
         if (FLAGS_print_wa && db) {
           std::string stats;
@@ -1143,6 +1147,9 @@ class Benchmark {
       } else if (name == Slice("fillzipf2")) {
         fresh_db = true;
         method = &Benchmark::WriteZipf2;
+      } else if (name == Slice("filltwitter")) {
+        fresh_db = true;
+        method = &Benchmark::WriteCluster;
       }else if (name == Slice("filletc")) {
         fresh_db = true;
         method = &Benchmark::WriteRandom_from_file;
@@ -1748,6 +1755,7 @@ class Benchmark {
     options.write_buffer_size = FLAGS_write_buffer_size;
     options.max_file_size = FLAGS_max_file_size;
     options.block_size = FLAGS_block_size;
+    options.hotdb_name = FLAGS_hotdb;
     if (FLAGS_comparisons) {
       options.comparator = &count_comparator_;
     }
@@ -1762,9 +1770,9 @@ class Benchmark {
 
     fprintf(stdout, "Some selected options of LuMDB\n");
     fprintf(stdout, "------------------------------------------------\n");
-    fprintf(stdout, "  mem_ Size: %d\n", options.write_buffer_size);
-    fprintf(stdout, "  L0PartitionSize: %d\n", options.min_file_size);
-    fprintf(stdout, "  L1PartitionSize: %d\n", options.min_file_size);
+    fprintf(stdout, "  mem_ Size: %ld\n", options.write_buffer_size);
+    fprintf(stdout, "  L0PartitionSize: %ld (%f MiB)\n", options.min_file_size, (options.min_file_size/1048576.0));
+    fprintf(stdout, "  L1PartitionSize: %ld\n", options.min_file_size);
     fprintf(stdout, "------------------------------------------------\n");
 
     std::fprintf(stderr, "open dbs:in Open()\n");
@@ -1793,6 +1801,8 @@ class Benchmark {
   void WriteZipf(ThreadState* thread) { DoWrite_zipf3(thread, false); }
 
   void WriteZipf2(ThreadState* thread) { DoWrite_zipf4(thread, false); }
+
+  void WriteCluster(ThreadState* thread) { DoWrite_Twitter_cluster(thread, false); }
 
   void WriteRandom_from_file(ThreadState* thread) {
     DoWrite2(thread, false);
@@ -2237,6 +2247,77 @@ class Benchmark {
     }
     thread->stats.AddBytes(bytes);
   }
+
+
+  void DoWrite_Twitter_cluster(ThreadState* thread, bool seq) {
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in twitter\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch\n", entries_per_batch_);
+
+    for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file\n");
+          return;
+        }
+
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+
+        if (row_data.size() != 7) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+        char key[100];
+        snprintf(key, sizeof(key), "%024llu", (unsigned long long)k);
+        s = db_->Batch_Put(write_options_, key, gen.Generate(value_size_));
+        if (!s.ok()) {
+          std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+          std::exit(1);
+        }
+        bytes += value_size_ + strlen(key);
+        if(thread->stats.done_ % FLAGS_stats_interval == 0){
+          thread->stats.AddBytes(bytes);
+          bytes = 0;
+        }
+        thread->stats.FinishedSingleOp(db_);
+      }
+    }
+    thread->stats.AddBytes(bytes);
+  }
+  
 
   void ReadSequential(ThreadState* thread) {
     Iterator* iter = db_->NewIterator(ReadOptions());

@@ -99,6 +99,7 @@ struct DBImpl::CompactionState {
   TableBuilder* hot_builder;
 
   uint64_t total_bytes;
+  int thread;
 };
 
 struct DBImpl::TieringCompactionState {
@@ -205,11 +206,13 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       owns_cache_(options_.block_cache != raw_options.block_cache),
       is_first(false),
       dbname_(dbname),
+      hot_dbname_(options_.hotdb_name),
       hot_file_path(raw_options.hot_file_path),
       percentagesStr(raw_options.percentages),
-      table_cache_(new TableCache(dbname_, options_, TableCacheSize(options_))),
+      table_cache_(new TableCache(dbname_, hot_dbname_, options_, TableCacheSize(options_))),
       db_lock_(nullptr),
       shutting_down_(false),
+      pl_or_2ppl(false),
       background_work_finished_signal_(&mutex_),
       mem_(nullptr),
       imm_(nullptr),
@@ -228,6 +231,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       in_memory_batch(new WriteBatch),
       in_memory_hot_batch(new WriteBatch),
       background_compaction_scheduled_(false),
+      background_tiering_compaction_scheduled_(false),
       in_memory_batch_kv_number(0),
       identifier_time(0),
       manual_compaction_(nullptr),
@@ -238,7 +242,11 @@ DBImpl::~DBImpl() {
   // Wait for background work to finish.
   mutex_.Lock();
   shutting_down_.store(true, std::memory_order_release);
-  while (background_compaction_scheduled_) {
+  while (background_compaction_scheduled_ ) {
+    background_work_finished_signal_.Wait();
+  }
+
+  while ( background_tiering_compaction_scheduled_) {
     background_work_finished_signal_.Wait();
   }
 
@@ -319,6 +327,7 @@ void DBImpl::MaybeIgnoreError(Status* s) const {
   }
 }
 
+// removing leveling files(i.e., 2PPL)
 void DBImpl::RemoveObsoleteFiles() {
   mutex_.AssertHeld();
 
@@ -330,7 +339,7 @@ void DBImpl::RemoveObsoleteFiles() {
 
   // Make a set of all of the live files
   std::set<uint64_t> live = pending_outputs_;
-  versions_->AddLiveFiles(&live, true);
+  versions_->AddLiveFiles(&live);
 
   std::vector<std::string> filenames;
   env_->GetChildren(dbname_, &filenames);  // Ignoring errors on purpose
@@ -375,8 +384,7 @@ void DBImpl::RemoveObsoleteFiles() {
         if (type == kTableFile) {
           table_cache_->Evict(number);
         }
-        // Log(options_.info_log, "Delete type=%d #%lld\n", static_cast<int>(type),
-            // static_cast<unsigned long long>(number));
+        // Log(options_.info_log, "Delete type=%d #%lld\n", static_cast<int>(type), static_cast<unsigned long long>(number));
       }else{
         // Log(options_.info_log, "Unrecognized file name: %s", filename.c_str());
       }
@@ -388,9 +396,15 @@ void DBImpl::RemoveObsoleteFiles() {
   // are therefore safe to delete while allowing other threads to proceed.
   mutex_.Unlock();
   for (const std::string& filename : files_to_delete) {
-    Log(options_.info_log, "Removing file: %s", filename.c_str());
     env_->RemoveFile(dbname_ + "/" + filename);
   }
+    // Calculate and log the statistics in a single output statement.
+  size_t live_count = live.size();
+  size_t files_removed_count = files_to_delete.size();
+  size_t remaining_files = filenames.size() - files_removed_count;
+  Log(options_.leveling_compaction_info_log,
+      "Compaction complete: live files count: %lu, files removed: %lu, remaining files: %lu\n",
+      live_count, files_removed_count, remaining_files);
   mutex_.Lock();
 }
 
@@ -405,10 +419,10 @@ void DBImpl::TieringRemoveObsoleteFiles() {
 
   // Make a set of all of the live files
   std::set<uint64_t> live = pending_outputs_;
-  versions_->AddLiveFiles(&live, false);
+  versions_->AddLiveHotFiles(&live);
 
   std::vector<std::string> filenames;
-  env_->GetChildren(dbname_, &filenames);  // Ignoring errors on purpose
+  env_->GetChildren(hot_dbname_, &filenames);  // Ignoring errors on purpose
   uint64_t number;
   FileType type;
   std::vector<std::string> files_to_delete;
@@ -463,9 +477,11 @@ void DBImpl::TieringRemoveObsoleteFiles() {
   // are therefore safe to delete while allowing other threads to proceed.
   mutex_.Unlock();
   for (const std::string& filename : files_to_delete) {
-    Log(options_.info_log, "Removing file: %s", filename.c_str());
-    env_->RemoveFile(dbname_ + "/" + filename);
+    env_->RemoveFile(hot_dbname_ + "/" + filename);
   }
+  Log(options_.info_log,
+      "Compaction complete: live files count: %lu, files removed: %lu, remaining files: %lu\n",
+      live.size(), files_to_delete.size(), filenames.size() - files_to_delete.size());
   mutex_.Lock();
 }
 
@@ -485,8 +501,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   
   if (!env_->FileExists(CurrentFileName(dbname_))) {
     if (options_.create_if_missing) {
-      Log(options_.info_log, "Creating DB %s since it was missing.",
-          dbname_.c_str());
+      Log(options_.info_log, "Creating DB %s since it was missing.", dbname_.c_str());
       s = NewDB();
       if (!s.ok()) {
         return s;
@@ -541,7 +556,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   }
   fprintf(stderr,"we got %ld files !\n", filenames.size());
   std::set<uint64_t> expected;
-  versions_->AddLiveFiles(&expected, true);
+  versions_->AddLiveFiles(&expected);
   fprintf(stderr,"we got %ld live files !\n", expected.size());
   uint64_t number;
   FileType type;
@@ -752,7 +767,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Status s;
   {
     mutex_.Unlock();
-    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    s = BuildTable(hot_dbname_, env_, options_, table_cache_, iter, &meta);
     mutex_.Lock();
   }
 
@@ -780,7 +795,9 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   }
 
   CompactionStats stats;
-  stats.micros = env_->NowMicros() - start_micros;
+  stats.micros = 0;
+  stats.tiering_micros = (env_->NowMicros() - start_micros);
+  stats.total_micros = env_->NowMicros() - start_micros ;
   stats.bytes_written = meta.file_size;
   stats_[level].Add(stats);
 
@@ -796,8 +813,8 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
 }
 
 void DBImpl::CompactTieringMemTable() {
-  mutex_.AssertHeld();
-
+  // mutex_.AssertHeld();
+  mutex_.Lock();
   // Compact the hot immutable memtable
   VersionEdit hot_edit;
   Version* hot_base = versions_->current();
@@ -825,6 +842,8 @@ void DBImpl::CompactTieringMemTable() {
     RecordBackgroundError(hot_s);
   }
   TieringRemoveObsoleteFiles();
+  pending_tasks_.fetch_add(-1);
+  mutex_.Unlock();
 }
 
 
@@ -878,6 +897,8 @@ Status DBImpl::WriteLevel0Table_NoPartition(MemTable* mem, VersionEdit* edit, Ve
 
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros;
   stats.bytes_written = meta.file_size;
   stats_[level].Add(stats);
 
@@ -1656,6 +1677,8 @@ Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
 
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros;
   stats.bytes_written = total_file_size;
   stats_[level].Add(stats);
 
@@ -1672,7 +1695,8 @@ Status DBImpl::WritePartitionLevelingL0Table(MemTable* mem, VersionEdit* edit,
 
 
 void DBImpl::CompactLevelingMemTable() {
-  mutex_.AssertHeld();
+  // mutex_.AssertHeld();
+  mutex_.Lock();
   assert(imm_ != nullptr );
   Status s;
   
@@ -1711,7 +1735,8 @@ void DBImpl::CompactLevelingMemTable() {
   }
 
   RemoveObsoleteFiles();
-
+  pending_tasks_.fetch_add(-1);
+  mutex_.Unlock();
 }
 
 void DBImpl::CompactRange(const Slice* begin, const Slice* end) {
@@ -1794,25 +1819,71 @@ void DBImpl::RecordBackgroundError(const Status& s) {
   }
 }
 
+// void DBImpl::MaybeScheduleCompaction() {
+//   mutex_.AssertHeld();
+//   if (background_compaction_scheduled_ && background_tiering_compaction_scheduled_) {
+//     // Already scheduled
+//   } else if (shutting_down_.load(std::memory_order_acquire)) {
+//     // DB is being deleted; no more background compactions
+//   } else if (!bg_error_.ok()) {
+//     // Already got an error; no more changes
+//   } else if (imm_ == nullptr && hot_imm_ == nullptr && manual_compaction_ == nullptr &&
+//             !versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()) {
+//     // No work to be done
+//   } else {
+
+//     if ((imm_ != nullptr || versions_->NeedsCompaction()) && !background_compaction_scheduled_){
+//       background_compaction_scheduled_ = true;
+//       // start a new thread!
+//       //fprintf(stderr,"Schedule a leveling work!\n");
+//       env_->Schedule(&DBImpl::BGWorkCold, this);
+//     } 
+
+//     if((hot_imm_ != nullptr || versions_->NeedsTieringCompaction()) && !background_tiering_compaction_scheduled_){
+//       background_tiering_compaction_scheduled_ = true;
+//       // start a new thread!
+//      // fprintf(stderr,"Schedule a tiering work!\n");
+//       env_->Schedule(&DBImpl::BGWorkHot, this);
+//     }
+
+//     // if(background_tiering_compaction_scheduled_ && background_compaction_scheduled_){
+//     //   fprintf(stderr,"we scheduled two threads!");
+//     //   abort();  // 使用 abort() 代替 exit(0)
+//     // }
+
+//   }
+// }
+
+
 void DBImpl::MaybeScheduleCompaction() {
   mutex_.AssertHeld();
-  if (background_compaction_scheduled_) {
+  if (background_compaction_scheduled_ ) {
     // Already scheduled
   } else if (shutting_down_.load(std::memory_order_acquire)) {
     // DB is being deleted; no more background compactions
   } else if (!bg_error_.ok()) {
     // Already got an error; no more changes
   } else if (imm_ == nullptr && hot_imm_ == nullptr && manual_compaction_ == nullptr &&
-             !versions_->NeedsCompaction()) {
+            !versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()) {
     // No work to be done
   } else {
     background_compaction_scheduled_ = true;
+    // start a new thread!
+    // fprintf(stderr,"Schedule a leveling work!\n");
     env_->Schedule(&DBImpl::BGWork, this);
   }
 }
 
 void DBImpl::BGWork(void* db) {
   reinterpret_cast<DBImpl*>(db)->BackgroundCall();
+}
+
+void DBImpl::BGWorkCold(void* db) {
+  reinterpret_cast<DBImpl*>(db)->BackgroundCallCold();
+}
+
+void DBImpl::BGWorkHot(void* db) {
+  reinterpret_cast<DBImpl*>(db)->BackgroundCallHot();
 }
 
 void DBImpl::BackgroundAddData(const Slice& key) {
@@ -1834,7 +1905,7 @@ void DBImpl::BackgroundCall() {
     // No more background work after a background error.
   } else {
     // Log(options_.info_log, "start BackgroundCall!");
-    BackgroundCompaction();
+    BackgroundCompactionMultiThread();
   }
 
   background_compaction_scheduled_ = false;
@@ -1845,17 +1916,51 @@ void DBImpl::BackgroundCall() {
   background_work_finished_signal_.SignalAll();
 }
 
-void DBImpl::BackgroundCompaction() {
+void DBImpl::BackgroundCallCold() {
+  MutexLock l(&mutex_);
+  assert(background_compaction_scheduled_);
+  if (shutting_down_.load(std::memory_order_acquire)) {
+    // No more background work when shutting down.
+  } else if (!bg_error_.ok()) {
+    // No more background work after a background error.
+  } else {
+    // Log(options_.info_log, "start BackgroundCall!");
+    BackgroundColdCompaction();
+  }
+
+  background_compaction_scheduled_ = false;
+
+  // Previous compaction may have produced too many files in a level,
+  // so reschedule another compaction if needed.
+  MaybeScheduleCompaction();
+  background_work_finished_signal_.SignalAll();
+}
+
+void DBImpl::BackgroundCallHot() {
+  MutexLock l(&mutex_);
+  assert(background_tiering_compaction_scheduled_);
+  if (shutting_down_.load(std::memory_order_acquire)) {
+    // No more background work when shutting down.
+  } else if (!bg_error_.ok()) {
+    // No more background work after a background error.
+  } else {
+    // Log(options_.info_log, "start BackgroundCall!");
+    BackgroundHotCompaction();
+  }
+
+  background_tiering_compaction_scheduled_ = false;
+
+  // Previous compaction may have produced too many files in a level,
+  // so reschedule another compaction if needed.
+  MaybeScheduleCompaction();
+  background_work_finished_signal_.SignalAll();
+  
+}
+
+void DBImpl::BackgroundHotCompaction() {
   mutex_.AssertHeld();
 
   Log(options_.info_log, "start background Compaction!");
-
-  if (imm_ != nullptr) {
-    Log(options_.leveling_compaction_info_log, "Starting leveling CompactMemTable");
-    CompactLevelingMemTable();
-    background_work_finished_signal_.SignalAll();
-    Log(options_.leveling_compaction_info_log, "Finished leveling CompactMemTable\n\n");
-  }
 
   if (hot_imm_ != nullptr) {
     Log(options_.info_log, "Starting tiering CompactHotMemTable");
@@ -1864,19 +1969,21 @@ void DBImpl::BackgroundCompaction() {
     Log(options_.info_log, "Finished tiering CompactHotMemTable\n\n");
   }
 
-  if(!versions_->NeedsCompaction()){
+  if(!versions_->NeedsTieringCompaction()){
     return ;
   }
-
   
   Compaction* c;
-  std::vector<Compaction*> Partitionleveling_compactions;
   TieringCompaction* tiering_com;
+  if(pl_or_2ppl){
+    tiering_com= nullptr;
+  }
+  
   bool is_manual = (manual_compaction_ != nullptr);
   InternalKey manual_end;
 
   // Log pointer address
-  Log(options_.info_log, "BackgroundCompaction: Address of tiering_com pointer: %p", (void*)&tiering_com);
+  Log(options_.info_log, "BackgroundHotCompaction: Address of tiering_com pointer: %p", (void*)&tiering_com);
 
   if (is_manual) {
     ManualCompaction* m = manual_compaction_;
@@ -1895,22 +2002,176 @@ void DBImpl::BackgroundCompaction() {
     level_stats_[m->level].number_manual_compaction++;
 
   } else {
-    versions_->PickCompaction(Partitionleveling_compactions, &tiering_com);
+    if(!pl_or_2ppl){
+      versions_->PickCompaction(&tiering_com);
+    }   
   }
+
   // Log pointer address and stored address after PickCompaction
-  Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
-  // if(Partitionleveling_compactions.size() !=0){
-  //   fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
-  //     Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
-  // }
+  if(!pl_or_2ppl){
+    Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
+    // if(Partitionleveling_compactions.size() !=0){
+    //   fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
+    //     Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
+    // }
+  }
+  
+  //misssion created!
   
 
   Status status;
-  if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
+  if (tiering_com == nullptr ) {
+    // Nothing to do
+  } else{
+    // fprintf(stdout,"start a tiering compaction from !\n");
+    if (!is_manual && tiering_com->IsTrivialMoveWithTier()) { 
+      // Move file to next level
+      assert(tiering_com->num_input_tier_files(0) == 1);
+      FileMetaData* f = tiering_com->tier_input(0, 0);
+      tiering_com->edit()->RemovetieringFile(tiering_com->level(),tiering_com->get_selected_run_in_input_level(), f->number);
+      tiering_com->edit()->AddTieringFile(tiering_com->level() + 1, tiering_com->get_selected_run_in_next_level(), f->number, f->file_size, f->smallest,
+                          f->largest);
+      tiering_com->edit()->set_is_tiering();
+      status = versions_->LogAndApply(tiering_com->edit(), &mutex_);
+      if (!status.ok()) {
+        RecordBackgroundError(status);
+      }
+      VersionSet::LevelSummaryStorage tmp;
+      Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+        static_cast<unsigned long long>(f->number), tiering_com->level() + 1,
+        static_cast<unsigned long long>(f->file_size),
+        status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+      // newly added source codes
+      level_stats_[tiering_com->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+      level_stats_[tiering_com->level()].moved_from_this_level_bytes = f->file_size;
+      level_stats_[tiering_com->level()].number_TrivialMove++;
+    }else{
+      TieringCompactionState* tier_compact = new TieringCompactionState(tiering_com);
+      status = DoTieringCompactionWork(tier_compact);
+      if (!status.ok()) {
+        RecordBackgroundError(status);
+      }
+      CleanupCompaction(tier_compact);
+      tiering_com->ReleaseInputs();
+      TieringRemoveObsoleteFiles();
+    }
+    Log(options_.info_log, "\n\n");
+    delete tiering_com; 
+    tiering_com = nullptr;  
+  } 
+
+  if (status.ok()) {
+    // Done
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // Ignore compaction errors found during shutting down
+  } else {
+    Log(options_.info_log, "Compaction error: %s", status.ToString().c_str());
+  }
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    if (!status.ok()) {
+      m->done = true;
+    }
+    if (!m->done) {
+      // We only compacted part of the requested range.  Update *m
+      // to the range that is left to be compacted.
+      m->tmp_storage = manual_end;
+      m->begin = &m->tmp_storage;
+    }
+    manual_compaction_ = nullptr;
+  }
+}
+
+void DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper(void* arg) {
+  BGWorkArgs* args = reinterpret_cast<BGWorkArgs*>(arg);
+  // fprintf(stderr,"we start BGWork_CompactionWork_Without_IdentificationWrapper");
+  *(args->ret_status) = args->db->Do_CompactionWork_Without_Identification(args->compact);
+}
+
+void DBImpl::BGWork_L0CompactionWork_Without_IdentificationWrapper(void* arg) {
+  BGWorkArgs* args = reinterpret_cast<BGWorkArgs*>(arg);
+  // fprintf(stderr,"we start BGWork_L0CompactionWork_Without_IdentificationWrapper");
+  *(args->ret_status) = args->db->Do_L0CompactionWork_Without_Identification(args->compact);
+}
+
+void DBImpl::BGWork_L0CompactionWork_With_IdentificationWrapper(void* arg) {
+  BGWorkArgs* args = reinterpret_cast<BGWorkArgs*>(arg);
+  // fprintf(stderr,"we start BGWork_L0CompactionWork_With_IdentificationWrapper");
+  // args->compact->compaction->PrintInputVersion();
+  *(args->ret_status) = args->db->Do_L0CompactionWork_With_Identification(args->compact);
+  // args->compact->compaction->PrintInputVersion();
+}
+
+void DBImpl::BGWork_TieringCompactionWork_Wrapper(void* arg) {
+  BGTieringWorkArgs* args = reinterpret_cast<BGTieringWorkArgs*>(arg);
+  // fprintf(stderr,"we start BGWork_TieringCompactionWork_Wrapper");
+  // args->compact->compaction->PrintInputVersion();
+  *(args->ret_status) = args->db->DoTieringCompactionWork(args->compact);
+  // args->compact->compaction->PrintInputVersion();
+}
+
+void DBImpl::BGWork_CompactTieringCompactionWork_Wrapper(void* arg) {
+  reinterpret_cast<DBImpl*>(arg)->CompactTieringMemTable();
+}
+
+void DBImpl::BGWork_CompactLevelingCompactionWork_Wrapper(void* arg) {
+  reinterpret_cast<DBImpl*>(arg)->CompactLevelingMemTable();
+}
+
+void DBImpl::BackgroundColdCompaction() {
+  mutex_.AssertHeld();
+
+  Log(options_.info_log, "start background Compaction!");
+
+  if (imm_ != nullptr) {
+    Log(options_.leveling_compaction_info_log, "Starting leveling CompactMemTable");
+    CompactLevelingMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.leveling_compaction_info_log, "Finished leveling CompactMemTable\n\n");
+  }
+
+  if(!versions_->NeedsCompaction()){
+    return ;
+  }
+
+  
+  Compaction* c;
+  std::vector<Compaction*> Partitionleveling_compactions;
+  
+  bool is_manual = (manual_compaction_ != nullptr);
+  InternalKey manual_end;
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    c = versions_->CompactRange(m->level, m->begin, m->end);
+    m->done = (c == nullptr);
+    if (c != nullptr) {
+      manual_end = c->input(0, c->num_input_files(0) - 1)->largest;
+    }
+    Log(options_.info_log,
+        "Manual compaction at level-%d from %s .. %s; will stop at %s\n",
+        m->level, (m->begin ? m->begin->DebugString().c_str() : "(begin)"),
+        (m->end ? m->end->DebugString().c_str() : "(end)"),
+        (m->done ? "(end)" : manual_end.DebugString().c_str()));
+    
+    // newly added source codes
+    level_stats_[m->level].number_manual_compaction++;
+
+  } else {
+    versions_->PickCompaction(Partitionleveling_compactions);  
+  } 
+  //misssion created!
+  
+
+  Status status;
+  if (Partitionleveling_compactions.empty()) {
     // Nothing to do
   } else{
     for (Compaction* c : Partitionleveling_compactions) {
-      fprintf(stdout,"start a leveling compaction from !\n");
+      
+      // fprintf(stdout,"start a leveling compaction from !\n");
       uint64_t need_partition_num = c->partition_num();
       mem_partition_guard* temp_partition = nullptr;
       for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
@@ -1934,17 +2195,17 @@ void DBImpl::BackgroundCompaction() {
         Merge_all_supersmall_partitions(deleted_partition_nums);
         versions_->RePickCompaction(c, deleted_partition_nums);
         CompactionState* compact = new CompactionState(c);
-        fprintf(stderr,"we need do a special compaction for L0\n");
-        status = DoCompactionWork(compact, true);
-            
+        fprintf(stderr,"Merging small partitions in L0\n");
+        status = Do_L0CompactionWork_With_Identification(compact, true);
+        mutex_.Lock();
         if (!status.ok()) {
           RecordBackgroundError(status);
         }
-
         CleanupCompaction(compact);
         c->ReleaseInputs();
         RemoveObsoleteFiles();
-        fprintf(stderr,"we have finished a special compaction for L0\n");
+        fprintf(stderr,"Merging small partitions in L0 done!\n");
+
       }else if (!is_manual && c->IsTrivialMove()) { 
         // Move file to next level
         assert(c->num_input_files(0) == 1);
@@ -1969,14 +2230,24 @@ void DBImpl::BackgroundCompaction() {
       } else {
 
         CompactionState* compact = new CompactionState(c);
-        
-        if(c->level()==0 && !is_first_L0flush){
-          status = DoL0CompactionWork(compact);
-        }else if(c->level()==0 && is_first_L0flush){
-          status = DoCompactionWork(compact);
-        }else if(c->level()>0){
-          status = DoCompactionWorkWithoutIdentification(compact);
+
+        if(pl_or_2ppl){
+          //for Partitioning leveling
+          status = Do_CompactionWork_Without_Identification(compact);
+        }else{
+          // for 2-phase partitioning leveling
+          if(c->level()==0 && !is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            status = Do_L0CompactionWork_Without_Identification(compact);
+          }else if(c->level()==0 && is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            status = Do_L0CompactionWork_With_Identification(compact);
+          }else if(c->level()>0){
+            // for other across-level compactions!
+            status = Do_CompactionWork_Without_Identification(compact);
+          }
         }
+        mutex_.Lock();
             
         if (!status.ok()) {
           RecordBackgroundError(status);
@@ -1989,6 +2260,623 @@ void DBImpl::BackgroundCompaction() {
       Log(options_.leveling_compaction_info_log, "\n\n");
       delete c;
     }
+  } 
+
+  if (status.ok()) {
+    // Done
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // Ignore compaction errors found during shutting down
+  } else {
+    Log(options_.info_log, "Compaction error: %s", status.ToString().c_str());
+  }
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    if (!status.ok()) {
+      m->done = true;
+    }
+    if (!m->done) {
+      // We only compacted part of the requested range.  Update *m
+      // to the range that is left to be compacted.
+      m->tmp_storage = manual_end;
+      m->begin = &m->tmp_storage;
+    }
+    manual_compaction_ = nullptr;
+  }
+}
+
+
+
+void DBImpl::BackgroundCompactionMultiThread() {
+  mutex_.AssertHeld();
+  
+  mutex_.Unlock();
+  // 记录开始时间
+  auto start_time = std::chrono::steady_clock::now();
+  Log(options_.info_log, "start background Compaction!");
+  if (hot_imm_ != nullptr) {
+    Log(options_.info_log, "Starting tiering CompactHotMemTable");
+    pending_tasks_.fetch_add(1);
+    env_->Schedule(&DBImpl::BGWork_CompactTieringCompactionWork_Wrapper, this);
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished tiering CompactHotMemTable\n\n");
+  }
+
+  if (imm_ != nullptr) {
+    Log(options_.leveling_compaction_info_log, "Starting leveling CompactMemTable");
+    pending_tasks_.fetch_add(1);
+    env_->Schedule(&DBImpl::BGWork_CompactLevelingCompactionWork_Wrapper, this);
+    background_work_finished_signal_.SignalAll();
+    Log(options_.leveling_compaction_info_log, "Finished leveling CompactMemTable\n\n");
+  }
+
+  while (pending_tasks_.load()!=0){ }
+  auto end_time = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end_time - start_time;
+
+  mutex_.Lock();
+  stats_[0].master_thread_time_consumption += elapsed_seconds.count();
+  
+  if(!versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()){
+    return ;
+  }
+  
+  Compaction* c;
+  std::vector<Compaction*> Partitionleveling_compactions;
+  TieringCompaction* tiering_com;
+  if(pl_or_2ppl){
+    tiering_com= nullptr;
+  }
+  
+  bool is_manual = (manual_compaction_ != nullptr);
+  InternalKey manual_end;
+
+  // Log pointer address
+  Log(options_.info_log, "BackgroundCompaction: Address of tiering_com pointer: %p", (void*)&tiering_com);
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    c = versions_->CompactRange(m->level, m->begin, m->end);
+    m->done = (c == nullptr);
+    if (c != nullptr) {
+      manual_end = c->input(0, c->num_input_files(0) - 1)->largest;
+    }
+    Log(options_.info_log,
+        "Manual compaction at level-%d from %s .. %s; will stop at %s\n",
+        m->level, (m->begin ? m->begin->DebugString().c_str() : "(begin)"),
+        (m->end ? m->end->DebugString().c_str() : "(end)"),
+        (m->done ? "(end)" : manual_end.DebugString().c_str()));
+    
+    // newly added source codes
+    level_stats_[m->level].number_manual_compaction++;
+
+  } else {
+    if(pl_or_2ppl){
+      versions_->PickCompaction(Partitionleveling_compactions);
+    }else{
+      versions_->PickCompaction(Partitionleveling_compactions, &tiering_com);
+    }   
+  }
+
+  // Log pointer address and stored address after PickCompaction
+  if(!pl_or_2ppl){
+    Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
+    // if(Partitionleveling_compactions.size() !=0){
+    //   fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
+    //     Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
+    // }
+  }
+  
+  //misssion created!
+  std::vector<BGTieringWorkArgs*> task_list;
+  std::vector<BGWorkArgs*> task_list2;
+  start_time = std::chrono::steady_clock::now();
+  Status status;
+  int i=0;
+  if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
+    // Nothing to do
+  } else{
+    if(tiering_com != nullptr){
+      // fprintf(stdout,"start a tiering compaction from !\n");
+      if (!is_manual && tiering_com->IsTrivialMoveWithTier()) { 
+        // Move file to next level
+        assert(tiering_com->num_input_tier_files(0) == 1);
+        FileMetaData* f = tiering_com->tier_input(0, 0);
+        tiering_com->edit()->RemovetieringFile(tiering_com->level(),tiering_com->get_selected_run_in_input_level(), f->number);
+        tiering_com->edit()->AddTieringFile(tiering_com->level() + 1, tiering_com->get_selected_run_in_next_level(), f->number, f->file_size, f->smallest,
+                          f->largest);
+        tiering_com->edit()->set_is_tiering();
+        status = versions_->LogAndApply(tiering_com->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), tiering_com->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[tiering_com->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].number_TrivialMove++;
+        delete tiering_com;
+      }else{
+        BGTieringWorkArgs* task = new BGTieringWorkArgs;
+        TieringCompactionState* tier_compact = new TieringCompactionState(tiering_com);
+        task->db = this;  // 当前 DBImpl*（this）
+        task->compact = tier_compact;  // 创建 CompactionState
+        task->ret_status = new Status;  // 传递状态指针
+        task_list.push_back(task);
+        pending_tasks_.fetch_add(1);
+        // mutex_.Unlock();
+        env_->Schedule(&DBImpl::BGWork_TieringCompactionWork_Wrapper, task);
+      }
+      Log(options_.info_log, "\n\n");
+      // delete tiering_com; 
+      // tiering_com = nullptr;  
+    }  
+
+    // if(tiering_com != nullptr){
+    //   mutex_.Lock();
+    // }
+    
+    for (Compaction* c : Partitionleveling_compactions) {  
+      // fprintf(stdout,"start a leveling compaction from !\n");
+      uint64_t need_partition_num = c->partition_num();
+      mem_partition_guard* temp_partition = nullptr;
+      for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
+        if((*it)->partition_num == need_partition_num){
+          temp_partition = *it;
+          break;
+        }
+      }
+      if(c->level() == 0){
+        auto map_it = partition_first_L0flush_map_.find(need_partition_num);
+        if (map_it == partition_first_L0flush_map_.end()) {
+          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+          delete c;
+          continue;  
+        }
+      }
+      bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
+      // bool is_first_L0flush = false;
+      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
+        std::vector<uint64_t> deleted_partition_nums;
+        Merge_all_supersmall_partitions(deleted_partition_nums);
+        versions_->RePickCompaction(c, deleted_partition_nums);
+        CompactionState* compact = new CompactionState(c);
+        fprintf(stderr,"Merging small partitions in L0\n");
+        status = Do_L0CompactionWork_With_Identification(compact, true);
+        if(status.ok()){
+          status = InstallCompactionResults(compact);
+        }
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        CleanupCompaction(compact);
+        c->ReleaseInputs();
+        RemoveObsoleteFiles();
+        delete c;
+        fprintf(stderr,"Merging small partitions in L0 done!\n");
+      }else if (!is_manual && c->IsTrivialMove()) { 
+        // Move file to next level
+        assert(c->num_input_files(0) == 1);
+        FileMetaData* f = c->input(0, 0);
+        c->edit()->RemovePartitionFile(c->level(), c->partition_num(), f->number);
+        c->edit()->AddPartitionLevelingFile(c->partition_num(), c->level() + 1, f->number, 
+                f->file_size, f->smallest,f->largest);
+        status = versions_->LogAndApply(c->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.leveling_compaction_info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), c->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[c->level()].number_TrivialMove++;
+        delete c;
+      } else {
+        i++;
+        pending_tasks_.fetch_add(1);
+        BGWorkArgs* task = new BGWorkArgs;
+        CompactionState* compact = new CompactionState(c);
+        compact->thread = i;
+        task->db = this;  // 当前 DBImpl*（this）
+        task->compact = compact;  // 创建 CompactionState
+        task->ret_status = new Status;  // 传递状态指针
+        task_list2.push_back(task);
+        if(pl_or_2ppl){
+          //for Partitioning leveling
+          // status = Do_CompactionWork_Without_Identification(compact);
+          env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+        }else{
+          // for 2-phase partitioning leveling
+          if(c->level()==0 && !is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            // mutex_.Unlock();
+            // status = Do_L0CompactionWork_Without_Identification(compact);
+            env_->Schedule(&DBImpl::BGWork_L0CompactionWork_Without_IdentificationWrapper, task);
+          }else if(c->level()==0 && is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            // status = Do_L0CompactionWork_With_Identification(compact);
+            // fprintf(stderr,"schedule an identification thread in partition[%lu] at level[%d]!\n",c->partition_num(),c->level());
+            env_->Schedule(&DBImpl::BGWork_L0CompactionWork_With_IdentificationWrapper, task);
+          }else if(c->level()>0){
+            // for other across-level compactions!
+            // mutex_.Unlock();
+            // status = Do_CompactionWork_Without_Identification(compact);
+            env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+          }
+        }
+        // mutex_.Lock();
+        // task->compact->compaction->PrintInputVersion();
+        // if (!status.ok()) {
+        //   RecordBackgroundError(status);
+        // }
+        // CleanupCompaction(compact);
+        // c->ReleaseInputs();
+        // RemoveObsoleteFiles();
+      }
+      Log(options_.leveling_compaction_info_log, "\n\n");
+      // delete c;
+    }
+  }
+
+  if(pending_tasks_.load()!=0){
+    mutex_.Unlock();
+    while (pending_tasks_.load()!=0){}
+    mutex_.Lock();
+  }
+  
+  end_time = std::chrono::steady_clock::now();
+  elapsed_seconds = end_time - start_time;
+  stats_[0].master_thread_time_consumption += elapsed_seconds.count();
+
+  for (BGWorkArgs* task : task_list2) {
+    if(!task->ret_status->ok()){
+      RecordBackgroundError(*task->ret_status);
+    }
+    if(pl_or_2ppl){
+      *task->ret_status = InstallCompactionResults(task_list2[0]->compact, task->compact);
+    }else{
+      // // for 2-phase partitioning leveling
+      // if(c->level()==0 && !is_first_L0flush){
+      //   // only for L0 compaction without hot-data identification!
+      //   // status = Do_L0CompactionWork_Without_Identification(compact);
+      //   *task->ret_status = InstallCompactionResults(task->compact);
+      // }else if(c->level()==0 && is_first_L0flush){
+      //   if( task->compact->compaction->level()==0 && !(task->compact->compaction->is_merge_compaction())){
+      //     *task->ret_status = CreateL1PartitionAndInstallCompactionResults(task[0].compact, task->compact);
+      //   }else {
+      //     *task->ret_status = InstallCompactionResults(task->compact);
+      //   }
+      //   // if(compact->hot_builder != nullptr){}  
+      // }else if(c->level()>0){
+      //   // for other across-level compactions!
+      //   *task->ret_status = InstallCompactionResults(task->compact);
+      //   if(task->compact->hot_builder != nullptr){} 
+      // }
+      if(task->compact->compaction->level()==0 && partition_first_L0flush_map_[task->compact->compaction->partition_num()] && !(task->compact->compaction->is_merge_compaction())){
+        // fprintf(stderr,"start an Install process for identification thread in partition[%lu] at level[%d]!\n",task->compact->compaction->partition_num(),
+        //   task->compact->compaction->level()==0,task->compact->compaction->level());
+        *task->ret_status = CreateL1PartitionAndInstallCompactionResults(task_list2[0]->compact, task->compact);
+      }else{
+        *task->ret_status = InstallCompactionResults(task_list2[0]->compact, task->compact);
+      }
+    }
+
+    if (!task->ret_status->ok()) {
+      Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error installing from L%d to L%d compaction results: %s",
+      task->compact->compaction->level(), task->compact->compaction->level()+1, status.ToString().c_str());
+      RecordBackgroundError(*task->ret_status);
+    }
+    VersionSet::LevelSummaryStorage tmp;
+    Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+
+    if (!task->ret_status->ok()) {
+      RecordBackgroundError(*task->ret_status);  // 记录错误
+    } 
+  }
+  if(!task_list2.empty()){
+    versions_->LogAndApply(task_list2[0]->compact->compaction->edit(), &mutex_);
+  } 
+
+  for (BGWorkArgs* task : task_list2) {
+    Compaction* task_com = task->compact->compaction;
+    CleanupCompaction(task->compact);
+    // fprintf(stdout,"one calling!\n");
+    // task->compact->compaction->PrintInputVersion();
+    task_com->ReleaseInputs();
+    RemoveObsoleteFiles();
+    delete task_com;  
+    delete task->ret_status;  
+    delete task; 
+  }
+    
+  for (BGTieringWorkArgs* task : task_list) {
+    if (task->ret_status->ok()) {
+      *task->ret_status = InstallTieringCompactionResults(task->compact);
+    }
+    if (!task->ret_status->ok()) {
+      RecordBackgroundError(*task->ret_status);
+    }
+    VersionSet::LevelSummaryStorage tmp;
+    Log(options_.info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+
+    TieringCompaction* task_com = task->compact->tiercompaction;
+    CleanupCompaction(task->compact);
+    // fprintf(stdout,"one calling!\n");
+    // task->compact->compaction->PrintInputVersion();
+    task_com->ReleaseInputs();
+    TieringRemoveObsoleteFiles(); 
+    delete task_com;  
+    delete task->ret_status;  
+    delete task;  
+  } 
+
+  if (status.ok()) {
+    // Done
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // Ignore compaction errors found during shutting down
+  } else {
+    Log(options_.info_log, "Compaction error: %s", status.ToString().c_str());
+  }
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    if (!status.ok()) {
+      m->done = true;
+    }
+    if (!m->done) {
+      // We only compacted part of the requested range.  Update *m
+      // to the range that is left to be compacted.
+      m->tmp_storage = manual_end;
+      m->begin = &m->tmp_storage;
+    }
+    manual_compaction_ = nullptr;
+  }
+}
+
+// single thread!
+void DBImpl::BackgroundCompactionSingleThread() {
+  mutex_.AssertHeld();
+
+  Log(options_.info_log, "start background Compaction!");
+
+  if (imm_ != nullptr) {
+    Log(options_.leveling_compaction_info_log, "Starting leveling CompactMemTable");
+    CompactLevelingMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.leveling_compaction_info_log, "Finished leveling CompactMemTable\n\n");
+  }
+
+  if (hot_imm_ != nullptr) {
+    Log(options_.info_log, "Starting tiering CompactHotMemTable");
+    CompactTieringMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished tiering CompactHotMemTable\n\n");
+  }
+
+  if(!versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()){
+    return ;
+  }
+  
+  Compaction* c;
+  std::vector<Compaction*> Partitionleveling_compactions;
+  TieringCompaction* tiering_com;
+  if(pl_or_2ppl){
+    tiering_com= nullptr;
+  }
+  
+  bool is_manual = (manual_compaction_ != nullptr);
+  InternalKey manual_end;
+
+  // Log pointer address
+  Log(options_.info_log, "BackgroundCompaction: Address of tiering_com pointer: %p", (void*)&tiering_com);
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    c = versions_->CompactRange(m->level, m->begin, m->end);
+    m->done = (c == nullptr);
+    if (c != nullptr) {
+      manual_end = c->input(0, c->num_input_files(0) - 1)->largest;
+    }
+    Log(options_.info_log,
+        "Manual compaction at level-%d from %s .. %s; will stop at %s\n",
+        m->level, (m->begin ? m->begin->DebugString().c_str() : "(begin)"),
+        (m->end ? m->end->DebugString().c_str() : "(end)"),
+        (m->done ? "(end)" : manual_end.DebugString().c_str()));
+    
+    // newly added source codes
+    level_stats_[m->level].number_manual_compaction++;
+
+  } else {
+    if(pl_or_2ppl){
+      versions_->PickCompaction(Partitionleveling_compactions);
+    }else{
+      versions_->PickCompaction(Partitionleveling_compactions, &tiering_com);
+    }   
+  }
+
+  // Log pointer address and stored address after PickCompaction
+  if(!pl_or_2ppl){
+    Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
+    // if(Partitionleveling_compactions.size() !=0){
+    //   fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
+    //     Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
+    // }
+  }
+  
+  //misssion created!
+  
+
+  Status status;
+  if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
+    // Nothing to do
+  } else{
+    std::vector<BGWorkArgs*> task_list;
+    int i=0;  
+
+    for (Compaction* c : Partitionleveling_compactions) {
+      
+      // fprintf(stdout,"start a leveling compaction from !\n");
+      uint64_t need_partition_num = c->partition_num();
+      mem_partition_guard* temp_partition = nullptr;
+      for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
+        if((*it)->partition_num == need_partition_num){
+          temp_partition = *it;
+          break;
+        }
+      }
+      if(c->level() == 0){
+        auto map_it = partition_first_L0flush_map_.find(need_partition_num);
+        if (map_it == partition_first_L0flush_map_.end()) {
+          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+          delete c;
+          continue;  
+        }
+      }
+      bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
+      // bool is_first_L0flush = false;
+      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
+        std::vector<uint64_t> deleted_partition_nums;
+        Merge_all_supersmall_partitions(deleted_partition_nums);
+        versions_->RePickCompaction(c, deleted_partition_nums);
+        CompactionState* compact = new CompactionState(c);
+        fprintf(stderr,"Merging small partitions in L0\n");
+        status = Do_L0CompactionWork_With_Identification(compact, true);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        CleanupCompaction(compact);
+        c->ReleaseInputs();
+        RemoveObsoleteFiles();
+        fprintf(stderr,"Merging small partitions in L0 done!\n");
+
+      }else if (!is_manual && c->IsTrivialMove()) { 
+        // Move file to next level
+        assert(c->num_input_files(0) == 1);
+        FileMetaData* f = c->input(0, 0);
+        c->edit()->RemovePartitionFile(c->level(), c->partition_num(), f->number);
+        c->edit()->AddPartitionLevelingFile(c->partition_num(), c->level() + 1, f->number, 
+                f->file_size, f->smallest,f->largest);
+        status = versions_->LogAndApply(c->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.leveling_compaction_info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), c->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[c->level()].number_TrivialMove++;
+      } else {
+        i++;
+        pending_tasks_.fetch_add(1);
+        BGWorkArgs* task = new BGWorkArgs;
+        CompactionState* compact = new CompactionState(c);
+        compact->thread = i;
+        task->db = this;  // 当前 DBImpl*（this）
+        task->compact = compact;  // 创建 CompactionState
+        task->ret_status = new Status;  // 传递状态指针
+        // 添加任务到任务列表
+        task_list.push_back(task);
+
+        if(pl_or_2ppl){
+          //for Partitioning leveling
+          // status = Do_CompactionWork_Without_Identification(compact);
+          env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+        }else{
+          // for 2-phase partitioning leveling
+          if(c->level()==0 && !is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            // status = Do_L0CompactionWork_Without_Identification(compact);
+            env_->Schedule(&DBImpl::BGWork_L0CompactionWork_Without_IdentificationWrapper, task);
+          }else if(c->level()==0 && is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            // status = Do_L0CompactionWork_With_Identification(compact);
+            env_->Schedule(&DBImpl::BGWork_L0CompactionWork_With_IdentificationWrapper, task);
+          }else if(c->level()>0){
+            // for other across-level compactions!
+            // status = Do_CompactionWork_Without_Identification(compact);
+            env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+          }
+        }
+        // task->compact->compaction->PrintInputVersion();
+        // if (!status.ok()) {
+        //   RecordBackgroundError(status);
+        // }
+
+        // CleanupCompaction(compact);
+        // c->ReleaseInputs();
+        // RemoveObsoleteFiles();
+      }
+      // Log(options_.leveling_compaction_info_log, "\n\n");
+      // delete c;
+    }
+
+    //处理所有任务的状态
+    // for (BGWorkArgs* task : task_list) {
+    //   if(pl_or_2ppl){
+    //       //for Partitioning leveling
+    //       env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+    //     }else{
+    //       // for 2-phase partitioning leveling
+    //       if(c->level()==0 && !is_first_L0flush){
+    //         // only for L0 compaction without hot-data identification!
+    //         // status = Do_L0CompactionWork_Without_Identification(compact);
+    //         env_->Schedule(&DBImpl::BGWork_L0CompactionWork_Without_IdentificationWrapper, task);
+    //       }else if(c->level()==0 && is_first_L0flush){
+    //         if (task->ret_status->ok()) {
+    //           if( task->compact->compaction->level()==0 && !(task->compact->compaction->is_merge_compaction())){
+    //             *task->ret_status = CreateL1PartitionAndInstallCompactionResults(task[0].compact, task->compact);
+    //           }else {
+    //             *task->ret_status = InstallCompactionResults(task->compact);
+    //           }
+
+    //           // if(compact->hot_builder != nullptr){}
+    //           if (!task->ret_status->ok()) {
+    //             Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error installing from L%d to L%d compaction results: %s",
+    //               task->compact->compaction->level(), task->compact->compaction->level()+1, status.ToString().c_str());
+    //           }
+    //         } 
+    //         if (!status.ok()) {
+    //           RecordBackgroundError(status);
+    //         }
+    //         VersionSet::LevelSummaryStorage tmp;
+    //         Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+    //       }else if(c->level()>0){
+    //         // for other across-level compactions!
+    //         // status = Do_CompactionWork_Without_Identification(compact);
+    //         env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+    //       }
+    //     }
+
+    //   if (!task->ret_status->ok()) {
+    //     RecordBackgroundError(*task->ret_status);  // 记录错误
+    //   }
+    //   Compaction* task_com = task->compact->compaction;
+    //   // 在此执行后续的清理工作，如：
+    //   CleanupCompaction(task->compact);
+    //   fprintf(stdout,"one calling!\n");
+    //   // task->compact->compaction->PrintInputVersion();
+    //   task_com->ReleaseInputs();
+    //   RemoveObsoleteFiles();
+      
+    //   delete task_com;  
+    //   delete task->ret_status;  
+    //   delete task;  
+    // }
 
     if(tiering_com != nullptr){
       // fprintf(stdout,"start a tiering compaction from !\n");
@@ -2030,6 +2918,312 @@ void DBImpl::BackgroundCompaction() {
       tiering_com = nullptr;  
     }
   } 
+
+  if (status.ok()) {
+    // Done
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // Ignore compaction errors found during shutting down
+  } else {
+    Log(options_.info_log, "Compaction error: %s", status.ToString().c_str());
+  }
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    if (!status.ok()) {
+      m->done = true;
+    }
+    if (!m->done) {
+      // We only compacted part of the requested range.  Update *m
+      // to the range that is left to be compacted.
+      m->tmp_storage = manual_end;
+      m->begin = &m->tmp_storage;
+    }
+    manual_compaction_ = nullptr;
+  }
+}
+
+void DBImpl::BackgroundCompactionTwoThread() {
+  mutex_.AssertHeld();
+  mutex_.Unlock();
+  Log(options_.info_log, "start background Compaction!");
+  if (hot_imm_ != nullptr) {
+    Log(options_.info_log, "Starting tiering CompactHotMemTable");
+    pending_tasks_.fetch_add(1);
+    env_->Schedule(&DBImpl::BGWork_CompactTieringCompactionWork_Wrapper, this);
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished tiering CompactHotMemTable\n\n");
+  }
+
+  if (imm_ != nullptr) {
+    Log(options_.leveling_compaction_info_log, "Starting leveling CompactMemTable");
+    pending_tasks_.fetch_add(1);
+    env_->Schedule(&DBImpl::BGWork_CompactLevelingCompactionWork_Wrapper, this);
+    background_work_finished_signal_.SignalAll();
+    Log(options_.leveling_compaction_info_log, "Finished leveling CompactMemTable\n\n");
+  }
+
+  while (pending_tasks_.load()!=0){ }
+  mutex_.Lock();
+  if(!versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()){
+    return ;
+  }
+  
+  Compaction* c;
+  std::vector<Compaction*> Partitionleveling_compactions;
+  TieringCompaction* tiering_com;
+  if(pl_or_2ppl){
+    tiering_com= nullptr;
+  }
+  
+  bool is_manual = (manual_compaction_ != nullptr);
+  InternalKey manual_end;
+
+  // Log pointer address
+  Log(options_.info_log, "BackgroundCompaction: Address of tiering_com pointer: %p", (void*)&tiering_com);
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    c = versions_->CompactRange(m->level, m->begin, m->end);
+    m->done = (c == nullptr);
+    if (c != nullptr) {
+      manual_end = c->input(0, c->num_input_files(0) - 1)->largest;
+    }
+    Log(options_.info_log,
+        "Manual compaction at level-%d from %s .. %s; will stop at %s\n",
+        m->level, (m->begin ? m->begin->DebugString().c_str() : "(begin)"),
+        (m->end ? m->end->DebugString().c_str() : "(end)"),
+        (m->done ? "(end)" : manual_end.DebugString().c_str()));
+    
+    // newly added source codes
+    level_stats_[m->level].number_manual_compaction++;
+
+  } else {
+    if(pl_or_2ppl){
+      versions_->PickCompaction(Partitionleveling_compactions);
+    }else{
+      versions_->PickCompaction(Partitionleveling_compactions, &tiering_com);
+    }   
+  }
+
+  // Log pointer address and stored address after PickCompaction
+  if(!pl_or_2ppl){
+    Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
+    // if(Partitionleveling_compactions.size() !=0){
+    //   fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
+    //     Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
+    // }
+  }
+  
+  //misssion created!
+  
+
+  Status status;
+  if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
+    // Nothing to do
+  } else{
+    std::vector<BGTieringWorkArgs*> task_list;
+    int i=0;
+
+    if(tiering_com != nullptr){
+      // fprintf(stdout,"start a tiering compaction from !\n");
+      if (!is_manual && tiering_com->IsTrivialMoveWithTier()) { 
+        // Move file to next level
+        assert(tiering_com->num_input_tier_files(0) == 1);
+        FileMetaData* f = tiering_com->tier_input(0, 0);
+        tiering_com->edit()->RemovetieringFile(tiering_com->level(),tiering_com->get_selected_run_in_input_level(), f->number);
+        tiering_com->edit()->AddTieringFile(tiering_com->level() + 1, tiering_com->get_selected_run_in_next_level(), f->number, f->file_size, f->smallest,
+                          f->largest);
+        tiering_com->edit()->set_is_tiering();
+        status = versions_->LogAndApply(tiering_com->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), tiering_com->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[tiering_com->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].number_TrivialMove++;
+      
+      }else{
+        BGTieringWorkArgs* task = new BGTieringWorkArgs;
+        TieringCompactionState* tier_compact = new TieringCompactionState(tiering_com);
+        task->db = this;  // 当前 DBImpl*（this）
+        task->compact = tier_compact;  // 创建 CompactionState
+        task->ret_status = new Status;  // 传递状态指针
+        task_list.push_back(task);
+        pending_tasks_.fetch_add(1);
+        mutex_.Unlock();
+        env_->Schedule(&DBImpl::BGWork_TieringCompactionWork_Wrapper, task);
+      }
+      Log(options_.info_log, "\n\n");
+      // delete tiering_com; 
+      // tiering_com = nullptr;  
+    }  
+
+    if(tiering_com != nullptr){
+      mutex_.Lock();
+    }
+    
+    for (Compaction* c : Partitionleveling_compactions) {  
+      // fprintf(stdout,"start a leveling compaction from !\n");
+      uint64_t need_partition_num = c->partition_num();
+      mem_partition_guard* temp_partition = nullptr;
+      for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
+        if((*it)->partition_num == need_partition_num){
+          temp_partition = *it;
+          break;
+        }
+      }
+      if(c->level() == 0){
+        auto map_it = partition_first_L0flush_map_.find(need_partition_num);
+        if (map_it == partition_first_L0flush_map_.end()) {
+          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+          delete c;
+          continue;  
+        }
+      }
+      bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
+      // bool is_first_L0flush = false;
+      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
+        std::vector<uint64_t> deleted_partition_nums;
+        Merge_all_supersmall_partitions(deleted_partition_nums);
+        versions_->RePickCompaction(c, deleted_partition_nums);
+        CompactionState* compact = new CompactionState(c);
+        fprintf(stderr,"Merging small partitions in L0\n");
+        status = Do_L0CompactionWork_With_Identification(compact, true);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        CleanupCompaction(compact);
+        c->ReleaseInputs();
+        RemoveObsoleteFiles();
+        fprintf(stderr,"Merging small partitions in L0 done!\n");
+
+      }else if (!is_manual && c->IsTrivialMove()) { 
+        // Move file to next level
+        assert(c->num_input_files(0) == 1);
+        FileMetaData* f = c->input(0, 0);
+        c->edit()->RemovePartitionFile(c->level(), c->partition_num(), f->number);
+        c->edit()->AddPartitionLevelingFile(c->partition_num(), c->level() + 1, f->number, 
+                f->file_size, f->smallest,f->largest);
+        status = versions_->LogAndApply(c->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.leveling_compaction_info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), c->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[c->level()].number_TrivialMove++;
+      } else {
+        i++;
+        
+        // pending_tasks_.fetch_add(1);
+        // BGWorkArgs* task = new BGWorkArgs;
+        CompactionState* compact = new CompactionState(c);
+        // compact->thread = i;
+        // task->db = this;  // 当前 DBImpl*（this）
+        // task->compact = compact;  // 创建 CompactionState
+        // task->ret_status = new Status;  // 传递状态指针
+        // // 添加任务到任务列表
+        // task_list.push_back(task);
+
+        if(pl_or_2ppl){
+          //for Partitioning leveling
+          status = Do_CompactionWork_Without_Identification(compact);
+          // env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+        }else{
+          // for 2-phase partitioning leveling
+          if(c->level()==0 && !is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            // mutex_.Unlock();
+            status = Do_L0CompactionWork_Without_Identification(compact);
+            
+            // env_->Schedule(&DBImpl::BGWork_L0CompactionWork_Without_IdentificationWrapper, task);
+          }else if(c->level()==0 && is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            // mutex_.Unlock();
+            status = Do_L0CompactionWork_With_Identification(compact);
+            
+            // env_->Schedule(&DBImpl::BGWork_L0CompactionWork_With_IdentificationWrapper, task);
+          }else if(c->level()>0){
+            // for other across-level compactions!
+            // mutex_.Unlock();
+            status = Do_CompactionWork_Without_Identification(compact);
+            // env_->Schedule(&DBImpl::BGWork_CompactionWork_Without_IdentificationWrapper, task);
+          }
+        }
+        // mutex_.Lock();
+        // task->compact->compaction->PrintInputVersion();
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        CleanupCompaction(compact);
+        c->ReleaseInputs();
+        RemoveObsoleteFiles();
+      }
+      Log(options_.leveling_compaction_info_log, "\n\n");
+      delete c;
+    }
+    // fprintf(stderr,"we start  %lu tasks!", task_list.size());
+    // int64_t start_micros1 = env_->NowMicros();
+
+    // // Wait for all tasks to complete
+    // while (pending_tasks_.load()!=0){}
+
+    // int64_t end_micros1 = env_->NowMicros();
+    // fprintf(stderr,"after %.3f seconds waiting, we finished %lu tasks!\n", (start_micros1-end_micros1)/ 1e6, task_list.size());
+    // mutex_.Lock();
+
+    // task_list[0]->compact->compaction->PrintInputVersion();
+    // task_list[1]->compact->compaction->PrintInputVersion();
+    // // // 处理所有任务的状态
+    // for (BGWorkArgs* task : task_list) {
+    //   if (!task->ret_status->ok()) {
+    //     RecordBackgroundError(*task->ret_status);  // 记录错误
+    //   }
+    //   Compaction* task_com = task->compact->compaction;
+    //   // 在此执行后续的清理工作，如：
+    //   CleanupCompaction(task->compact);
+    //   fprintf(stdout,"one calling!\n");
+    //   // task->compact->compaction->PrintInputVersion();
+    //   task_com->ReleaseInputs();
+    //   RemoveObsoleteFiles();
+      
+    //   delete task_com;  
+    //   delete task->ret_status;  
+    //   delete task;  
+  }
+    if(pending_tasks_.load()!=0){
+      mutex_.Unlock();
+    }
+    while (pending_tasks_.load()!=0){}
+    
+    // for (BGTieringWorkArgs* task : task_list) {
+    //   if (!task->ret_status->ok()) {
+    //     RecordBackgroundError(*task->ret_status);  // 记录错误
+    //   }
+    //   TieringCompaction* task_com = task->compact->tiercompaction;
+    //   // 在此执行后续的清理工作，如：
+    //   CleanupCompaction(task->compact);
+    //   fprintf(stdout,"one calling!\n");
+    //   // task->compact->compaction->PrintInputVersion();
+    //   task_com->ReleaseInputs();
+    //   TieringRemoveObsoleteFiles(); 
+    //   delete task_com;  
+    //   delete task->ret_status;  
+    //   delete task;  
+    // }   
 
   if (status.ok()) {
     // Done
@@ -2180,7 +3374,7 @@ Status DBImpl::OpenCompactionOutputFile(TieringCompactionState* compact) {
   }
 
   // Make the output file
-  std::string fname = TableFileName(dbname_, file_number);
+  std::string fname = TableFileName(hot_dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
     compact->builder = new TableBuilder(options_, compact->outfile);
@@ -2321,7 +3515,7 @@ Status DBImpl::FinishCompactionOutputFile(TieringCompactionState* compact,
   if (s.ok() && current_entries > 0) {
     // Verify that the table is usable
     Iterator* iter =
-        table_cache_->NewIterator(ReadOptions(), output_number, current_bytes);
+        table_cache_->NewIterator(ReadOptions(), output_number, current_bytes,true);
     s = iter->status();
     delete iter;
     if (s.ok()) {
@@ -2411,7 +3605,7 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
     compact->compaction->AddPartitionInputDeletions(partition_num, compact->compaction->edit());
   }
 
-  if(compact->compaction->level() == 0 && !compact->compaction->is_merge_compaction()){
+  if(compact->compaction->level() == 0 && !compact->compaction->is_merge_compaction() && !pl_or_2ppl){
     assert(compact->L1_partitions_.size() == compact->outputs.size());
     size_t i = 0;
     for (; i < compact->outputs.size(); i++) {
@@ -2436,6 +3630,7 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
 }
 
 
+
 Status DBImpl::InstallTieringCompactionResults(TieringCompactionState* compact) {
   mutex_.AssertHeld();
   Log(options_.info_log, "Compacted %d@%d + %d@%d tiering files => %lld bytes",
@@ -2454,6 +3649,126 @@ Status DBImpl::InstallTieringCompactionResults(TieringCompactionState* compact) 
   compact->tiercompaction->edit()->set_is_tiering();
   return versions_->LogAndApply(compact->tiercompaction->edit(), &mutex_);
 }
+
+//
+//
+//
+Status DBImpl::CreateL1PartitionAndInstallCompactionResults(CompactionState* job_compact, CompactionState* current_compact) {
+  mutex_.AssertHeld();
+
+  Log(options_.leveling_compaction_info_log, "Compacted %d@%d + %d@%d files => %lld bytes",
+    current_compact->compaction->num_input_files(0), current_compact->compaction->level(),
+    current_compact->compaction->num_input_files(1), current_compact->compaction->level() + 1,
+    static_cast<long long>(current_compact->total_bytes));
+
+  const uint64_t com_partition_num = current_compact->compaction->partition_num();
+  const int level = current_compact->compaction->level();
+  job_compact->compaction->AddPartitionInputDeletions(current_compact->compaction, com_partition_num, job_compact->compaction->edit());
+
+  if(!current_compact->outputs.empty()){
+    mem_partition_guard* parent_partition = nullptr;
+    for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
+      if((*it)->partition_num == com_partition_num){
+        parent_partition = *it;
+        break;
+      }
+    }
+
+    size_t i = 0;
+    for(; i < current_compact->outputs.size(); i++){
+      const CompactionState::Output& out = current_compact->outputs[i];
+      // Log the smallest and largest keys for each file
+      Log(options_.leveling_compaction_info_log, "File #%llu: smallest=%s, largest=%s",
+        (unsigned long long)out.number,out.smallest.user_key().ToString().c_str(),out.largest.user_key().ToString().c_str());
+      
+      std::string new_partition_start = out.smallest.user_key().ToString();
+      std::string new_partition_end = out.largest.user_key().ToString();
+      mem_partition_guard* new_partition = new mem_partition_guard(new_partition_start, new_partition_end);
+      new_partition->partition_num = versions_->NewPartitionNumber();
+      parent_partition->sub_partitions_.insert(new_partition);
+
+      // Log the creation of the new partition and its insertion into the parent partition
+      Log(options_.leveling_compaction_info_log, "Created new partition %lu with range [%s, %s] and inserted into parent partition %lu",
+        new_partition->partition_num,new_partition_start.c_str(), new_partition_end.c_str(), parent_partition->partition_num);
+
+      // Add compaction outputs
+      job_compact->compaction->edit()->AddPartitionLevelingFile(new_partition->partition_num, level + 1, out.number, out.file_size,
+                                          out.smallest, out.largest);
+
+    }
+    auto it = parent_partition->sub_partitions_.end();
+    it--;
+    (*it)->UpdatePartitionEnd(parent_partition->partition_end.ToString());
+
+    // set
+    partition_first_L0flush_map_[com_partition_num] = false;
+  }
+  
+  if(!current_compact->hot_outputs.empty()){
+
+  }
+
+  return Status::OK();
+}
+
+Status DBImpl::InstallCompactionResults(CompactionState* job_compact, CompactionState* current_compact) {
+  mutex_.AssertHeld();
+  Log(options_.leveling_compaction_info_log, "Compacted %d@%d + %d@%d files => %lld bytes",
+  current_compact->compaction->num_input_files(0), current_compact->compaction->level(),
+    current_compact->compaction->num_input_files(1), current_compact->compaction->level() + 1, 
+    static_cast<long long>(current_compact->total_bytes));
+
+  // Add compaction outputs
+  const uint64_t partition_num = current_compact->compaction->partition_num();
+  const int level = current_compact->compaction->level();
+
+  if(current_compact->compaction->is_merge_compaction()){
+    job_compact->compaction->AddL0MergePartitionInputDeletions(current_compact->compaction, job_compact->compaction->edit());
+  }else{
+    job_compact->compaction->AddPartitionInputDeletions(current_compact->compaction, partition_num, job_compact->compaction->edit());
+  }
+
+  if(current_compact->compaction->level() == 0 && !current_compact->compaction->is_merge_compaction() && !pl_or_2ppl){
+    assert(current_compact->L1_partitions_.size() == current_compact->outputs.size());
+    size_t i = 0;
+    for (; i < current_compact->outputs.size(); i++) {
+      const CompactionState::Output& out = current_compact->outputs[i];
+      job_compact->compaction->edit()->AddPartitionLevelingFile(current_compact->L1_partitions_[i], level + 1, out.number, out.file_size, out.smallest, out.largest);
+      Log(options_.leveling_compaction_info_log, "finished a compaction output file:Partition[%lu] File #%llu: size=%llu, smallest=%s, largest=%s",
+        current_compact->L1_partitions_[i], (unsigned long long)out.number,(unsigned long long)out.file_size,
+        out.smallest.user_key().ToString().c_str(), out.largest.user_key().ToString().c_str());
+    }
+    // if(current_sub_partition->CompareWithEnd(current_compact->outputs[i].largest.user_key().data(), current_compact->outputs[i].largest.user_key().size())<0 ){
+
+    // }
+  }else{
+    for (size_t i = 0; i < current_compact->outputs.size(); i++) {
+      const CompactionState::Output& out = current_compact->outputs[i];
+      job_compact->compaction->edit()->AddPartitionLevelingFile(partition_num, level + 1, out.number, out.file_size, out.smallest, out.largest);
+    }
+  }
+  return Status::OK();
+}
+
+// Status DBImpl::InstallTieringCompactionResults(CompactionState* job_compact, TieringCompactionState* current_compact) {
+//   mutex_.AssertHeld();
+//   Log(options_.info_log, "Compacted %d@%d + %d@%d tiering files => %lld bytes",
+//       current_compact->tiercompaction->num_input_tier_files(0), current_compact->tiercompaction->level(),
+//       current_compact->tiercompaction->num_input_tier_files(1), current_compact->tiercompaction->level() + 1,
+//       static_cast<long long>(current_compact->total_bytes));
+
+//   // Add compaction outputs
+//   compact->tiercompaction->AddTieringInputDeletions(compact->tiercompaction->edit());
+//   const int level = compact->tiercompaction->level();
+//   for (size_t i = 0; i < compact->outputs.size(); i++) {
+//     const TieringCompactionState::Output& out = compact->outputs[i];
+//     compact->tiercompaction->edit()->AddTieringFile(level + 1, compact->tiercompaction->get_selected_run_in_next_level(), out.number, out.file_size,
+//                                          out.smallest, out.largest);
+//   }
+//   compact->tiercompaction->edit()->set_is_tiering();
+//   return versions_->LogAndApply(compact->tiercompaction->edit(), &mutex_);
+// }
+
 
 
 void DBImpl::loadKeysFromCSV(const std::string& filePath){
@@ -2689,10 +4004,15 @@ void  DBImpl::initialize_level_hotcoldstats(){
     fprintf(stderr,"initialize %zu objects(LevelHotColdStats) within these %d levels\n", percents.size(),config::kNumLevels );
 }
 
+////==================DoTieringCompactionWork Start================
+///===================DoTieringCompactionWork Start================
+///===================DoTieringCompactionWork Start================
+
 Status DBImpl::DoTieringCompactionWork(TieringCompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
 
+  mutex_.Lock();
   new_LeveldataStats new_compact_statistics;
 
   // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
@@ -2858,7 +4178,9 @@ Status DBImpl::DoTieringCompactionWork(TieringCompactionState* compact) {
   uint64_t init_level_bytes_read = 0;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
-  stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.tiering_micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
     for (int i = 0; i < compact->tiercompaction->num_input_tier_files(which); i++) {
       stats.bytes_read += compact->tiercompaction->tier_input(which, i)->file_size;
@@ -2874,22 +4196,27 @@ Status DBImpl::DoTieringCompactionWork(TieringCompactionState* compact) {
   level_stats_[compact->tiercompaction->level() + 1].tiering_bytes_read += stats.bytes_read;
   level_stats_[compact->tiercompaction->level() + 1].tiering_bytes_written += stats.bytes_written;
 
-  if (status.ok()) {
-    status = InstallTieringCompactionResults(compact);
-  }
-  if (!status.ok()) {
-    RecordBackgroundError(status);
-  }
-  VersionSet::LevelSummaryStorage tmp;
-  Log(options_.info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  // if (status.ok()) {
+  //   status = InstallTieringCompactionResults(compact);
+  // }
+  // if (!status.ok()) {
+  //   RecordBackgroundError(status);
+  // }
+  // VersionSet::LevelSummaryStorage tmp;
+  // Log(options_.info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  pending_tasks_.fetch_add(-1);
+  mutex_.Unlock();
   return status;
 }
 
+////==================DoTieringCompactionWork End================
+///===================DoTieringCompactionWork End================
+///===================DoTieringCompactionWork End================
 
-Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
+Status DBImpl::Do_CompactionWork_Without_Identification(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
-
+  mutex_.Lock();
   new_LeveldataStats new_compact_statistics;
 
   // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
@@ -2919,7 +4246,11 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
 
   assert(compact->builder == nullptr);
   assert(compact->outfile == nullptr);
-  assert(compact->compaction->level() >=1 );
+  if(pl_or_2ppl){
+    assert(compact->compaction->level()>=0);
+  }else{
+    assert(compact->compaction->level()>=1);
+  }
 
   if (snapshots_.empty()) {
     compact->smallest_snapshot = versions_->LastSequence();
@@ -2949,7 +4280,7 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
 
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
     // Prioritize immutable compaction work
-    if (has_imm_.load(std::memory_order_relaxed)) {
+    if ( compact->thread==0 && has_imm_.load(std::memory_order_relaxed)) {
       const uint64_t imm_start = env_->NowMicros();
       mutex_.Lock();
       if (imm_ != nullptr) {
@@ -2978,7 +4309,6 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
         has_current_user_key = true;
         last_sequence_for_key = kMaxSequenceNumber;
       } 
-
       if (last_sequence_for_key <= compact->smallest_snapshot) {
         // Hidden by a newer entry for the same user key
         drop = true;  // (A)
@@ -3042,7 +4372,7 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
   if (status.ok() && compact->builder != nullptr) {
     status = FinishCompactionOutputFile(compact, input);
     if (!status.ok()) {
-      Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error finishing last compaction output file: %s", status.ToString().c_str());
+      Log(options_.leveling_compaction_info_log, "Do_CompactionWork_Without_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
     }
   }
 
@@ -3054,6 +4384,8 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
 
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
 
     for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
@@ -3071,30 +4403,32 @@ Status DBImpl::DoCompactionWorkWithoutIdentification(CompactionState* compact) {
   level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
 
-  if (status.ok()) {
-    status = InstallCompactionResults(compact);
+  // if (status.ok()) {
+  //   status = InstallCompactionResults(compact);
 
-    if(compact->hot_builder != nullptr){}
+  //   if(compact->hot_builder != nullptr){}
     
-    if (!status.ok()) {
-      Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error installing from L%d to L%d compaction results: %s",
-        compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
-    }
-  } 
-  if (!status.ok()) {
-    RecordBackgroundError(status);
-  }
-  VersionSet::LevelSummaryStorage tmp;
-  Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  config::kInitialPartitionLevelingCompactionTrigger = 12;
-
+  //   if (!status.ok()) {
+  //     Log(options_.leveling_compaction_info_log, "Do_CompactionWork_Without_Identification: Error installing from L%d to L%d compaction results: %s",
+  //       compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
+  //   }
+  // } 
+  // if (!status.ok()) {
+  //   RecordBackgroundError(status);
+  // }
+  // VersionSet::LevelSummaryStorage tmp;
+  // Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  config::kInitialPartitionLevelingCompactionTrigger = 24;
+  pending_tasks_.fetch_add(-1);
+  mutex_.Unlock();
   return status;
 }
 
-Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_ranges) {
+Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact, bool merge_small_ranges) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
 
+  mutex_.Lock();
   new_LeveldataStats new_compact_statistics;
 
   // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
@@ -3143,6 +4477,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
 
   // 制作一个迭代器
   Iterator* input = versions_->MakeInputIterator(compact->compaction);
+  // add lockfile
 
   // Release mutex while we're actually doing the compaction work
   mutex_.Unlock();
@@ -3164,14 +4499,15 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
   bool has_range = false;
   int user_key_numbers = 0;
   std::queue<std::string> key_queues;
- 
   std::queue<std::string> key_queues_;
   std::queue<std::string> val_queues_;
 
+  // 在 while 循环之前声明局部 vector
+  std::vector<std::string> local_range_boundaries;
 
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
     // Prioritize immutable compaction work
-    if (has_imm_.load(std::memory_order_relaxed)) {
+    if (compact->thread==0 && has_imm_.load(std::memory_order_relaxed) ) {
       const uint64_t imm_start = env_->NowMicros();
       mutex_.Lock();
       if (imm_ != nullptr) {
@@ -3205,13 +4541,13 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
         key_queues.push(ikey.user_key.ToString());
 
         if(sequence_of_each_key==0){
-
+          // do nothing!
         }else if(sequence_of_each_key > hot_key_threshold){
           if (compact->hot_builder == nullptr) {
             // fprintf(stderr, "Open hot output file in loop\n");
             status = OpenCompactionOutputFile(compact,true);
             if (!status.ok()) {
-              Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
+              Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
               break;
             }
           }
@@ -3231,7 +4567,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
             // fprintf(stderr, "Open output file in loop\n");
             status = OpenCompactionOutputFile(compact);
             if (!status.ok()) {
-              Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
+              Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
               break;
             }
           }
@@ -3250,22 +4586,23 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
               compact->compaction->MinOutputFileSize()) {
             status = FinishCompactionOutputFile(compact, input);
             if (!status.ok()) {
-              Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error finishing compaction output file: %s", status.ToString().c_str());
+              Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing compaction output file: %s", status.ToString().c_str());
               break;
             }
           }
         }
 
         if(sequence_of_each_key >hot_key_threshold && !has_range ){
-          range_boundaries.push_back(current_user_key);
+          // range_boundaries.push_back(current_user_key);
+          local_range_boundaries.push_back(current_user_key);
           has_range = true;
           // Log(options_.leveling_compaction_info_log, "Range start:[%s]", range_start.c_str());
         }else if(sequence_of_each_key <= hot_key_threshold && has_range){
-          range_boundaries.push_back(key_queues.front());
+          local_range_boundaries.push_back(key_queues.front());
           has_range = false;
-          hot_range new_hot_range(range_boundaries[range_boundaries.size()-2].data(), range_boundaries[range_boundaries.size()-2].size(),
-            range_boundaries[range_boundaries.size()-1].data(),range_boundaries[range_boundaries.size()-1].size());
-          HotRanges->hot_ranges_.insert(new_hot_range);
+          // hot_range new_hot_range(local_range_boundaries[local_range_boundaries.size()-2].data(), local_range_boundaries[local_range_boundaries.size()-2].size(),
+          //   local_range_boundaries[local_range_boundaries.size()-1].data(),local_range_boundaries[local_range_boundaries.size()-1].size());
+          // HotRanges->hot_ranges_.insert(new_hot_range);
           // Log(options_.leveling_compaction_info_log, "We created a new Range: [%s, %s]", new_hot_range.start_ptr, new_hot_range.end_ptr);
         }
 
@@ -3290,8 +4627,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
                 compact->compaction->IsBaseLevelForKey(ikey.user_key)) {
         // Deletion marker is obsolete and can be dropped
         drop = true;
-        Log(options_.leveling_compaction_info_log, "Key %s is a deletion marker and can be dropped, sequence: %llu, smallest_snapshot: %llu",
-            ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, (unsigned long long)compact->smallest_snapshot);
+        // Log(options_.leveling_compaction_info_log, "Key %s is a deletion marker and can be dropped, sequence: %llu, smallest_snapshot: %llu",
+        //     ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, (unsigned long long)compact->smallest_snapshot);
       } else {
         // Log(options_.leveling_compaction_info_log, "Key %s is kept, sequence: %llu, last_sequence_for_key: %llu",
         //     ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, (unsigned long long)last_sequence_for_key);
@@ -3325,7 +4662,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
       // fprintf(stderr, "Open hot output file in ending\n");
       status = OpenCompactionOutputFile(compact,true);
       if (!status.ok()) {
-        Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
+        Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
       }
     }
     while (!key_queues_.empty() && !val_queues_.empty()) {
@@ -3343,7 +4680,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
       // fprintf(stderr, "Open output file in ending\n");
       status = OpenCompactionOutputFile(compact);
       if (!status.ok()) {
-        Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
+        Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
       }
     }
     while (!key_queues_.empty() && !val_queues_.empty()) {
@@ -3358,8 +4695,6 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
     }
   }
 
-  Log(options_.leveling_compaction_info_log, "We have already executed %d operations!\n", i);
-  Log(options_.leveling_compaction_info_log, "Range size %lu", HotRanges->hot_ranges_.size());
   if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
     status = Status::IOError("Deleting DB during compaction");
   }
@@ -3367,14 +4702,14 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
   if (status.ok() && compact->builder != nullptr) {
     status = FinishCompactionOutputFile(compact, input);
     if (!status.ok()) {
-      Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error finishing last compaction output file: %s", status.ToString().c_str());
+      Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
     }
   }
 
   if (status.ok() && compact->hot_builder != nullptr) {
     status = FinishCompactionOutputFile(compact, input, true);
     if (!status.ok()) {
-      Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error finishing last compaction output file: %s", status.ToString().c_str());
+      Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
     }
   }
 
@@ -3386,6 +4721,8 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
 
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
 
     for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
@@ -3398,6 +4735,20 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
   }
 
   mutex_.Lock();
+
+  for (auto& s : local_range_boundaries) {
+    range_boundaries.push_back(std::move(s));
+  }
+
+  for (size_t i = 1; i < range_boundaries.size(); i += 2) {
+    hot_range new_hot_range ( 
+      range_boundaries[i-1].data(), 
+      range_boundaries[i-1].size(),
+      range_boundaries[i].data(),   
+      range_boundaries[i].size() 
+    );
+    HotRanges->hot_ranges_.insert(new_hot_range);
+  }
 
   if (has_range && sequence_of_each_key > hot_key_threshold) {
     range_boundaries.push_back(key_queues.back());
@@ -3435,38 +4786,43 @@ Status DBImpl::DoCompactionWork(CompactionState* compact, bool merge_small_range
     }
   }
 
+  Log(options_.leveling_compaction_info_log, "We have already executed %d operations!\n", i);
+  Log(options_.leveling_compaction_info_log, "Range size %lu in partition %lu", HotRanges->hot_ranges_.size(), compact->compaction->partition_num());
+
   stats_[compact->compaction->level() + 1].Add(stats);
   level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
+  
+  // if (status.ok()) {
+  //   if(compact->compaction->level()==0 && !compact->compaction->is_merge_compaction()){
+  //     status = CreateL1PartitionAndInstallCompactionResults(compact);
+  //   }else {
+  //     status = InstallCompactionResults(compact);
+  //   }
 
-  if (status.ok()) {
-    if( compact->compaction->level()==0 && !compact->compaction->is_merge_compaction()){
-      status = CreateL1PartitionAndInstallCompactionResults(compact);
-    }else {
-      status = InstallCompactionResults(compact);
-    }
+  //   // if(compact->hot_builder != nullptr){}
+  //   if (status.ok()) {
+  //     Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error installing from L%d to L%d compaction results: %s",
+  //     compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
+  //   }
+  // } 
+  // if (!status.ok()) {
+  //   RecordBackgroundError(status);
+  // }
+  // VersionSet::LevelSummaryStorage tmp;
+  // Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
 
-    if(compact->hot_builder != nullptr){}
-    
-    if (!status.ok()) {
-      Log(options_.leveling_compaction_info_log, "DoCompactionWork: Error installing from L%d to L%d compaction results: %s",
-        compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
-    }
-  } 
-  if (!status.ok()) {
-    RecordBackgroundError(status);
-  }
-  VersionSet::LevelSummaryStorage tmp;
-  Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  config::kInitialPartitionLevelingCompactionTrigger = 12;
-
+  config::kInitialPartitionLevelingCompactionTrigger = 24;
+  pending_tasks_.fetch_add(-1);
+  // fprintf(stderr,"one task is finished! the pending_tasks_:%d time consumed: %.3f \n",pending_tasks_.load(),stats.total_micros/1e6 );
+  mutex_.Unlock();
   return status;
 }
 
-Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
+Status DBImpl::Do_L0CompactionWork_Without_Identification(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
-
+  mutex_.Lock();
   new_LeveldataStats new_compact_statistics;
   Log(options_.leveling_info_log, "[Partition Leveling: Partition %lu]Compacting %d@%d + %d@%d files",
       compact->compaction->partition_num(),
@@ -3553,8 +4909,9 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
+
     // Prioritize immutable compaction work
-    if (has_imm_.load(std::memory_order_relaxed)) {
+    if (compact->thread==0 && has_imm_.load(std::memory_order_relaxed) ) {
       const uint64_t imm_start = env_->NowMicros();
       mutex_.Lock();
       if (imm_ != nullptr) {
@@ -3580,7 +4937,7 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
           break;
         }
         if(output_key){
-          Log(options_.leveling_info_log, "DoCompactionWork: finishing compaction output file: %s key: %s", status.ToString().c_str(), key.data());
+          Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: finishing compaction output file: %s key: %s", status.ToString().c_str(), key.data());
         }
         compact->L1_partitions_.emplace_back(current_partition->partition_num);
       }
@@ -3594,7 +4951,7 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
     // if (compact->compaction->ShouldStopBefore(key) &&
     //     compact->builder != nullptr) {
     //   status = FinishCompactionOutputFile(compact, input);
-    //   Log(options_.leveling_info_log, "DoCompactionWork: finished compaction output file: %s", status.ToString().c_str());
+    //   Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: finished compaction output file: %s", status.ToString().c_str());
     //   if (!status.ok()) {
     //     break;
     //   }
@@ -3621,7 +4978,7 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
       if (last_sequence_for_key <= compact->smallest_snapshot) {
         // Hidden by an newer entry for same user key
         drop = true;  // (A)
-        Log(options_.leveling_compaction_info_log, "Key %s is hidden by a newer entry", ikey.user_key.ToString().c_str());
+        // Log(options_.leveling_compaction_info_log, "Key %s is hidden by a newer entry", ikey.user_key.ToString().c_str());
       } else if (ikey.type == kTypeDeletion &&
                  ikey.sequence <= compact->smallest_snapshot &&
                  compact->compaction->IsBaseLevelForKey(ikey.user_key)) {
@@ -3633,7 +4990,7 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
         //     few iterations of this loop (by rule (A) above).
         // Therefore this deletion marker is obsolete and can be dropped.
         drop = true;
-        Log(options_.leveling_compaction_info_log, "Key %s is a deletion marker and can be dropped", ikey.user_key.ToString().c_str());
+        // Log(options_.leveling_compaction_info_log, "Key %s is a deletion marker and can be dropped", ikey.user_key.ToString().c_str());
       }
 
       last_sequence_for_key = ikey.sequence;
@@ -3653,9 +5010,9 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
       // Open output file if necessary
       if (compact->builder == nullptr) {
         status = OpenCompactionOutputFile(compact);
-        // Log(options_.leveling_info_log, "DoCompactionWork: Open compaction output file: %s", status.ToString().c_str());
+        // Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Open compaction output file: %s", status.ToString().c_str());
         if (!status.ok()) {
-          Log(options_.leveling_info_log, "DoCompactionWork: Error opening compaction output file: %s", status.ToString().c_str());
+          Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error opening compaction output file: %s", status.ToString().c_str());
           break;
         }
       }
@@ -3676,15 +5033,15 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
   }
 
   if (status.ok() && compact->builder != nullptr) {
-    Log(options_.leveling_info_log, "DoCompactionWork: Finishing last compaction output file");
+    Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Finishing last compaction output file");
     status = FinishCompactionOutputFile(compact, input);
     if (!status.ok()) {
-      Log(options_.leveling_info_log, "DoCompactionWork: Error finishing last compaction output file: %s", status.ToString().c_str());
+      Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
     }
     compact->L1_partitions_.emplace_back(current_partition->partition_num);
   }
   if (status.ok()) {
-    Log(options_.leveling_info_log, "DoCompactionWork: we need to execute input->status(), last status: %s", status.ToString().c_str());
+    Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: we need to execute input->status(), last status: %s", status.ToString().c_str());
     status = input->status();
   }
   delete input;
@@ -3692,6 +5049,8 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
 
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
 
     for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
@@ -3708,21 +5067,23 @@ Status DBImpl::DoL0CompactionWork(CompactionState* compact) {
   level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
   level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
 
-  if (status.ok()) {
-    
-    status = InstallCompactionResults(compact);
-    if (!status.ok()) {
-      Log(options_.leveling_info_log, "DoCompactionWork: Error installing from L%d to L%d compaction results: %s",
-        compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
-    }
-  } else {
-    Log(options_.leveling_info_log, "DoCompactionWork: Error during compaction: %s", status.ToString().c_str());
-  }
-  if (!status.ok()) {
-    RecordBackgroundError(status);
-  }
-  VersionSet::LevelSummaryStorage tmp;
-  Log(options_.leveling_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  // if (status.ok()) { 
+  //   status = InstallCompactionResults(compact);
+  //   if (!status.ok()) {
+  //     Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error installing from L%d to L%d compaction results: %s",
+  //       compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
+  //   }
+  // } else {
+  //   Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error during compaction: %s", status.ToString().c_str());
+  // }
+  // if (!status.ok()) {
+  //   RecordBackgroundError(status);
+  // }
+  // VersionSet::LevelSummaryStorage tmp;
+  // Log(options_.leveling_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  pending_tasks_.fetch_add(-1);
+  // fprintf(stderr,"one task is finished! the pending_tasks_:%d\n",pending_tasks_.load());
+  mutex_.Unlock();
   return status;
 }
 
@@ -4630,19 +5991,23 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // There is room in current memtable
       break;
     } else if (imm_ != nullptr || hot_imm_ != nullptr) {
+      
       // We have filled up the current memtable, but the previous
       // one is still being compacted, so we wait.
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
+
     } else if (versions_->Num_Level_maxPartitionleveling_Files(0) >= config::kInitialPartitionLevelingCompactionTrigger ) {
       // There are too many level-0 leveling files.
       Log(options_.info_log, "Too many L0 leveling files; waiting...\n");
       background_work_finished_signal_.Wait();
+
     }else if (versions_->Num_Level_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
       // There are too many level-0 tiering files.
       Log(options_.info_log, "Too many L0 tiering files; waiting... NumLevel_tiering_Files = %d, kTiering_and_leveling_Multiplier = %d\n",
           versions_->Num_Level_tiering_Files(0), config::kTiering_and_leveling_Multiplier);
       background_work_finished_signal_.Wait();
+
     } else {
       // Attempt to switch to a new memtable and trigger compaction of old
       assert(versions_->PrevLogNumber() == 0);
@@ -4809,11 +6174,11 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
     // I modified this part for print more details of a whole LSM
     double user_io = 0;
     double total_io = 0;
-    char buf[300];
+    char buf[350];
     fprintf(stderr, "all identification time:%f\n",identifier_time/1e6);
     std::snprintf(buf, sizeof(buf),
                   "                               Compactions\n"
-                  "Level Files(Tier) Size(M) Time(s) Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b\n"
+                  "Level Files(Tier) Size(M) Tiering-leveling-Time(s)Master Read(L) Read(T) Write(L) Write(T) m_comp si_comp(Tiering) ifile(Tiering) pfile(Tiering) se_comp(Tiering) ifiles(Tiering) pfiles(Tiering) comps triv_move t_last_b t_next_b\n"
                   "--------------------------------------------------\n");
     value->append(buf);
     for (int level = 0; level < config::kNumLevels; level++) {
@@ -4825,9 +6190,10 @@ bool DBImpl::GetProperty_with_whole_lsm(const Slice& property, std::string* valu
       int tierfiles = versions_->Num_Level_tiering_Files(level);
       if (stats_[level].micros > 0 || files > 0 || tierfiles >0) {
         std::vector<int> percents = GetLevelPercents();
-        std::snprintf(buf, sizeof(buf), "%5d %5d(%4d) %7.0f %7.0f %7.0f %7.0f %8.0f %8.0f %6d %7d(%7d) %5d(%7d) %5d(%7d) %7d(%7d) %6d(%7d) %6d(%7d) %5d %9d %8.0f %8.0f\n",
-                      level, files,tierfiles, versions_->NumLevelBytes(level) / 1048576.0,
-                      stats_[level].micros / 1e6,
+        std::snprintf(buf, sizeof(buf), "%5d %5d(%4d) %7.0f %7.0f,%7.f,(%6.0f) %5.0f %7.0f %7.0f %8.0f %8.0f %6d %7d(%7d) %5d(%7d) %5d(%7d) %7d(%7d) %6d(%7d) %6d(%7d) %5d %9d %8.0f %8.0f\n",
+                      level, files,tierfiles, versions_->TotalLevelBytes(level) / 1048576.0,
+                      stats_[level].micros / 1e6, stats_[level].tiering_micros / 1e6, stats_[level].total_micros / 1e6, 
+                      stats_[level].master_thread_time_consumption,
                       level_stats_[level].leveling_bytes_read / 1048576.0,
                       level_stats_[level].tiering_bytes_read / 1048576.0,            
                       level_stats_[level].leveling_bytes_written / 1048576.0,

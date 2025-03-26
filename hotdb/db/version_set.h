@@ -83,7 +83,6 @@ class Version {
 
   void AddTieringIterators(const ReadOptions&, std::vector<Iterator*>* iters);
 
-
   void AddIterators(uint64_t parent_partition, uint64_t sub_partition, const ReadOptions&, std::vector<Iterator*>* iters);
 
   // Lookup the value for key.  If found, store it in *val and
@@ -310,6 +309,8 @@ class VersionSet {
   // Return the combined file size of all files at the specified level.
   int64_t NumLevelBytes(int level) const;
 
+  int64_t TotalLevelBytes(int level) const;
+
   // Return the last sequence number.
   uint64_t LastSequence() const { return last_sequence_; }
 
@@ -340,6 +341,14 @@ class VersionSet {
   // Otherwise returns a pointer to a heap-allocated object that
   // describes the compaction.  Caller should delete the result.
   void PickCompaction(std::vector<Compaction*>& leveling_compactions, TieringCompaction** tiering_compaction);
+
+  void PickCompaction(TieringCompaction** tiering_compaction);
+
+
+  // Pick level and inputs for a new compaction in Partitioning leveling.
+  // Returns nullptr if there is no compaction to be done. Otherwise returns a pointer to a heap-allocated object that
+  // describes the compaction.  Caller should delete the result.
+  void PickCompaction(std::vector<Compaction*>& leveling_compactions);
 
   void RePickCompaction(Compaction* leveling_compactions, std::vector<uint64_t>&);
 
@@ -377,12 +386,19 @@ class VersionSet {
  */
   bool NeedsCompaction() const {
     Version* v = current_;
-    return (v->compaction_score_ >= 1.00) || (v->tieirng_compaction_score_ >= 1.00);
+    return v->compaction_score_ >= 1.00;
+  }
+
+  bool NeedsTieringCompaction() const {
+    Version* v = current_;
+    return v->tieirng_compaction_score_ >= 1.00;
   }
 
   // Add all files listed in any live version to *live.
   // May also mutate some internal state.
-  void AddLiveFiles(std::set<uint64_t>* live, bool is_leveling);
+  void AddLiveFiles(std::set<uint64_t>* live);
+
+  void AddLiveHotFiles(std::set<uint64_t>* live);
 
   // Return the approximate offset in the database of the data for
   // "key" as of version "v".
@@ -524,6 +540,10 @@ class Compaction {
 
   void AddL0MergePartitionInputDeletions( VersionEdit* edit);
 
+  void AddPartitionInputDeletions(Compaction* finshed_compactions, uint64_t partition_num, VersionEdit* edit);
+
+  void AddL0MergePartitionInputDeletions(Compaction* finshed_compactions, VersionEdit* edit);
+
   void AddTieringInputDeletions(VersionEdit* edit);
 
   // Returns true if the information we have available guarantees that
@@ -538,6 +558,19 @@ class Compaction {
   // Release the input version for the compaction, once the compaction
   // is successful.
   void ReleaseInputs();
+
+  void PrintInputVersion() const {
+    // 获取当前线程 ID 方便调试输出
+    pthread_t tid = pthread_self();
+    if (input_version_ == nullptr) {
+      fprintf(stderr, "DEBUG: [Thread %lu] Compaction input_version_ is nullptr.\n",
+              (unsigned long)tid);
+    } else {
+      fprintf(stderr, "DEBUG: [Thread %lu] Compaction input_version_ is %p, refs = %d\n",
+              (unsigned long)tid, (void*)input_version_, input_version_->refs_);
+    }
+  }
+
 
   //  ~~~~~~~~~~~~~~~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~~~~~~~~~~~~~~~
   int get_compaction_type();

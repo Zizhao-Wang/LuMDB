@@ -68,15 +68,13 @@ static double MaxBytesForLevel(const Options* options, int level) {
   // the level-0 compaction threshold based on number of files.
 
   // Result for both level-0 and level-1
-  double result = 10. * 1048576.0;
+  double result = 100. * 1048576.0;
   while (level > 1) {
     result *= 10;
     level--;
   }
   return result;
 }
-
-
 
 static uint64_t MaxFileSizeForLevel(const Options* options, int level) {
   // We could vary per level to reduce number of files?
@@ -388,11 +386,19 @@ static Iterator* GetFileIterator(void* arg, const ReadOptions& options,
                                  const Slice& file_value) {
   TableCache* cache = reinterpret_cast<TableCache*>(arg);
   if (file_value.size() != 16) {
-    return NewErrorIterator(
-        Status::Corruption("FileReader invoked with unexpected value"));
+    return NewErrorIterator(Status::Corruption("FileReader invoked with unexpected value"));
   } else {
-    return cache->NewIterator(options, DecodeFixed64(file_value.data()),
-                              DecodeFixed64(file_value.data() + 8));
+    return cache->NewIterator(options, DecodeFixed64(file_value.data()),DecodeFixed64(file_value.data() + 8));
+  }
+}
+
+static Iterator* GetFileIteratorHot(void* arg, const ReadOptions& options,
+                                 const Slice& file_value) {
+  TableCache* cache = reinterpret_cast<TableCache*>(arg);
+  if (file_value.size() != 16) {
+    return NewErrorIterator(Status::Corruption("FileReader invoked with unexpected value"));
+  } else {
+    return cache->NewIterator(options, DecodeFixed64(file_value.data()),DecodeFixed64(file_value.data() + 8), true);
   }
 }
 
@@ -407,7 +413,7 @@ Iterator* Version::NewConcatenatingIterator(const ReadOptions& options,
 Iterator* Version::NewTieringConcatenatingIterator(const ReadOptions& options,
                                             int level, int run) const {
   return NewTwoLevelIterator(
-      new LevelFileNumIterator(vset_->icmp_, &tiering_runs_[level].at(run)), &GetFileIterator,
+      new LevelFileNumIterator(vset_->icmp_, &tiering_runs_[level].at(run)), &GetFileIteratorHot,
       vset_->table_cache_, options);
 }
 
@@ -443,7 +449,7 @@ void Version::AddTieringIterators(const ReadOptions& options,
 
   for (size_t i = 0; i < tiering_runs_[0][0].size(); i++) {
     iters->push_back(vset_->table_cache_->NewIterator(
-        options, tiering_runs_[0][0][i]->number, tiering_runs_[0][0][i]->file_size));
+        options, tiering_runs_[0][0][i]->number, tiering_runs_[0][0][i]->file_size, true));
   }
 
   // For levels > 0, we can use a concatenating iterator that sequentially
@@ -933,6 +939,10 @@ void Version::Ref()
 }
 
 void Version::Unref() {
+  // pthread_t tid = pthread_self();
+  // 输出调试信息：打印当前对象地址、dummy_versions_ 的地址、以及当前引用计数
+  // fprintf(stderr, "DEBUG: [Thread %lu] : Unref called on Version %p, dummy_versions_=%p, current refs=%d\n",
+  //         tid, (void*)this, (void*)&vset_->dummy_versions_, refs_);
   assert(this != &vset_->dummy_versions_);
   assert(refs_ >= 1);
   --refs_;
@@ -1916,21 +1926,28 @@ VersionSet::~VersionSet() {
 
 void VersionSet::AppendVersion(Version* v) {
   // Make "v" current
+  // pthread_t tid = pthread_self();
+  // fprintf(stderr, "DEBUG: [Thread %lu] Entering AppendVersion with Version v=%p, current_=%p, initial v->refs_=%d\n",
+  //   (unsigned long)tid, (void*)v, (void*)current_, v->refs_);
   assert(v->refs_ == 0);
   assert(v != current_);
   if (current_ != nullptr) {
+    // fprintf(stderr, "DEBUG: [Thread %lu] Current version is %p, calling Unref on it\n", 
+    //         (unsigned long)tid, (void*)current_);
     current_->Unref();
   }
   current_ = v;
   v->Ref();
-  // fprintf(stdout, "we have created a new Version %p, Ref count = %d\n",
-  //               static_cast<void*>(v), v->refs_);
+  // fprintf(stderr, "DEBUG: [Thread %lu] Set new current version v=%p, new Ref count=%d\n",
+  //         (unsigned long)tid, (void*)v, v->refs_);
 
   // Append to linked list
   v->prev_ = dummy_versions_.prev_;
   v->next_ = &dummy_versions_;
   v->prev_->next_ = v;
   v->next_->prev_ = v;
+  // fprintf(stderr, "DEBUG: [Thread %lu] Appended Version v=%p into the linked list\n",
+  //         (unsigned long)tid, (void*)v);
   // 统计当前链表中的 Version 数量
   int version_count = 0;
   Version* current = dummy_versions_.next_;
@@ -1938,10 +1955,14 @@ void VersionSet::AppendVersion(Version* v) {
     version_count++;
     current = current->next_;
   }
+  
   // fprintf(stdout, "Now we have %d versions in the linked list\n", version_count);
 }
 
 Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
+  // pthread_t tid = pthread_self();
+  // fprintf(stderr, "DEBUG: [Thread %lu] Entering VersionSet::LogAndApply, edit=%p\n", (unsigned long)tid, edit);
+
   if (edit->has_log_number_) {
     assert(edit->log_number_ >= log_number_);
     // 没有在处理前面的日志文件
@@ -1958,6 +1979,7 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
   edit->SetLastSequence(last_sequence_);
 
   Version* v = new Version(this);
+  // fprintf(stderr, "DEBUG: [Thread %lu] Created new Version v at %p\n", (unsigned long)tid, (void*)v);
   {
     Builder builder(this, current_);
     bool is_tiering = edit->get_is_tiering();
@@ -1968,8 +1990,10 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
       builder.Apply(edit);
       builder.SaveTo(v);
     }
+    // fprintf(stderr, "DEBUG: [Thread %lu] Builder applied edit and saved to Version v at %p\n", (unsigned long)tid, (void*)v);
   }
   Finalize(v);
+  // fprintf(stderr, "DEBUG: [Thread %lu] Finalized Version v at %p\n", (unsigned long)tid, (void*)v);
 
   // Initialize new descriptor log file if necessary by creating
   // a temporary file that contains a snapshot of the current version.
@@ -1991,6 +2015,7 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
 
   // Unlock during expensive MANIFEST log write
   {
+    // fprintf(stderr, "DEBUG: [Thread %lu] Unlocking mutex for MANIFEST log write\n", (unsigned long)tid);
     mu->Unlock();
 
     // Write new record to MANIFEST log
@@ -2020,6 +2045,8 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
     AppendVersion(v);
     log_number_ = edit->log_number_;
     prev_log_number_ = edit->prev_log_number_;
+    // fprintf(stderr, "DEBUG: [Thread %lu] Installed new Version v at %p, updated log_number=%llu, prev_log_number=%llu\n",
+    //   (unsigned long)tid, (void*)v, (unsigned long long)log_number_, (unsigned long long)prev_log_number_);
   } else {
     delete v;
     if (!new_manifest_file.empty()) {
@@ -2030,7 +2057,8 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
       env_->RemoveFile(new_manifest_file);
     }
   }
-
+  // fprintf(stderr, "DEBUG: [Thread %lu] Exiting VersionSet::LogAndApply with status: %s\n",
+  //         (unsigned long)tid, s.ToString().c_str());
   return s;
 }
 
@@ -2341,7 +2369,6 @@ void VersionSet::Finalize(Version* v) {
         static_cast<unsigned long long>(total_size),
         static_cast<unsigned long long>(max_capacity));
   }
-
 
   // for tiering part
   for (int level = 0; level < config::kNumLevels - 1; level++) {
@@ -2687,22 +2714,14 @@ uint64_t VersionSet::ApproximateOffsetOf(Version* v, const InternalKey& ikey) {
  * @param live A pointer to a set that will be populated with the numbers
  *             of all live files.
  */
-void VersionSet::AddLiveFiles(std::set<uint64_t>* live, bool is_leveling) {
+void VersionSet::AddLiveFiles(std::set<uint64_t>* live) {
   for (Version* v = dummy_versions_.next_; v != &dummy_versions_; v = v->next_) {
     for (int level = 0; level < config::kNumLevels; level++) {
-      
-      if(is_leveling){
-        Log(options_->leveling_info_log, "Version %p", static_cast<void*>(v));
-      }else{
-        Log(options_->info_log, "Version %p", static_cast<void*>(v));
-      }
-
+      Log(options_->leveling_info_log, "Version %p", static_cast<void*>(v));
       for (const auto& partition_pair : v->partitioning_leveling_files_[level]) {
         uint64_t partition_id = partition_pair.first;
         const std::vector<FileMetaData*>& leveling_files = partition_pair.second;
-        if(is_leveling){
-          Log(options_->leveling_info_log, "  Level %d, Partition %llu: %zu files", level, (unsigned long long)partition_id, leveling_files.size());
-        }    
+        Log(options_->leveling_info_log, "  Level %d, Partition %llu: %zu files", level, (unsigned long long)partition_id, leveling_files.size());
         for (size_t i = 0; i < leveling_files.size(); i++) {
           live->insert(leveling_files[i]->number);
           // Log(options_->info_log, "    Leveling File #%llu, size: %llu",
@@ -2710,14 +2729,22 @@ void VersionSet::AddLiveFiles(std::set<uint64_t>* live, bool is_leveling) {
           // (unsigned long long)leveling_files[i]->file_size);
         }
       }
+    }
+  }
+  Log(options_->leveling_info_log, "\n\n");
+}
+
+
+void VersionSet::AddLiveHotFiles(std::set<uint64_t>* live) {
+  for (Version* v = dummy_versions_.next_; v != &dummy_versions_; v = v->next_) {
+    for (int level = 0; level < config::kNumLevels; level++) {
+      Log(options_->info_log, "Version %p", static_cast<void*>(v));
 
       // Process tiering files in each run
       for (const auto& run_pair : v->tiering_runs_[level]) {
         int run = run_pair.first;
         const std::vector<FileMetaData*>& tiering_files = run_pair.second;
-        if(!is_leveling){
-          Log(options_->info_log, "  Level %d (tiering, run %d): %zu files", level, run, tiering_files.size());
-        } 
+        Log(options_->info_log, "  Level %d (tiering, run %d): %zu files", level, run, tiering_files.size());
         for (size_t i = 0; i < tiering_files.size(); i++) {
           live->insert(tiering_files[i]->number);
           // Log(options_->info_log, "    Tiering File #%llu, size: %llu",
@@ -2731,11 +2758,26 @@ void VersionSet::AddLiveFiles(std::set<uint64_t>* live, bool is_leveling) {
 }
 
 
-
 int64_t VersionSet::NumLevelBytes(int level) const {
   assert(level >= 0);
   assert(level < config::kNumLevels);
   return TotalFileSize(current_->leveling_files_[level]);
+}
+
+int64_t VersionSet::TotalLevelBytes(int level) const {
+  assert(level >= 0);
+  assert(level < config::kNumLevels);
+  ino64_t level_bytes=0;
+
+  for (const auto& partition : current_->partitioning_leveling_files_[level]) {
+    level_bytes += TotalFileSize(partition.second);
+  }
+
+  for (const auto& partition : current_->tiering_runs_[level]) {
+    level_bytes += TotalFileSize(partition.second);
+  }
+
+  return level_bytes;
 }
 
 int64_t VersionSet::MaxNextLevelOverlappingBytes() {
@@ -2799,6 +2841,9 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
   // we will make a concatenating iterator per level.
   // TODO(opt): use concatenating iterator for level-0 if there is no overlap
   const int space = (c->level() == 0 ? c->inputs_[0].size() + c->inputs_[1].size() : (c->level() == 1 ? c->inputs_[0].size() + 1 : 2));
+  // fprintf(stderr, "The space is: %d, inputs_[0] size = %zu, inputs_[1] size = %zu, level = %d partition=%lu \n",
+  //       space, c->inputs_[0].size(), c->inputs_[1].size(), c->level(),c->partition_num());
+
   Iterator** list = new Iterator*[space];
   int num = 0;
   for (int which = 0; which < 2; which++) {
@@ -2806,8 +2851,12 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
       if (c->level() + which <= 1) {
         const std::vector<FileMetaData*>& files = c->inputs_[which];
         for (size_t i = 0; i < files.size(); i++) {
+          // 输出相关变量信息：table_cache_、options、文件指针、number 和 file_size
+          // fprintf(stderr,"Debug: table_cache_ = %p, options = %p, files[%zu] = %p, number = %llu, file_size = %llu\n",
+          //   (void*)table_cache_,(void*)&options, i,(void*)files[i],(unsigned long long)files[i]->number,(unsigned long long)files[i]->file_size);
           list[num++] = table_cache_->NewIterator(options, files[i]->number,
                                                   files[i]->file_size);
+
         }
       } else {
         // Create concatenating iterator for the files from this level
@@ -2839,14 +2888,13 @@ Iterator* VersionSet::MakeTieringInputIterator(TieringCompaction* c) {
       if (c->level() + which == 0) {
         const std::vector<FileMetaData*>& files = c->tiering_inputs_[which];
         for (size_t i = 0; i < files.size(); i++) {
-          list[num++] = table_cache_->NewIterator(options, files[i]->number,
-                                                  files[i]->file_size);
+          list[num++] = table_cache_->NewIterator(options, files[i]->number, files[i]->file_size,true);
         }
       } else {
         // Create concatenating iterator for the files from this level
         list[num++] = NewTwoLevelIterator(
             new Version::LevelFileNumIterator(icmp_, &c->tiering_inputs_[which]),
-            &GetFileIterator, table_cache_, options);
+            &GetFileIteratorHot, table_cache_, options);
       }
     }
   }
@@ -3037,6 +3085,147 @@ void VersionSet::CreateCompactionForPartitionLeveling(std::vector<Compaction*>& 
 
 }
 
+
+// ========== PL-PickCompaction: Partitioning Leveling Version =========
+// This function handles the compaction decision for partitioning leveling (PL). 
+// It checks whether a compaction should be triggered based on the current state
+// of the compaction score and whether there is a file to compact for leveling.
+void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions) {
+
+  bool leveling_size_compaction = (current_->compaction_score_ >= 1.00);
+  bool leveling_seek_compaction = (current_->file_to_compact_in_leveling != nullptr);
+
+  Log(options_->info_log, "PL-PickCompaction: leveling_size_compaction=%d, leveling_seek_compaction=%d", leveling_size_compaction, leveling_seek_compaction);
+
+  if(leveling_size_compaction ){
+    CreateCompactionForPartitionLeveling(leveling_compactions);
+  }else if(leveling_seek_compaction){
+  }else {
+    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~
+    Log(options_->info_log, "PL-PickCompaction: no compaction needed"); 
+    return ;
+    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
+  }
+
+  if(!leveling_compactions.empty()){
+    for(int i=0; i<leveling_compactions.size(); i++){
+      InternalKey smallest, largest;
+
+      leveling_compactions[i]->input_version_ = current_;
+      leveling_compactions[i]->input_version_->Ref();
+      // fprintf(stdout, "Ref added for Leveling_compaction: Version %p, Ref count = %d\n", 
+      //       static_cast<void*>(current_), current_->refs_);
+      
+
+      if(leveling_compactions[i]->level_ == 0 || leveling_compactions[i]->level_ == 1){
+        GetRange(leveling_compactions[i]->inputs_[0], &smallest, &largest);
+        current_->GetOverlappingInputs(leveling_compactions[i]->level_, &smallest, &largest, &leveling_compactions[i]->inputs_[0], leveling_compactions[i]->partition_num());
+        assert(!leveling_compactions[i]->inputs_[0].empty());
+      }
+
+      Log(options_->leveling_info_log, "PL-PickCompaction: level %d compaction - smallest=%s, largest=%s",leveling_compactions[i]->level_, smallest.DebugString().c_str(), largest.DebugString().c_str());
+      if(leveling_compactions[i]->level_ > 0){
+        SetupOtherInputs(leveling_compactions[i]);
+      }
+    }
+  }
+  return ;
+}
+
+void VersionSet::PickCompaction(TieringCompaction** tiering_compaction) {
+
+  bool leveling_size_compaction = (current_->compaction_score_ >= 1.00);
+  bool tiering_size_compaction  = (current_->tieirng_compaction_score_ >= 1.00);
+  bool leveling_seek_compaction = (current_->file_to_compact_in_leveling != nullptr);
+  bool tiering_seek_compaction  = (current_->file_to_compact_in_tiering != nullptr);
+
+  Log(options_->info_log, "PickCompaction: Address of tiering_compaction pointer: %p", (void*)tiering_compaction);
+  Log(options_->info_log, "PickCompaction: Address stored in tiering_compaction: %p", (void*)*tiering_compaction);
+
+
+  Log(options_->info_log, "PickCompaction: leveling_size_compaction=%d, tiering_size_compaction=%d, leveling_seek_compaction=%d, tiering_seek_compaction=%d",
+    leveling_size_compaction, tiering_size_compaction, leveling_seek_compaction, tiering_seek_compaction);
+
+  Log(options_->leveling_info_log, "PickCompaction: leveling_size_compaction=%d, tiering_size_compaction=%d, leveling_seek_compaction=%d, tiering_seek_compaction=%d",
+    leveling_size_compaction, tiering_size_compaction, leveling_seek_compaction, tiering_seek_compaction);
+
+  if(tiering_size_compaction){
+     
+
+    if(tiering_size_compaction){
+      int tier_level = current_->tiering_compaction_level_;
+      (*tiering_compaction) = new TieringCompaction(options_, tier_level);
+
+      // Log new pointer address
+      Log(options_->info_log, "PickCompaction: New address stored in tiering_compaction: %p", (void*)*tiering_compaction);
+
+
+      int oldest_compaction_pointer = -1;
+      int selected_run_in_input_level1 = -1;
+
+      for (const auto& entry : tiering_compact_pointer_[tier_level]) {
+        if (entry.second > oldest_compaction_pointer) {
+          oldest_compaction_pointer = entry.second;
+          selected_run_in_input_level1 = entry.first;
+        }
+      }
+
+      (*tiering_compaction)->tiering_inputs_[0].push_back(current_->tiering_runs_[tier_level][selected_run_in_input_level1][oldest_compaction_pointer]);
+      (*tiering_compaction)->selected_run_in_input_level = selected_run_in_input_level1;
+      (*tiering_compaction)->set_tiering();
+      FileMetaData* selected_file = current_->tiering_runs_[tier_level][selected_run_in_input_level1][oldest_compaction_pointer];
+
+      // Consolidated log output
+      Log(options_->info_log, "Tiering compaction: level=%d, run=%d, file_number=%llu, file_size=%llu, selected run in input level: %d, oldest compaction pointer: %d",
+        tier_level, selected_run_in_input_level1, 
+        (unsigned long long)selected_file->number, 
+        (unsigned long long)selected_file->file_size,
+        selected_run_in_input_level1, oldest_compaction_pointer);
+
+      (*tiering_compaction)->compaction_type = 1;
+    }else{
+      *tiering_compaction = nullptr;
+    }
+  }else if(tiering_seek_compaction ){
+    // If the tiering part also needs to be compressed, merge the tiering files.
+    int level = current_->file_to_compact_level_in_leveling;
+    (*tiering_compaction) = new TieringCompaction(options_, level);
+    (*tiering_compaction)->inputs_[0].push_back(current_->file_to_compact_in_leveling);
+    Log(options_->info_log, "PickCompaction: seek_compaction - level=%d", level);
+    (*tiering_compaction)->compaction_type = 2;
+  }else {
+    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~
+    Log(options_->info_log, "PickCompaction: no compaction needed"); 
+    return ;
+    // ~~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~~ 
+  }
+  
+  if((*tiering_compaction) != nullptr){
+    
+    (*tiering_compaction)->input_version_ = current_;
+    (*tiering_compaction)->input_version_->Ref();
+    // fprintf(stdout, "Ref added for tiering_compaction: Version %p, Ref count = %d\n", 
+    //         static_cast<void*>(current_), current_->refs_);
+
+    if((*tiering_compaction)->level_ == 0){
+      InternalKey smallest, largest;
+      GetRange((*tiering_compaction)->tiering_inputs_[0], &smallest, &largest);
+      current_->GetOverlappingInputsWithTier(0, &smallest, &largest, &(*tiering_compaction)->tiering_inputs_[0], (*tiering_compaction)->selected_run_in_input_level);
+      assert(!(*tiering_compaction)->tiering_inputs_[0].empty());
+      Log(options_->info_log, "PickCompaction: Tiering level 0 compaction - smallest=%s, largest=%s", smallest.DebugString().c_str(), largest.DebugString().c_str());
+    }
+    SetupOtherInputsWithTier((*tiering_compaction));
+  }
+
+  return ;
+}
+
+
+// Pick level and inputs for a new compaction.
+// Returns nullptr if there is no compaction to be done.
+// Otherwise returns a pointer to a heap-allocated object that
+// describes the compaction.  Caller should delete the result.
+
 void VersionSet::RePickCompaction(Compaction* leveling_compaction, std::vector<uint64_t>& merge_and_deletes){
   leveling_compaction->set_partition_num(merge_and_deletes.back());
   leveling_compaction->inputs_[0].clear();
@@ -3066,7 +3255,6 @@ void VersionSet::RePickCompaction(Compaction* leveling_compaction, std::vector<u
   leveling_compaction->set_merge_compaction();
   return ;
 }
-
 
 void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, TieringCompaction** tiering_compaction) {
 
@@ -3171,6 +3359,7 @@ void VersionSet::PickCompaction(std::vector<Compaction*>& leveling_compactions, 
       if(leveling_compactions[i]->level_ > 0){
         SetupOtherInputs(leveling_compactions[i]);
       }
+
     }
   }
   
@@ -3502,17 +3691,33 @@ void Compaction::AddInputDeletions(VersionEdit* edit) {
 void Compaction::AddPartitionInputDeletions(uint64_t partition_num, VersionEdit* edit) {
   for (int which = 0; which < 2; which++) {
     for (size_t i = 0; i < inputs_[which].size(); i++) {
-      edit->RemovePartitionFile( level_ + which,partition_num, inputs_[which][i]->number);
+      edit->RemovePartitionFile(level_ + which, partition_num, inputs_[which][i]->number);
+    }
+  }
+}
+void Compaction::AddL0MergePartitionInputDeletions(VersionEdit* edit) {
+  assert(is_small_merge_compaction_);
+  assert(inputs_[1].size() == 0);
+  for (size_t i = 0; i < inputs_[0].size(); i++) {
+    edit->RemovePartitionFile(level_ ,merged_partitions_[i], inputs_[0][i]->number);
+  }
+}
+
+// the edit can accept some deletions from finshed_compactions!
+void Compaction::AddPartitionInputDeletions(Compaction* finshed_compactions, uint64_t partition_num, VersionEdit* edit) {
+  for (int which = 0; which < 2; which++) {
+    for (size_t i = 0; i < finshed_compactions->inputs_[which].size(); i++) {
+      edit->RemovePartitionFile(level_ + which,partition_num, finshed_compactions->inputs_[which][i]->number);
     }
   }
 }
 
-void Compaction::AddL0MergePartitionInputDeletions(VersionEdit* edit) {
+// the edit can accept some deletions from finshed_compactions!
+void Compaction::AddL0MergePartitionInputDeletions(Compaction* finshed_compactions, VersionEdit* edit) {
   assert(is_small_merge_compaction_);
-  assert(inputs_[1].size() == 0);
-  
-  for (size_t i = 0; i < inputs_[0].size(); i++) {
-    edit->RemovePartitionFile(level_ ,merged_partitions_[i], inputs_[0][i]->number);
+  assert(finshed_compactions->inputs_[1].size() == 0);
+  for (size_t i = 0; i < finshed_compactions->inputs_[0].size(); i++) {
+    edit->RemovePartitionFile(level_ ,finshed_compactions->merged_partitions_[i], finshed_compactions->inputs_[0][i]->number);
   }
 }
 
@@ -3563,10 +3768,9 @@ bool Compaction::ShouldStopBefore(const Slice& internal_key) {
 
 void Compaction::ReleaseInputs() {
   if (input_version_ != nullptr) {
-
+    // fprintf(stdout, "Main thread try to Unref() called for leveling_compaction in leveling ReleaseInputs: Version %p, Ref count =\n",
+    //             (void*)input_version_);
     input_version_->Unref();
-    // fprintf(stdout, "Unref called for leveling_compaction in leveling ReleaseInputs: Version %p, Ref count = %d\n",
-    //             static_cast<void*>(input_version_), input_version_->refs_);
     input_version_ = nullptr;
   }
 }

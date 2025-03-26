@@ -5369,7 +5369,11 @@ class Benchmark {
           continue;
         }
 
-        if(row_data[4] =="get" || row_data[4] =="cas" || row_data[4] =="delete"){
+        if(i<=10){
+          fprintf(stdout,"the row_data[5] is:%s\n",row_data[5].c_str());
+        }
+
+        if(row_data[5] =="get" || row_data[5] =="cas" || row_data[5] =="delete"){
           continue;
         }
 

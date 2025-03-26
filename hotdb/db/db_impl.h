@@ -112,6 +112,23 @@ class DBImpl : public DB {
   struct TieringCompactionState;
   struct Writer;
 
+  // for multi threads
+  struct BGWorkArgs {
+    DBImpl* db;                  // 当前的 DBImpl 对象
+    CompactionState* compact;    // 传递给 compaction 接口的状态对象
+    Status* ret_status;          // 指向用于保存返回 Status 的指针
+    int i;
+  };
+
+
+  // for multi threads
+  struct BGTieringWorkArgs {
+    DBImpl* db;                  // 当前的 DBImpl 对象
+    TieringCompactionState* compact;    // 传递给 compaction 接口的状态对象
+    Status* ret_status;          // 指向用于保存返回 Status 的指针
+    int i;
+  };
+
   // Information for a manual compaction
   struct ManualCompaction {
     int level;
@@ -124,17 +141,25 @@ class DBImpl : public DB {
   // Per level compaction stats.  stats_[level] stores the stats for
   // compactions that produced data for the specified "level".
   struct CompactionStats {
-    CompactionStats() : micros(0), bytes_read(0), bytes_written(0){}
+    CompactionStats() : micros(0), bytes_read(0), bytes_written(0), tiering_micros(0), total_micros(0),master_thread_time_consumption(0.0),
+    worker_thread_time_consumption(0.0){}
 
     void Add(const CompactionStats& c) {
       this->micros += c.micros;
       this->bytes_read += c.bytes_read;
       this->bytes_written += c.bytes_written;
+      this->tiering_micros += c.tiering_micros;
+      this->total_micros += c.total_micros;
     }
 
     int64_t micros;
+    int64_t tiering_micros;
+    int64_t total_micros;
     int64_t bytes_read;
     int64_t bytes_written;
+
+    float master_thread_time_consumption;
+    float worker_thread_time_consumption;
   };
 
 
@@ -297,6 +322,7 @@ class DBImpl : public DB {
   // Delete any unneeded files and stale in-memory entries.
   void RemoveObsoleteFiles() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  // removing tiering files!
   void TieringRemoveObsoleteFiles() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Compact the in-memory write buffer to disk.  Switches to a new
@@ -339,15 +365,59 @@ class DBImpl : public DB {
   void RecordBackgroundError(const Status& s);
 
   void MaybeScheduleCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Static wrapper function: Schedules the compaction work asynchronously through env_->Schedule
+  // This function wraps the Do_CompactionWork_Without_Identification call
+  // Parameter arg: The task parameters wrapped in a struct, which includes DBImpl, CompactionState, and a status pointer
+  // The background task writes the result to the status pointer
+  static void BGWork_CompactionWork_Without_IdentificationWrapper(void* arg);
+
+  // Static wrapper function: Schedules the L0 compaction work asynchronously through env_->Schedule
+  // This function wraps the Do_L0CompactionWork_Without_Identification call
+  // Parameter arg: The task parameters wrapped in a struct, which includes DBImpl, CompactionState, and a status pointer
+  // The background task writes the result to the status pointer
+  static void BGWork_L0CompactionWork_Without_IdentificationWrapper(void* arg);
+
+  // Static wrapper function: Schedules the L0 compaction work asynchronously with hot-data identification through env_->Schedule
+  // This function wraps the Do_L0CompactionWork_With_Identification call
+  // Parameter arg: The task parameters wrapped in a struct, which includes DBImpl, CompactionState, and a status pointer
+  // The background task writes the result to the status pointer
+  static void BGWork_L0CompactionWork_With_IdentificationWrapper(void* arg);
+
+  static void BGWork_TieringCompactionWork_Wrapper(void* arg);
+
+  static void BGWork_CompactTieringCompactionWork_Wrapper(void* arg);
+
+  static void BGWork_CompactLevelingCompactionWork_Wrapper(void* arg);
+
   static void BGWork(void* db);
+
+  static void BGWorkHot(void* db);
+
+  static void BGWorkCold(void* db);
 
   static void AddDataBGWork(void* arg);
 
   void BackgroundCall();
 
+  void BackgroundCallHot();
+
+  void BackgroundCallCold();
+
   void BackgroundAddData(const Slice& key);
 
+
+
   void BackgroundCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  void BackgroundCompactionMultiThread() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void BackgroundCompactionSingleThread() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void BackgroundCompactionTwoThread()EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+
+  void BackgroundHotCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  void BackgroundColdCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void CleanupCompaction(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -355,14 +425,18 @@ class DBImpl : public DB {
     void CleanupCompaction(TieringCompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  Status DoCompactionWork(CompactionState* compact, bool merge_small_ranges = false)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  // some new compaction jobs
 
-  Status DoCompactionWorkWithoutIdentification(CompactionState* compact)
+  Status Do_L0CompactionWork_Without_Identification(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   
-  Status DoL0CompactionWork(CompactionState* compact)
+  Status Do_L0CompactionWork_With_Identification(CompactionState* compact, bool merge_small_ranges = false)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  
+  Status Do_CompactionWork_Without_Identification(CompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // some new compaction jobs
 
   Status DoTieringCompactionWork(TieringCompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -378,10 +452,16 @@ class DBImpl : public DB {
   Status FinishCompactionOutputFile(TieringCompactionState* compact, Iterator* input);
   
   Status CreateL1PartitionAndInstallCompactionResults(CompactionState* compact)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+    EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  Status CreateL1PartitionAndInstallCompactionResults(CompactionState* job_compact, CompactionState* current_compact) 
+    EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status InstallCompactionResults(CompactionState* compact)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+    EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  Status InstallCompactionResults(CompactionState* job_compact, CompactionState* current_compact)
+    EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   
   Status InstallTieringCompactionResults(TieringCompactionState* compact)
     EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -430,8 +510,10 @@ class DBImpl : public DB {
   const InternalFilterPolicy internal_filter_policy_;
   const Options options_;  // options_.comparator == &internal_comparator_
   const bool owns_info_log_;
+  const bool pl_or_2ppl; // trie means pl, false means 2ppl
   const bool owns_cache_;
   const std::string dbname_;
+  const std::string hot_dbname_;
 
   // table_cache_ provides its own synchronization
   TableCache* const table_cache_;
@@ -443,7 +525,10 @@ class DBImpl : public DB {
   port::Mutex mutex_;
 
   std::atomic<bool> shutting_down_;
+  std::atomic<int> pending_tasks_; 
   port::CondVar background_work_finished_signal_ GUARDED_BY(mutex_);
+
+  // port::CondVar background_tieirng_work_finished_signal_;
 
   MemTable* mem_;
   MemTable* imm_ GUARDED_BY(mutex_);  // Memtable being compacted
@@ -500,6 +585,8 @@ class DBImpl : public DB {
 
   // Has a background compaction been scheduled or is running?
   bool background_compaction_scheduled_ GUARDED_BY(mutex_);
+
+  bool background_tiering_compaction_scheduled_ GUARDED_BY(mutex_);
 
   ManualCompaction* manual_compaction_ GUARDED_BY(mutex_);
 
