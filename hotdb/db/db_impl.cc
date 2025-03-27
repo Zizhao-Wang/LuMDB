@@ -3802,7 +3802,7 @@ void DBImpl::loadKeysFromCSV(const std::string& filePath){
       // keyStorage.push_back(formattedKey);
       
       Slice sliceKey(kye_string,size);
-      specialKeys.insert(sliceKey);
+      // specialKeys.insert(sliceKey);
 
       std::string str(sliceKey.data(), sliceKey.size());
       uint64_t value = std::stoull(str);
@@ -3829,8 +3829,6 @@ void DBImpl::load_keys_from_CSV(const std::string& filePath) {
 
         hot_keys.insert(key);
     }
-
-    fprintf(stderr, "Loaded %zu hot keys from %s \n", specialKeys.size(), filePath.c_str());
 }
 
 
@@ -3879,75 +3877,6 @@ void DBImpl::batch_load_keys_from_CSV(const std::string& filePaths, const std::s
     fprintf(stderr, "Loaded %zu hot keys from %s for %d%% \n", current_set.size(), files[i].c_str(), percentages[i]);
     hot_keys_sets[percentages[i]] = current_set;
   }
-}
-
-void DBImpl::testSpecialKeys() {
-
-    const std::string& testFilePath = "/home/jeff-wang/workloads/etc_output_file1.02.csv";
-    std::ifstream file(testFilePath);
-    std::string line;
-
-    std::getline(file, line);
-
-    size_t totalKeysTested = 0;
-    size_t specialKeysCount = 0;
-
-    fprintf(stderr, "Testing special keys from file: %s\n", testFilePath.c_str());
-
-    // uint64_t key = 1;
-    // char keyString[1024];
-    // std::snprintf(keyString, sizeof(keyString), "%016llu", (unsigned long long)key);
-    // Slice sliceKey(keyString, std::strlen(keyString));
-
-    // uint64_t key2 = 1 ;
-    // size_t size = 15;
-    // char kye_string[1024];
-    // char format[20];
-    // std::snprintf(format, sizeof(format), "%%0%zullu", size);
-    // std::snprintf(kye_string, sizeof(kye_string), format, (unsigned long long)key);
-    // std::string formattedKey(size+1, '\0');
-    // std::snprintf(&formattedKey[0], size + 1, format, (unsigned long long)key2);
-    // Slice sliceKey2(kye_string, formattedKey.size());
-    // Slice sliceKey2(kye_string, size);
-
-    // if(user_comparator()->Compare(sliceKey, sliceKey2) == 0){
-    //     fprintf(stdout, "Key %ld is special in comparator.\n", key2);
-    // } else {
-    //     fprintf(stdout, "Key %ld is not special in comparator.\n", key2);
-    // }
-
-    // if(sliceKey.compare(sliceKey2) == 0){
-    //     fprintf(stdout, "Key %ld is special in slice.\n", key2);
-    // } else {
-    //     fprintf(stdout, "Key %ld is not special in slice.\n", key2);
-    // }
-
-    while (std::getline(file, line)) {
-        std::stringstream ss(line);
-        std::string keyStr;
-
-        uint64_t key;
-        size_t size = 1024; 
-
-        std::getline(ss, keyStr, ',');
-        std::getline(ss, line, ',');
-        
-        key = std::stoll(keyStr);
-        char keyString[1024];
-        std::snprintf(keyString, sizeof(keyString), "%054llu", (unsigned long long)key);
-
-        if (isSpecialKey(Slice(keyString, std::strlen(keyString)))) {
-            fprintf(stdout, "Key %ld is special.\n", key); 
-        } else {
-            fprintf(stdout, "Key %ld is not special.\n", key);
-        }
-        totalKeysTested++;
-        fflush(stdout);
-        // exit(0);
-    }
-    fprintf(stderr, "Test complete. %zu out of %zu keys tested are special.\n", specialKeysCount, totalKeysTested);
-    fflush(stderr);
-    
 }
 
 
@@ -4582,8 +4511,7 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
             val_queues_.pop();
           }
           // Close output file if it is big enough
-          if (compact->builder->FileSize() >=
-              compact->compaction->MinOutputFileSize()) {
+          if (compact->builder->FileSize() >= compact->compaction->MinOutputFileSize()) {
             status = FinishCompactionOutputFile(compact, input);
             if (!status.ok()) {
               Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing compaction output file: %s", status.ToString().c_str());

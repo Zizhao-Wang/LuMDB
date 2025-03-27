@@ -290,6 +290,21 @@ class DBImpl : public DB {
     }
   };
 
+  struct Autotuning_framework {
+
+    int64_t read_ops; 
+    int64_t write_ops; 
+    float read_write_ratio;
+    int64_t monitor_windows_size;
+
+    float Get_rw_ratio() const{
+      return read_write_ratio;
+    }
+
+    Autotuning_framework() : read_ops(0), write_ops(0), read_write_ratio(0.0), monitor_windows_size(1000) {}
+
+  };
+
   Iterator* NewInternalIterator(const ReadOptions&,
                                 SequenceNumber* latest_snapshot,
                                 uint32_t* seed);
@@ -473,12 +488,6 @@ class DBImpl : public DB {
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
   void loadKeysFromCSV(const std::string& filePath);
 
-  bool isSpecialKey(const Slice& key) {
-    return specialKeys.find(key) != specialKeys.end();
-  }
-
-  void testSpecialKeys();
-
   void load_keys_from_CSV(const std::string& filePath);
 
   void batch_load_keys_from_CSV(const std::string& filePath, const std::string& percentagesStr);
@@ -603,22 +612,10 @@ class DBImpl : public DB {
   new_LeveldataStats level_stats_[config::kNumLevels] GUARDED_BY(mutex_);
   std::vector<std::map<unsigned, LevelHotColdStats>> level_hot_cold_stats GUARDED_BY(mutex_);
 
-  struct SliceHash {
-    size_t operator()(const leveldb::Slice& slice) const {
-        return std::hash<std::string>()(std::string(slice.data(), slice.size()));
-      }
-  };
-
-  // 定义一个自定义相等函数
-  struct SliceEqual {
-      bool operator()(const leveldb::Slice& lhs, const leveldb::Slice& rhs) const {
-          return lhs.compare(rhs) == 0;
-      }
-  };
+  const Autotuning_framework tuning_parameter;
 
   const std::string hot_file_path;
   const std::string percentagesStr;
-  std::unordered_set<leveldb::Slice, SliceHash, SliceEqual> specialKeys;
   std::unordered_set<uint64_t> hot_keys;
   std::map<int, std::unordered_set<uint64_t>> hot_keys_sets;
   bool is_first;

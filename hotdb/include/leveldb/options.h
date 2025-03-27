@@ -87,9 +87,9 @@ struct LEVELDB_EXPORT Options {
   // the next time the database is opened.
   size_t write_buffer_size = 64 * 1024 * 1024;
 
-  size_t min_file_size = 40*1024 * 1024;
-
   size_t write_hot_buffer_size = 4 * 1024 * 1024;
+
+  size_t min_file_size = 40*1024 * 1024;
 
   size_t min_partition_size = 40 * 1024 * 1024;
 

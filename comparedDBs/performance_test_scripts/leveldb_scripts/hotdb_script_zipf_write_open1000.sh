@@ -39,11 +39,12 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in  1.1 1.3 ; do  #  1.2 
+            for zipf_a in 1.1 1.3 ; do  #  1.2 
 
                 for buffer_size in 67108864 ; do
-
+                    wbs_mbb=40
                     buffer_size_mb=$((buffer_size / 1048576))
+                    maxfilesize=$((wbs_mbb * 1024 * 1024))
                     log_file="leveldb_${num_format}_val_${value_size}_zipf${zipf_a}_${buffer_size_mb}MB.log"
                     data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     memory_log_file="$(pwd)/leveldb_memory_usage_key16val${value_size}_zipf${zipf_a}_memory${buffer_size_mb}MiB.log"
@@ -93,7 +94,7 @@ for i in {10..10}; do
                     --stats_interval=$stats_interva \
                     --histogram=1 \
                     --write_buffer_size=$buffer_size \
-                    --max_file_size=$buffer_size   \
+                    --max_file_size=$maxfilesize   \
                     --print_wa=true \
                     &> >( tee $log_file) &  
 

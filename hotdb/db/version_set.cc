@@ -1905,7 +1905,11 @@ VersionSet::VersionSet(const std::string& dbname, const Options* options,
       descriptor_log_(nullptr),
       dummy_versions_(this),
       current_(nullptr) {
-  AppendVersion(new Version(this));
+      AppendVersion(new Version(this));
+        fprintf(stdout,"The max_file_size is %lu of level 1\n",MaxFileSizeForLevel(options_, 1));
+        fprintf(stdout,"The max_file_size is %lu of level 2\n",MaxFileSizeForLevel(options_, 2));
+        fprintf(stdout,"The max_file_size is %lu of level 1\n",MinFileSizeForLevel(options_, 1));
+        fprintf(stdout,"The max_file_size is %lu of level 2\n",MinFileSizeForLevel(options_, 2));
 }
 
 VersionSet::~VersionSet() {
