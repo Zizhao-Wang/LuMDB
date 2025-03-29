@@ -28,7 +28,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_Pebblesdb_Twitter_SATA_SSD"
+    dir1="${i}B_Pebblesdb_Twitter_SATA_SSDOpen1000"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -39,7 +39,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for cluster_a in 49; do  #  1.2 
+            for cluster_a in 49 40; do  #  1.2 
 
                 for buffer_size in 67108864 ; do
 
@@ -47,7 +47,7 @@ for i in {10..10}; do
                     # log_file="Pebblesdb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                     log_file="Pebblesdb_${num_format}_val_${value_size}_TwitterCluster${cluster_a}_${buffer_size_mb}MB.log"
                     data_file="/mnt/nvm/second_cluster${cluster_a}.sort" # 构建数据文件路径
-                    memory_log_file="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_Twitter_SATA_SSD/Pebblesdb_memory_usage_key16val${value_size}_Twittercluster${cluster_a}_memory${buffer_size_mb}MiB.log"
+                    memory_log_file="$(pwd)/Pebblesdb_memory_usage_key16val${value_size}_Twittercluster${cluster_a}_memory${buffer_size_mb}MiB.log"
                     # hot_files=$(printf "/home/jeff-wang/workloads/zipf${zipf_a}_top%%s_keys10B.csv," {1,5,10,15,20,25,30})
                     # hot_files=${hot_files%?} # 移除最后一个逗号
 

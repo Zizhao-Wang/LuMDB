@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb
+CMAKE_SOURCE_DIR = /home/jeff-wang/LuMDB/comparedDBs/leveldb
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release
+CMAKE_BINARY_DIR = /home/jeff-wang/LuMDB/comparedDBs/leveldb/release
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -142,9 +142,9 @@ install/strip/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/LuMDB/comparedDBs/leveldb/release/CMakeFiles /home/jeff-wang/LuMDB/comparedDBs/leveldb/release//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/WorkloadAnalysis/comparedDBs/leveldb/release/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeff-wang/LuMDB/comparedDBs/leveldb/release/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -250,19 +250,6 @@ db_bench/fast:
 .PHONY : db_bench/fast
 
 #=============================================================================
-# Target rules for targets named db_bench_sqlite3
-
-# Build rule for target.
-db_bench_sqlite3: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 db_bench_sqlite3
-.PHONY : db_bench_sqlite3
-
-# fast build rule for target.
-db_bench_sqlite3/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/build
-.PHONY : db_bench_sqlite3/fast
-
-#=============================================================================
 # Target rules for targets named gmock
 
 # Build rule for target.
@@ -363,30 +350,6 @@ benchmarks/db_bench.s: benchmarks/db_bench.cc.s
 benchmarks/db_bench.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench.dir/build.make CMakeFiles/db_bench.dir/benchmarks/db_bench.cc.s
 .PHONY : benchmarks/db_bench.cc.s
-
-benchmarks/db_bench_sqlite3.o: benchmarks/db_bench_sqlite3.cc.o
-.PHONY : benchmarks/db_bench_sqlite3.o
-
-# target to build an object file
-benchmarks/db_bench_sqlite3.cc.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/benchmarks/db_bench_sqlite3.cc.o
-.PHONY : benchmarks/db_bench_sqlite3.cc.o
-
-benchmarks/db_bench_sqlite3.i: benchmarks/db_bench_sqlite3.cc.i
-.PHONY : benchmarks/db_bench_sqlite3.i
-
-# target to preprocess a source file
-benchmarks/db_bench_sqlite3.cc.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/benchmarks/db_bench_sqlite3.cc.i
-.PHONY : benchmarks/db_bench_sqlite3.cc.i
-
-benchmarks/db_bench_sqlite3.s: benchmarks/db_bench_sqlite3.cc.s
-.PHONY : benchmarks/db_bench_sqlite3.s
-
-# target to generate assembly for a file
-benchmarks/db_bench_sqlite3.cc.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/benchmarks/db_bench_sqlite3.cc.s
-.PHONY : benchmarks/db_bench_sqlite3.cc.s
 
 db/autocompact_test.o: db/autocompact_test.cc.o
 .PHONY : db/autocompact_test.o
@@ -1786,7 +1749,6 @@ util/histogram.o: util/histogram.cc.o
 # target to build an object file
 util/histogram.cc.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench.dir/build.make CMakeFiles/db_bench.dir/util/histogram.cc.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/util/histogram.cc.o
 .PHONY : util/histogram.cc.o
 
 util/histogram.i: util/histogram.cc.i
@@ -1795,7 +1757,6 @@ util/histogram.i: util/histogram.cc.i
 # target to preprocess a source file
 util/histogram.cc.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench.dir/build.make CMakeFiles/db_bench.dir/util/histogram.cc.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/util/histogram.cc.i
 .PHONY : util/histogram.cc.i
 
 util/histogram.s: util/histogram.cc.s
@@ -1804,7 +1765,6 @@ util/histogram.s: util/histogram.cc.s
 # target to generate assembly for a file
 util/histogram.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench.dir/build.make CMakeFiles/db_bench.dir/util/histogram.cc.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/util/histogram.cc.s
 .PHONY : util/histogram.cc.s
 
 util/logging.o: util/logging.cc.o
@@ -1960,7 +1920,6 @@ util/testutil.cc.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/c_test.dir/build.make CMakeFiles/c_test.dir/util/testutil.cc.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/env_posix_test.dir/build.make CMakeFiles/env_posix_test.dir/util/testutil.cc.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench.dir/build.make CMakeFiles/db_bench.dir/util/testutil.cc.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/util/testutil.cc.o
 .PHONY : util/testutil.cc.o
 
 util/testutil.i: util/testutil.cc.i
@@ -1972,7 +1931,6 @@ util/testutil.cc.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/c_test.dir/build.make CMakeFiles/c_test.dir/util/testutil.cc.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/env_posix_test.dir/build.make CMakeFiles/env_posix_test.dir/util/testutil.cc.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench.dir/build.make CMakeFiles/db_bench.dir/util/testutil.cc.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/util/testutil.cc.i
 .PHONY : util/testutil.cc.i
 
 util/testutil.s: util/testutil.cc.s
@@ -1984,7 +1942,6 @@ util/testutil.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/c_test.dir/build.make CMakeFiles/c_test.dir/util/testutil.cc.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/env_posix_test.dir/build.make CMakeFiles/env_posix_test.dir/util/testutil.cc.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench.dir/build.make CMakeFiles/db_bench.dir/util/testutil.cc.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/db_bench_sqlite3.dir/build.make CMakeFiles/db_bench_sqlite3.dir/util/testutil.cc.s
 .PHONY : util/testutil.cc.s
 
 util/trace.o: util/trace.cc.o
@@ -2028,7 +1985,6 @@ help:
 	@echo "... benchmark_main"
 	@echo "... c_test"
 	@echo "... db_bench"
-	@echo "... db_bench_sqlite3"
 	@echo "... env_posix_test"
 	@echo "... gmock"
 	@echo "... gmock_main"
@@ -2040,9 +1996,6 @@ help:
 	@echo "... benchmarks/db_bench.o"
 	@echo "... benchmarks/db_bench.i"
 	@echo "... benchmarks/db_bench.s"
-	@echo "... benchmarks/db_bench_sqlite3.o"
-	@echo "... benchmarks/db_bench_sqlite3.i"
-	@echo "... benchmarks/db_bench_sqlite3.s"
 	@echo "... db/autocompact_test.o"
 	@echo "... db/autocompact_test.i"
 	@echo "... db/autocompact_test.s"

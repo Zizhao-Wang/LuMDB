@@ -38,15 +38,15 @@ for i in {10..10}; do
         cd $dir1
         for value_size in 128; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 100))
+            stats_interva=$((num_entries / 1000))
             num_format=$(convert_to_billion_format $num_entries)
-            num_entries=100000000    
+            # num_entries=100000000    
 
-            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
 
                 log_file="LuMDB_Write_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
-                reads_data_file="/home/jeff-wang/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
-                data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                reads_data_file="/mnt/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
+                data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
 
                 db_directory="/mnt/hotdb_test/hotdb10B/pointread_${zipf_a}"
                 db_directory="/mnt/hotdb_test/hotdb10B/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
@@ -83,7 +83,6 @@ for i in {10..10}; do
                 --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \
-                --RangeRead_data_file=$reads_data_file \
                 --range_query_length=10 \
                 --cache_size=8388608 \
                 --open_files=40000 \

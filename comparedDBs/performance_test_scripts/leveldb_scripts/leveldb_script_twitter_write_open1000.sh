@@ -32,19 +32,20 @@ for i in {10..10}; do
         mkdir $dir1
     fi
         cd $dir1
-        for value_size in 128; do
+        for value_size in 1380; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=10000000
 
             num_format=$(convert_to_billion_format $num_entries)
 
             for Cluster_a in 49 40; do  #  1.2 
 
                 for buffer_size in 67108864; do
-
+                    wbs_mbb=40
                     buffer_size_mb=$((buffer_size / 1048576))
+                    maxfilesize=$((wbs_mbb * 1024 * 1024))
                     log_file="leveldb_${num_format}_val_${value_size}_Cluster${Cluster_a}_${buffer_size_mb}MB.log"
-                    data_file="/mnt/workloads/zipf${Cluster_a}_keys10.0B.csv" # 构建数据文件路径
+                    data_file="/mnt/nvm/second_cluster${Cluster_a}.sort"
                     memory_log_file="$(pwd)/leveldb_memory_usage_key16val${value_size}_Cluster${Cluster_a}_memory${buffer_size_mb}MiB.log"
 
                     echo "base_num: $base_num"
@@ -80,7 +81,7 @@ for i in {10..10}; do
                     --num=$num_entries \
                     --value_size=$value_size \
                     --batch_size=1000 \
-                    --benchmarks=fillzipf2,stats \
+                    --benchmarks=filltwitter,stats \
                     --data_file=$data_file  \
                     --logpath=/mnt/logs \
                     --bloom_bits=10 \
@@ -92,7 +93,7 @@ for i in {10..10}; do
                     --stats_interval=$stats_interva \
                     --histogram=1 \
                     --write_buffer_size=$buffer_size \
-                    --max_file_size=$buffer_size   \
+                    --max_file_size=$maxfilesize   \
                     --print_wa=true \
                     &> >( tee $log_file) &  
 

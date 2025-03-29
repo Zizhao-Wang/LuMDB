@@ -301,6 +301,8 @@ class DBImpl : public DB {
       return read_write_ratio;
     }
 
+    
+
     Autotuning_framework() : read_ops(0), write_ops(0), read_write_ratio(0.0), monitor_windows_size(1000) {}
 
   };

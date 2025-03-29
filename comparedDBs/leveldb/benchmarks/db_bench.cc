@@ -204,6 +204,7 @@ DEFINE_string(db, "", "Use the db with the following name.");
 
 DEFINE_string(hot_file, "", "file for storing hot keys.");
 
+DEFINE_string(compactiontriggered_file, "", "file for storing hot keys.");
 
 DEFINE_string(percentages, "", "percentages to define hot keys.");
 
@@ -756,7 +757,7 @@ class Stats {
       double now = g_env->NowMicros();
       double micros = now - last_op_finish_;
       hist_.Add(micros);
-      if (micros > 2000000) {
+      if (micros > 200000000) {
         fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
         fflush(stderr);
       }
@@ -974,6 +975,7 @@ class Benchmark {
     std::fprintf(stdout, "  num_entries: %ld\n",FLAGS_num);
     std::fprintf(stdout, "  bechmark selected %s\n",FLAGS_benchmarks.c_str());
     std::fprintf(stdout, "  hot_file_path: %s\n", FLAGS_hot_file.c_str());
+    std::fprintf(stdout, "  Hot_data_triggered_compaction_file_path: %s\n", FLAGS_compactiontriggered_file.c_str());
     std::fprintf(stdout, "  data_file_path: %s\n", FLAGS_data_file.c_str());
     std::fprintf(stdout, "  percentages: %s\n", FLAGS_percentages.c_str());
     std::fprintf(stdout, "------------------------------------------------\n");
@@ -1073,7 +1075,7 @@ class Benchmark {
     PrintHeader();
     // std::fprintf(stderr,"open dbs in Run()\n");
     // fflush(stderr);
-    Open();
+    // Open();
 
     const char* benchmarks = FLAGS_benchmarks.c_str();
     while (benchmarks != nullptr) {
@@ -1120,6 +1122,9 @@ class Benchmark {
       } else if (name == Slice("fillzipf2")) {
         fresh_db = true;
         method = &Benchmark::WriteZipf2;
+      } else if (name == Slice("filltwitter")) {
+        fresh_db = true;
+        method = &Benchmark::Writecluster;
       } else if (name == Slice("filletc")) {
         fresh_db = true;
         method = &Benchmark::WriteRandom_from_file;
@@ -1375,6 +1380,7 @@ class Benchmark {
         FLAGS_compression ? kSnappyCompression : kNoCompression;
     
     options.hot_file_path = FLAGS_hot_file;
+    options.compactiontriggered_output_file = FLAGS_compactiontriggered_file;
     options.percentages = FLAGS_percentages;
 
     std::fprintf(stderr, "open dbs:in Open()\n");
@@ -1404,6 +1410,8 @@ class Benchmark {
 
 
   void WriteZipf2(ThreadState* thread) { DoWrite_zipf3(thread, false); }
+
+  void Writecluster(ThreadState* thread) { DoWrite_twitter_cluster(thread, false); }
 
   void WriteRandom_from_file(ThreadState* thread) {
     DoWrite2(thread, false);
@@ -1911,6 +1919,85 @@ class Benchmark {
     thread->stats.AddBytes(bytes);
   }
 
+  void DoWrite_twitter_cluster(ThreadState* thread, bool seq) {
+      
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in zipf2\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+    assert(FLAGS_No_hot_percentage != -1);
+    std::fprintf(stdout, "start benchmarking num_ = %ld entries in DoWrite_zipf2()\n", num_);
+    uint64_t total_ops = 0;
+    for (uint64_t i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        if (!std::getline(csv_file, line)) { 
+          fprintf(stderr, "Error reading key from file\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 7) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        if(row_data[4] =="get" || row_data[4] =="cas" || row_data[4] =="delete"){
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if(i<10){
+          fprintf(stdout,"the key is: %lu \n",k);
+        }
+
+        thread->stats.Addops(db_);
+        // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+        char key[100];
+        snprintf(key, sizeof(key), "%024llu", (unsigned long long)k);
+        batch.Put(key, gen.Generate(value_size_));
+        bytes += value_size_ + strlen(key);
+        if(thread->stats.real_ops % FLAGS_stats_interval == 0 ){
+          // fprintf(stderr,"real_ops : %lu\n",thread->stats.real_ops);
+          thread->stats.AddBytes(bytes);
+          bytes = 0;
+        }
+        thread->stats.FinishedSingleOp();
+        // thread->stats.FinishedSingleOp(db_);
+      }
+      s = db_->Write(write_options_, &batch);
+      if (!s.ok()) {
+        std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+        std::exit(1);
+      }
+    }
+    thread->stats.print_mem_usage();
+    thread->stats.AddBytes(bytes);
+  }
 
   void DoWrite_zipf3(ThreadState* thread, bool seq) {
     
@@ -1959,9 +2046,9 @@ class Benchmark {
         }
         const uint64_t k = std::stoull(row_data[0]);
         thread->stats.Addops(db_);
-        if(k <= FLAGS_No_hot_percentage){
-          continue;
-        }
+        // if(k <= FLAGS_No_hot_percentage){
+        //   continue;
+        // }
         // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
         char key[100];
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);

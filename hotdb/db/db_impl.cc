@@ -4510,8 +4510,8 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
             key_queues_.pop();
             val_queues_.pop();
           }
-          // Close output file if it is big enough
-          if (compact->builder->FileSize() >= compact->compaction->MinOutputFileSize()) {
+          // Close output file if it is big enough 30M 31457280 20M 20971520 compact->compaction->MinOutputFileSize()
+          if (compact->builder->FileSize() >= 20971520) {
             status = FinishCompactionOutputFile(compact, input);
             if (!status.ok()) {
               Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing compaction output file: %s", status.ToString().c_str());

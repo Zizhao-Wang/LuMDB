@@ -5565,9 +5565,9 @@ class Benchmark {
 
         const uint64_t k = std::stoull(row_data[0]);
         // fprintf(stderr, "Read key: %llu\n", (unsigned long long)k); // 输出读取的键
-        if(k <= FLAGS_TOP_K){
-          continue;
-        }
+        // if(k <= FLAGS_TOP_K){
+        //   continue;
+        // }
 
         char key[100];
         snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);

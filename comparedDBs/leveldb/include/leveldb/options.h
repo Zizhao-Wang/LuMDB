@@ -151,6 +151,8 @@ struct LEVELDB_EXPORT Options {
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   std::string hot_file_path;
 
+ std::string  compactiontriggered_output_file;
+
   std::string percentages;
 
   //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~

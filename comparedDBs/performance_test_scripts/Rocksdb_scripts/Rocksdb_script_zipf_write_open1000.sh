@@ -52,7 +52,7 @@ for i in {10..10}; do
 
     for value_size in 128; do
         num_entries=$((base_num * BASE_VALUE_SIZE / value_size))
-        stats_interva=$((num_entries / 1000))
+        stats_interva=$((num_entries / 100))
         num_format=$(convert_to_billion_format "$num_entries")
 
         for zipf_a in 1.1 1.3; do
@@ -112,7 +112,7 @@ for i in {10..10}; do
                     --data_file_path="$data_file" \
                     --bloom_bits=10 \
                     --cache_size=8388608 \
-                    --open_files=80000 \
+                    --open_files=1000 \
                     --compression_ratio=0 \
                     --stats_interval="$stats_interva" \
                     --stats_per_interval="$stats_interva" \
