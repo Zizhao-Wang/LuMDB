@@ -1,4 +1,4 @@
-# Install script for directory: /home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb
+# Install script for directory: /home/jeff-wang/LuMDB/comparedDBs/pebblesdb
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -43,25 +43,25 @@ if(NOT DEFINED CMAKE_OBJDUMP)
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/release/libpebblesdb.a")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/release/libpebblesdb.a")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/pebblesdb" TYPE FILE FILES
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/c.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/cache.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/comparator.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/db.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/env.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/filter_policy.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/iterator.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/options.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/slice.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/replay_iterator.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/status.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/table_builder.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/table.h"
-    "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/src/include/pebblesdb/write_batch.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/c.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/cache.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/comparator.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/db.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/env.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/filter_policy.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/iterator.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/options.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/slice.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/replay_iterator.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/status.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/table_builder.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/table.h"
+    "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/src/include/pebblesdb/write_batch.h"
     )
 endif()
 
@@ -73,5 +73,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/jeff-wang/WorkloadAnalysis/comparedDBs/pebblesdb/release/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/jeff-wang/LuMDB/comparedDBs/pebblesdb/release/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

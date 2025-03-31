@@ -28,22 +28,25 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_Pebblesdb_Twitter_SATA_SSDOpen1000"
+    dir1="${i}B_Pebblesdb_Twitter_SATA_SSDOpen1000_max402"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
         cd $dir1
         for value_size in 1380; do
-            num_entries=10000000000
-            stats_interva=$((num_entries / 1000))
+            num_entries=600000000
+            num_entries=1000000000
+            stats_interva=10000000
+            num_entries=600000000
 
             num_format=$(convert_to_billion_format $num_entries)
 
             for cluster_a in 49 40; do  #  1.2 
 
                 for buffer_size in 67108864 ; do
-
+                    max_file=40
                     buffer_size_mb=$((buffer_size / 1048576))
+                    max_size_bytes=$((max_file * 1048576))
                     # log_file="Pebblesdb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                     log_file="Pebblesdb_${num_format}_val_${value_size}_TwitterCluster${cluster_a}_${buffer_size_mb}MB.log"
                     data_file="/mnt/nvm/second_cluster${cluster_a}.sort" # 构建数据文件路径
@@ -95,7 +98,7 @@ for i in {10..10}; do
                 --stats_interval=$stats_interva \
                 --histogram=1 \
                 --write_buffer_size=$buffer_size \
-                --max_file_size=$buffer_size   \
+                --max_file_size=$max_size_bytes   \
                 --print_wa=true \
                 &> >( tee $log_file) &  
 

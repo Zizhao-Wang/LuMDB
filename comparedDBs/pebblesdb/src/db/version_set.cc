@@ -110,7 +110,8 @@ static uint64_t MaxFileSizeForLevel(unsigned level) {
                                    128 * 1048576,
                                    256 * 1048576,
                                    512 * 1048576};
-  return bytes[level];
+  // return bytes[level];
+  return 40*1048576;
 }
 
 static int MaxFilesPerGuardForLevel(unsigned level) {

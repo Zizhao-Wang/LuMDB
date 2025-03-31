@@ -120,7 +120,7 @@ struct LEVELDB_EXPORT Options {
 
   bool Two_stage_switch = false;
 
-  int hot_frequency_identification = 30;
+  int hot_frequency_identification = 15;
 
   // Leveldb will write up to this amount of bytes to a file before
   // switching to a new one.

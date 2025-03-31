@@ -1285,6 +1285,9 @@ random_double(void)
       }else if (name == Slice("fillzipf")) {
         fresh_db = true;
         method = &Benchmark::Writezipf;
+      }else if (name == Slice("filltwitter")) {
+        fresh_db = true;
+        method = &Benchmark::WriteTwitter;
       }else if (name == Slice("reopen")) {
         fresh_db = false;
         method = &Benchmark::Reopen;
@@ -1753,6 +1756,10 @@ random_double(void)
 
   void Writezipf(ThreadState* thread) {
     DoWrite_zipf(thread, false);
+  }
+
+  void WriteTwitter(ThreadState* thread) {
+    DoWrite_WriteTwitter(thread, false);
   }
 
 
@@ -2287,6 +2294,77 @@ random_double(void)
     }
     thread->stats.AddBytes(bytes);
   }
+  
+  void DoWrite_WriteTwitter(ThreadState* thread, bool seq) {
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%d ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+
+    std::ifstream csv_file(FLAGS_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+    entries_per_batch_ = 1;
+    std::fprintf(stdout, "start benchmarking num_ = %ld entries(batches:%ld) in DoWrite_WriteTwitter\n", num_,entries_per_batch_);
+    for (int i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+      if (!std::getline(csv_file, line)) { // 从文件中读取一行
+        fprintf(stderr, "Error reading key from file\n");
+        return;
+      }
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      if (row_data.size() != 7) {
+        fprintf(stderr, "Invalid CSV row format\n");
+        continue;
+      }
+
+      if(row_data[4] =="get" || row_data[4] =="cas" || row_data[4] =="delete"){
+        continue;
+      }
+
+      const uint64_t k = std::stoull(row_data[1]);
+      if(i<10){
+        fprintf(stdout,"the key is: %lu \n",k);
+      }
+      // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+      char key[100];
+      snprintf(key, sizeof(key), "%024llu", (unsigned long long)k);
+      batch.Put(key, gen.Generate(value_size_));
+      bytes = value_size_ + strlen(key);
+      // fprintf(stderr,"real_ops : %lu\n",thread->stats.real_ops);
+      thread->stats.AddBytes(bytes);
+      thread->stats.FinishedSingleOp(db_);
+      
+      s = db_->Write(write_options_, &batch);
+      if (!s.ok()) {
+        std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+        std::exit(1);
+      }
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
 
   void DoWrite_zipf(ThreadState* thread, bool seq) {
     if (num_ != FLAGS_num) {
