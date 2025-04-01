@@ -19,11 +19,7 @@ LuMDB is an novel LSM-based key-value store designed to ultimately write amplifi
 
 2. **Two-Phase Partitioning Leveling (2PPL)**: Implements a methodology that stores cold data using separation, automatically configuring partition ranges based on ***memtable*** size and ***workload skewness***. Additionally, a Tiering strategy manages and stores the remaining hot data when separation is applied. In scenarios where hot-cold separation is not suitable, LuMDB utilizes the 2PPL approach to store all data effectively.
 
-Extensive experiments have demonstrated that LuMDB can reduce write amplification by up to **8.1×**, approaching its minimum theoretical limit, and increase read throughput by up to **3.7×** in the YCSB benchmark. 
-
-For a more comprehensive understanding of the technical trade-offs in LuMDB, please refer to the blog below:
-
-- [Why LSM?](https://zizhao-wang.github.io//posts/2024/12/Why-LSM/) 
+Extensive experiments have demonstrated that LuMDB can reduce write amplification by up to **4.1×**, approaching its minimum theoretical limit, and increase read throughput by up to **3.7×** in the YCSB benchmark. 
 
 ## Install
 
