@@ -47,9 +47,9 @@ for i in {10..10}; do
                 log_file="LuMDB_Write_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 reads_data_file="/mnt/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
                 data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-
+                memory_log_file="$(pwd)/LuMDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}.log"
                 db_directory="/mnt/hotdb_test/hotdb10B/pointread_${zipf_a}"
-                db_directory="/mnt/hotdb_test/hotdb10B/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
+                db_directory="/mntdisk/hotdb10B/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
 
                 if [ ! -d "$db_directory" ]; then
                     mkdir -p "$db_directory"
@@ -85,6 +85,7 @@ for i in {10..10}; do
                 --log=1  \
                 --range_query_length=10 \
                 --cache_size=8388608 \
+                --mem_log_file=$memory_log_file \
                 --open_files=40000 \
                 --use_existing_db=false \
                 --reads=1000 \
