@@ -2297,6 +2297,10 @@ class Benchmark {
           continue;
         }
 
+        if(row_data[4] =="get" || row_data[4] =="cas" || row_data[4] =="delete"){
+          continue;
+        }
+
         const uint64_t k = std::stoull(row_data[1]);
 
         // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
