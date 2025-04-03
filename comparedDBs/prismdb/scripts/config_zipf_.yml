@@ -1,0 +1,37 @@
+# 100GB database config file (NOTE: make sure you have enough space on disk before running the experiment)
+
+# hardware config
+mem_alloc: [10737418240] #cgroup dram allocation
+cpu_alloc: [100] #cgroup cpu allocation
+
+# first list all the config flags that need source compilation
+code: ["prismdb"]
+ssd: ["qlc"] #"het" for optane+flash setting, "optane" for optane only and "qlc" for flash only
+optane_path: ['/mntdisk/prism10B_optane'] #optane ssd path
+flash_path: ['/mntdisk/prism10B_ssd'] #flash ssd path
+optane_ratio: [0.11] #optane to flash ratio
+pop_cache_size: [10000000] #clock cache size in terms of keys
+pop_cache_thresh: [0.7] #clock cache optane pinning threshold
+blockcache_size: [0] #blockcache size for caching objects stored on flash (not used)
+num_partitions: [1] #number of partitions
+db_size: [100000000] #database size in terms of keys
+key_size: [16] #key size in bytes
+value_size: [128] #value size in bytes
+data_file_path: ['/mnt/workloads/zipf1.1_keys10.0B.csv']  # 数据文件的路径
+mem_log_file: ['/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot/prismdb_zipf1.1_memory_usage_key16_val128.log']      # 内存日志文件的路径
+
+# below config flags do not need source compilation
+num_clients: [1] #number of database clients (NOTE: it should be same as number of partitions in current version)
+loop: ["close"]
+workload: ["ycsba"] #ycsb workload "ycsba", "ycsbb", "ycsbc", ycsbd", "ycsbe", "ycsbf"
+distribution: ["zipfian"] # deprecated
+distribution_param: [(0.99 -1)] #(reads distibution, writes distribution). 0 stands for uniform and -1 stands for both read and write coming from the same distribution. distribution_param [(0.99 -1)] means both reads and writes follow Zipfian 0.99
+read_ratio: [0.95] #reads to writes ratio
+workload_operations: [100000000] #number of operations
+warmup_ratio: [0.50] #warmup ratio
+read_logging: [0] # 0 or 1
+migration_logging: [1] # 0 or 1
+migration_policy: [2] # 1 is oracle, 2 is random
+migration_rand_range_num: [8]
+migration_metric: [1]
+pop_file: [""]

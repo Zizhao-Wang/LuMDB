@@ -172,11 +172,11 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for zipf_a in 1.3 1.1; do  #  1.2 
+            for zipf_a in 1.3 ; do  #  1.2 
                     # buffer_size_mb=$((buffer_size / 1048576))
                     # log_file="prismdb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                     log_file="prismdb_${num_format}_val_${value_size}_zipf${zipf_a}memory_budget${memory_budget}G.log"
-                    data_file1="/home/jeff-wang/LuMDB/comparedDBs/prismdb-fix/kvexe-prismdb/10B_prismdb_zipf_hot_cold/latency_log_zipf_1.1.log" # 构建数据文件路径
+                    data_file1="/home/jeff-wang/LuMDB/comparedDBs/prismdb-fix/kvexe-prismdb/10B_prismdb_twitter_workloads/latency_log_twitter_49_40G.log" # 构建数据文件路径
                     memory_log_file1="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot/prismdb_memory_usage_${num_format}_key16_val${value_size}zipf${zipf_a}membudget${memory_budget}.log"
                     code_type="prismdb"
                     prismdb_srouce_path="/home/jeff-wang/LuMDB/comparedDBs/prismdb"
@@ -235,7 +235,7 @@ for i in {10..10}; do
                     # get_disk_io_stats "$disk_device" "$disk_io_log_file"
                     # cgexec -g memory:group1
                     # remeber to change cgroup
-                    cgexec -g memory:group4  ../../../prismdb/build/db_bench \
+                      gdb --args ../../../prismdb/build/db_bench \
                         --data_file_path=$data_file1 \
                         --stats_interval=$stats_interva \
                         --benchmarks=fillzipf,stats \
