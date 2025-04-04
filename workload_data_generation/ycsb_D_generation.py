@@ -35,12 +35,12 @@ def process_csv(input_file, n, m, k, output_ops_file):
     print(f"操作数据已保存到 {output_ops_file}")
 
 # 参数设置
-input_file = '/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
+input_file = '/mnt/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
 n = 1000000000  # 提取前 n 行数据并去重
 m = 50000   # 从第 n+1 行开始的去重数据中随机选取 m 个插入操作
 k = 950000  # 从插入操作中随机选取 k 个读取操作（允许重复）
 
-output_ops_file = '/home/jeff-wang/workloads/ycsb_d_workload.csv'  # 最终操作数据保存路径
+output_ops_file = '/mnt/workloads/ycsb_d_workload.csv'  # 最终操作数据保存路径
 
 # 执行处理
 process_csv(input_file, n, m, k, output_ops_file)

@@ -39,11 +39,11 @@ def process_csv(input_file, n, m, output_ops_file):
     print(f"YCSB-F 数据集已保存到 {output_ops_file}")
 
 # 参数设置
-input_file = '/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
+input_file = '/mnt/workloads/zipf1.2_keys10.0B.csv'  # 输入文件路径
 n = 1000000000  # 提取前 n 行数据
 m = 1000000  # 总操作数量，50% 读取，50% RMW
 
-output_ops_file = '/home/jeff-wang/workloads/ycsb_f_workload_RMW(uniform).csv'  # 最终操作数据保存路径
+output_ops_file = '/mnt/workloads/ycsb_f_workload_RMW(uniform).csv'  # 最终操作数据保存路径
 
 # 执行处理
 process_csv(input_file, n, m, output_ops_file)

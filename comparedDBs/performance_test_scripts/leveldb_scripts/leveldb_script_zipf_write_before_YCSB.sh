@@ -38,13 +38,13 @@ for i in {10..10}; do
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
 
-            for iteration in {4..4}; do  #  1.2 
+            for iteration in {3..5}; do  #  1.2 
                 for zipf_a in 1.2; do  #  1.2 
-                    for buffer_size in 1048576; do
+                    for buffer_size in 67108864; do
 
                         buffer_size_mb=$((buffer_size / 1048576))
                         log_file="leveldb_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_iterator${iteration}.log"
-                        data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                        data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                         memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage${buffer_size_mb}MB_${num_format}_key16_val${value_size}.log"
 
                         # 如果日志文件存在，则跳过当前迭代
@@ -60,7 +60,7 @@ for i in {10..10}; do
                         echo "$num_format"
 
                         # 创建相应的目录
-                        db_dir="/mnt/hotdb_test/level10B/YCSBa_mem${buffer_size_mb}_${zipf_a}_iterator${iteration}"
+                        db_dir="/mntdisk/level10B/YCSBa_mem${buffer_size_mb}_${zipf_a}_iterator${iteration}"
                         if [ ! -d "$db_dir" ]; then
                             mkdir -p "$db_dir"
                         fi
@@ -80,7 +80,7 @@ for i in {10..10}; do
                         --num=$num_entries \
                         --value_size=$value_size \
                         --batch_size=1000 \
-                        --benchmarks=fillzipf,stats \
+                        --benchmarks=fillzipf2,stats \
                         --data_file=$data_file  \
                         --logpath=/mnt/logs \
                         --bloom_bits=10 \

@@ -36,16 +36,17 @@ for i in {10..10}; do
             stats_interva=$((num_entries / 100))
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
-            ycsb_num_entries=500000
+            ycsb_num_entries=1000000
 
             
-            for zipf_a in 1.4; do  #1.1  1.2 1.3 1.4 1.5
+            for zipf_a in 1.2; do  #1.1  1.2 1.3 1.4 1.5
 
                 # log_file="leveldb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem${Mem}MB_zipf${zipf_a}_iterator${iteration}.log"
-                data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_YCSB_performance/Pebblesdb_memory_${Mem}MiB_${num_format}_key16_val${value_size}_zipf${zipf_a}.log"
-                ycsb_data_file="/home/jeff-wang/workloads/random_read_workload${zipf_a}.csv" # 构建数据文件路径
+                ycsb_data_file="/mnt/workloads/random_read_workload${zipf_a}.csv" # 构建数据文件路径
+                ycsb_data_file="/mnt/workloads/ycsb_a_workload.csv"
 
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -61,9 +62,8 @@ for i in {10..10}; do
 
                 # 创建相应的目录
                 
-                
-                db_dir="/mnt/hotdb_test/pebbles10B/ycsb_mem${Mem}_${zipf_a}_1"
-                db_dir="/mnt/hotdb_test/pebbles10B/PointRead_${zipf_a}"
+                db_dir="/mntdist/pebbles10B/PointRead_${zipf_a}"
+                db_dir="/mntdisk/pebbles10B/ycsb_mem${Mem}_${zipf_a}_1"
                 echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
                     
                 iostat -d 100 -x $DEVICE_NAME > Pebblesdb_memory_${Mem}MiB_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
@@ -77,7 +77,6 @@ for i in {10..10}; do
                 --batch_size=1000 \
                 --benchmarks=ycsba,stats \
                 --data_file=$data_file  \
-                --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \
                 --cache_size=8388608 \
