@@ -41,7 +41,7 @@ BASE_VALUE_SIZE=128
 DEVICE_NAME="sdc"  # 你的设备名称
 MEM=512   # 你的 MEM 大小（MB）
 
-log_dir="RocksDB_TwitterCluster_workloads_open1000max40"
+log_dir="RocksDB_TwitterCluster_benchmarking2"
 
 for i in {10..10}; do
     base_num=$((billion * i))
@@ -55,8 +55,8 @@ for i in {10..10}; do
         num_entries=$((base_num * BASE_VALUE_SIZE / value_size))
         stats_interva=$((num_entries / 100))
         num_format=$(convert_to_billion_format "$num_entries")
-
-        for cluster in 40 49; do
+        num_entries=100000000
+        for cluster in 37; do
 
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
             for wbs_mb in 64; do
@@ -107,7 +107,7 @@ for i in {10..10}; do
                 # 运行 db_bench
                 ../../../rocksdb/release/db_bench \
                     --db="$db_dir" \
-                    --num=1302137879 \
+                    --num=$num_entries \
                     --value_size_="$value_size" \
                     --batch_size=1 \
                     --benchmarks=fillcluster08,stats \

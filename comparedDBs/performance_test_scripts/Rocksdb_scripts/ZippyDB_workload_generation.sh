@@ -1,4 +1,4 @@
- db_dir="/mntdisk/rocks10B/zippyDB_test"
+db_dir="/mntdisk/rocks10B/zippyDB_test"
 if [ ! -d "$db_dir" ]; then
     mkdir -p "$db_dir"
 fi

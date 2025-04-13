@@ -29,7 +29,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_LuMDB_YCSB_performance"
+    dir1="${i}B_LuMDB_YCSB_performance_SATASSD"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -41,11 +41,18 @@ for i in {10..10}; do
             num_entries=1000000000
 
             for iterator in {1..1}; do
-                for zipf_a in 1.4; do  # 1.2 1.3 1.4 1.5
+                for zipf_a in 1.3 1.4; do  # 1.2 1.3 1.4 1.5
 
                     log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}_iteratoration${iterator}.log"
-                    data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                    db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator${iterator}"
+                    data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                    db_directory="/mntdisk/LuM10B/cold/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator${iterator}"
+                    hotdb_directory="/mntdisk/LuM10B/hot/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator${iterator}"
+
+                    # 如果日志文件存在，则跳过当前迭代
+                    if [ -f "$log_file" ]; then
+                        echo "Log file $log_file already exists. Skipping this iteration."
+                        continue
+                    fi
 
                     if [ ! -d "$db_directory" ]; then
                         mkdir -p "$db_directory"
@@ -56,11 +63,16 @@ for i in {10..10}; do
                         rm -rf "${db_directory:?}/"*
                     fi
 
-                    # 如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
+                    if [ ! -d "$hotdb_directory" ]; then
+                        mkdir -p "$hotdb_directory"
                     fi
+
+                    # 检查目录是否为空，如果不为空则删除所有内容
+                    if [ "$(ls -A $hotdb_directory)" ]; then
+                        rm -rf "${hotdb_directory:?}/"*
+                    fi
+
+                    
 
                     echo "base_num: $base_num"
                     echo "num_entries: $num_entries"
@@ -71,7 +83,7 @@ for i in {10..10}; do
                     # iostat -d 100 -x $DEVICE_NAME > LuMDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${Mem}MiB_P${partition}_hot${hot_identification}_IOstats.log &
                     # PID_IOSTAT=$!
                         
-                    ../../hotdb/release/db_bench \
+                     ../../hotdb/release/db_bench \
                     --db=$db_directory \
                     --num=$num_entries \
                     --value_size=$value_size \
@@ -84,6 +96,7 @@ for i in {10..10}; do
                     --Read_data_file=$reads_data_file \
                     --cache_size=8388608 \
                     --open_files=40000 \
+                    --hotdb=$hotdb_directory \
                     --use_existing_db=false \
                     --reads=1000 \
                     --compression=0 \

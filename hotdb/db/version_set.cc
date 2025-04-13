@@ -25,14 +25,13 @@ namespace leveldb {
 namespace TieringSpaceConfig{
 
   const double kTieringLevelSizes[] = {
-    10. * 1048576.0, // Level 0
+    5. * 1048576.0, // Level 0
     128 * 1048576.0, // Level 1
     512 * 1048576.0, // Level 2
     4096 * 1048576.0, // Level 3
     32768 * 1048576.0, // Level 4
     262144 * 1048576.0, // Level 5
     2097152 * 1048576.0 // Level 6
-    // Add more levels if needed
   };
 
 }
@@ -43,7 +42,8 @@ static size_t TargetFileSize(const Options* options) {
 }
 
 static size_t TargetMinFileSize(const Options* options) {
-  return options->min_file_size;
+  // return options->min_file_size;
+  return options->generated_file_size_in_compaction;
 }
 
 static size_t TargetTieringFileSize(const Options* options) {
@@ -76,10 +76,12 @@ static double MaxBytesForLevel(const Options* options, int level) {
   return result;
 }
 
-static uint64_t MaxFileSizeForLevel(const Options* options, int level) {
-  // We could vary per level to reduce number of files?
-  return TargetFileSize(options);
-}
+// static uint64_t MaxFileSizeForLevel(const Options* options, int level) {
+//   // We could vary per level to reduce number of files?
+//   return TargetFileSize(options);
+// }
+
+
 
 static uint64_t MinFileSizeForLevel(const Options* options, int level) {
   // We could vary per level to reduce number of files?
@@ -565,23 +567,26 @@ void Version::ForEachOverlappingTiering(Slice user_key, Slice internal_key, void
 
   // Search other levels.
   for (int level = 1; level < config::kNumLevels; level++) {
-    size_t num_files = leveling_files_[level].size();
-    if (num_files == 0) continue;
 
-    start_time = vset_->env_->NowMicros(); // 开始查找metadata的时间
-    // Binary search to find earliest index whose largest key >= internal_key.
-    uint32_t index = FindFile(vset_->icmp_, leveling_files_[level], internal_key);
-    end_time = vset_->env_->NowMicros(); // 结束查找metadata的时间
-    vset_->search_stats.other_levels_search_time += (end_time - start_time);
-    if (index < num_files) {
-      FileMetaData* f = leveling_files_[level][index];
-      if (ucmp->Compare(user_key, f->smallest.user_key()) < 0) {
-        // All of "f" is past any data for user_key
-      } else {
-        if (!(*func)(arg, level, f)) {
-          end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
-          vset_->search_stats.total_time += (end_time - start_time);
-          return;
+    for (int run = 0; run < config::kNum_SortedRuns; run++) {
+      size_t num_files = tiering_runs_[level][run].size();
+      if (num_files == 0) continue;
+
+      start_time = vset_->env_->NowMicros(); // 开始查找metadata的时间
+      // Binary search to find earliest index whose largest key >= internal_key.
+      uint32_t index = FindFile(vset_->icmp_, tiering_runs_[level][run], internal_key);
+      end_time = vset_->env_->NowMicros(); // 结束查找metadata的时间
+      vset_->search_stats.other_levels_search_time += (end_time - start_time);
+      if (index < num_files) {
+        FileMetaData* f = tiering_runs_[level][run][index];
+        if (ucmp->Compare(user_key, f->smallest.user_key()) < 0) {
+          // All of "f" is past any data for user_key
+        } else {
+          if (!(*func)(arg, level, f)) {
+            end_time = vset_->env_->NowMicros();  // 结束查找Level 0 metadata的时间
+            vset_->search_stats.total_time += (end_time - start_time);
+            return;
+          }
         }
       }
     }
@@ -771,7 +776,7 @@ Status Version::Get_Hot(const ReadOptions& options, const LookupKey& k,
       state->last_file_read = f;
       state->last_file_read_level = level;
 
-      state->s = state->vset->table_cache_->Get(*state->options, f->number,
+      state->s = state->vset->table_cache_->Get_Hot(*state->options, f->number,
                                                 f->file_size, state->ikey,
                                                 &state->saver, SaveValue);
       if (!state->s.ok()) {
@@ -1206,6 +1211,7 @@ void Version::GetOverlappingInputsWithTier(int level, const InternalKey* begin,
         return ;
       }
     }
+    // selected_run = 0;
     for (int run = 0; run < config::kNum_SortedRuns; ++run) {
       int num_overlappping_files_in_this_run = 0;
       for (size_t i = 0; i < tiering_runs_[level][run].size();) {
@@ -1906,10 +1912,11 @@ VersionSet::VersionSet(const std::string& dbname, const Options* options,
       dummy_versions_(this),
       current_(nullptr) {
       AppendVersion(new Version(this));
-        fprintf(stdout,"The max_file_size is %lu of level 1\n",MaxFileSizeForLevel(options_, 1));
-        fprintf(stdout,"The max_file_size is %lu of level 2\n",MaxFileSizeForLevel(options_, 2));
-        fprintf(stdout,"The max_file_size is %lu of level 1\n",MinFileSizeForLevel(options_, 1));
-        fprintf(stdout,"The max_file_size is %lu of level 2\n",MinFileSizeForLevel(options_, 2));
+        fprintf(stdout,"The max_file_size(partition size) is %lu of level 1 in leveling is\n",MaxFileSizeForLevel(0));
+        fprintf(stdout,"The max_file_size is %lu of level 2 in leveling is\n",MaxFileSizeForLevel(2));
+        fprintf(stdout,"The max_file_size is %lu of level 0 in tieirng is\n",MaxFileSizeForLevelTiering(0));
+        fprintf(stdout,"The max_file_size is %lu of level 1 in tiering is\n",MaxFileSizeForLevelTiering(1));
+
 }
 
 VersionSet::~VersionSet() {
@@ -2064,6 +2071,35 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
   // fprintf(stderr, "DEBUG: [Thread %lu] Exiting VersionSet::LogAndApply with status: %s\n",
   //         (unsigned long)tid, s.ToString().c_str());
   return s;
+}
+
+
+void VersionSet::InitializeFileLevelBloomFilter(){
+
+	// TODO de-couple file level bloom filter from block level bloom filter
+  const FilterPolicy *filter_policy = options_->filter_policy;
+
+  if (filter_policy == NULL) {
+    return;
+  }
+
+  Version* current = current_;
+	current->Ref();
+  int cnt = 0;
+	for (int i = 0; i < config::kNumLevels; i++) {
+    for (int j = 0; j < config::kNum_SortedRuns; j++) {
+      for (int k = 0; k < current->tiering_runs_[i][j].size(); k++) {
+        FileMetaData* file = current->tiering_runs_[i][j][k];
+        uint64_t file_number = file->number;
+        uint64_t file_size = file->file_size;
+        Iterator* iter = table_cache_->NewIterator(ReadOptions(), file_number, file_size, true);
+        iter->SeekToFirst();
+        cnt++;
+        delete iter;
+      }
+    }
+	}
+	current->Unref();
 }
 
 Status VersionSet::Recover(bool* save_manifest) {
@@ -2262,7 +2298,7 @@ Status VersionSet::Recover(bool* save_manifest) {
     log_number_ = log_number;
     prev_log_number_ = prev_log_number;
 
-    fprintf(stdout, "After restoring, we have %u leveling files and %u Tiering file!\n", v->NumPartitioningFiles(0), v->NumTieringFilesInLevel(0));
+    fprintf(stdout, "After restoring, we have %u leveling files and %u Tiering file in level 0!\n", v->NumPartitioningFiles(0), v->NumTieringFilesInLevel(0));
 
     // See if we can reuse the existing MANIFEST file.
     if (ReuseManifest(dscname, current)) {
@@ -3630,7 +3666,7 @@ Compaction* VersionSet::CompactRange(int level, const InternalKey* begin,
   // and we must not pick one file and drop another older file if the
   // two files overlap.
   if (level > 0) {
-    const uint64_t limit = MaxFileSizeForLevel(options_, level);
+    const uint64_t limit = MaxFileSizeForLevel(level);
     uint64_t total = 0;
     for (size_t i = 0; i < inputs.size(); i++) {
       uint64_t s = inputs[i]->file_size;
@@ -3653,7 +3689,7 @@ Compaction* VersionSet::CompactRange(int level, const InternalKey* begin,
 Compaction::Compaction(const Options* options, int level, uint64_t partition)
     : level_(level),
       partition_num_(partition),
-      max_output_file_size_(MaxFileSizeForLevel(options, level)),
+      max_output_file_size_(MaxFileSizeForLevel(level)),
       min_output_file_size_(MinFileSizeForLevel(options, level)),
       input_version_(nullptr),
       grandparent_index_(0),
@@ -3789,7 +3825,7 @@ int Compaction::get_compaction_type() { return compaction_type; }
 
 TieringCompaction::TieringCompaction(const Options* options, int level)
     : level_(level),
-      max_output_file_size_(MaxFileSizeForLevel(options, level)),
+      max_output_file_size_(MaxFileSizeForLevel(level)),
       max_tiering_file_size_(MaxTieringFileSizeForLevel(options, level)),
       input_version_(nullptr),
       grandparent_index_(0),

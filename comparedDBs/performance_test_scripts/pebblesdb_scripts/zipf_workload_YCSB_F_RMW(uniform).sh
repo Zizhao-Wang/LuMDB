@@ -26,7 +26,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_leveldb_YCSB_performance"
+    dir1="${i}B_leveldb_YCSB_performance_SATASSD"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -37,20 +37,20 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=100000000
-            ycsb_num_entries=10000000
+            ycsb_num_entries=1000000
 
             for zipf_a in 1.2 ; do  #  1.2 
-                for buffer_size in 1048576; do
+                for buffer_size in 67108864; do
                     buffer_size_mb=$((buffer_size / 1048576))
                     log_file="leveldb_YCSBA_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_YCSBF_RMW(uniform).log"
                     data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                     memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage${buffer_size_mb}MB_${num_format}_key16_val${value_size}.log"
-                    ycsb_data_file="/home/jeff-wang/workloads/ycsb_f_workload_RMW(uniform).csv" # 构建数据文件路径
+                    ycsb_data_file="/mnt/workloads/ycsb_f_workload_RMW(uniform).csv" # 构建数据文件路径
                     # 如果日志文件存在，则跳过当前迭代
-                    if [ -f "$log_file" ]; then
-                        echo "Log file $log_file already exists. Skipping this iteration."
-                        continue
-                    fi
+                    # if [ -f "$log_file" ]; then
+                    #     echo "Log file $log_file already exists. Skipping this iteration."
+                    #     continue
+                    # fi
 
                     echo "base_num: $base_num"
                     echo "num_entries: $num_entries"
@@ -59,7 +59,8 @@ for i in {10..10}; do
                     echo "$num_format"
 
                     # 创建相应的目录
-                    db_dir="/mnt/hotdb_test/level10B/YCSBa_mem${buffer_size_mb}_${zipf_a}_iterator2"
+                    db_dir="/mntdisk/pebbles10B/ycsb_mem${buffer_size_mb}_${zipf_a}_1"
+                    db_dir="/mnt/nvm/pebbles10B/ycsb_mem${buffer_size_mb}_${zipf_a}_1"
                     # if [ ! -d "$db_dir" ]; then
                     #     mkdir -p "$db_dir"
                     # fi
@@ -74,19 +75,18 @@ for i in {10..10}; do
                     iostat -d 100 -x $DEVICE_NAME > leveldb_HDD_${num_format}_val_${value_size}_mem${buffer_size_mb}MB_zipf${zipf_a}_IOstats.log &
                     PID_IOSTAT=$!
                         
-                    cgexec -g memory:group16 ../../../leveldb/release/db_bench \
+                    cgexec -g memory:group16 ../../../pebblesdb/release/db_bench \
                     --db=$db_dir \
                     --num=$num_entries \
                     --value_size=$value_size \
                     --batch_size=1000 \
                     --benchmarks=ycsba,stats \
                     --data_file=$data_file  \
-                    --logpath=/mnt/logs \
                     --bloom_bits=10 \
                     --log=1  \
                     --cache_size=8388608 \
                     --mem_log_file=$memory_log_file \
-                    --open_files=40000 \
+                    --open_files=1000 \
                     --ycsb_num=$ycsb_num_entries \
                     --compression=0 \
                     --stats_interval=$stats_interva \
@@ -95,8 +95,7 @@ for i in {10..10}; do
                     --YCSB_data_file=$ycsb_data_file \
                     --use_existing_db=true \
                     --max_file_size=$buffer_size   \
-                    --print_wa=true \
-                    &> >( tee $log_file) &  
+                    --print_wa=true  
 
                     # 保存 db_bench 的 PID 供监控使用
                     sleep 1

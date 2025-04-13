@@ -362,6 +362,7 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
                      std::vector<std::string>* r) override {
     return target_->GetChildren(dir, r);
   }
+
   Status RemoveFile(const std::string& f) override {
     return target_->RemoveFile(f);
   }

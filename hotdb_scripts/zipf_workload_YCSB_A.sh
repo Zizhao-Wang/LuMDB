@@ -45,10 +45,11 @@ for i in {10..10}; do
 
                 log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator1"
-                
-                ycsb_data_file="/home/jeff-wang/workloads/random_read_workload${zipf_a}.csv"
-                ycsb_data_file="/home/jeff-wang/workloads/ycsb_a_workload.csv" # 构建数据文件路径
+                db_directory="/mntdisk/LuM10B/cold/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                hotdb_directory="/mntdisk/LuM10B/hot/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                db_directory="/mnt/nvm/LuM10B/cold/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                hotdb_directory="/mnt/nvm/LuM10B/hot/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                ycsb_data_file="/mnt/workloads/ycsb_a_workload.csv" # 构建数据文件路径
 
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -65,7 +66,7 @@ for i in {10..10}; do
                 iostat -d 100 -x $DEVICE_NAME > LuMDB_${num_format}_val_${value_size}_zipf${zipf_a}_mem${Mem}MiB_P${partition}_hot${hot_identification}_IOstats.log &
                 PID_IOSTAT=$!
                     
-                ../../hotdb/release/db_bench \
+                gdb --args ../../hotdb/release/db_bench \
                 --db=$db_directory \
                 --num=$num_entries \
                 --ycsb_num=$ycsb_num_entries \
@@ -73,6 +74,7 @@ for i in {10..10}; do
                 --batch_size=1000 \
                 --benchmarks=ycsba,stats \
                 --data_file=$data_file  \
+                --hotdb=$hotdb_directory \
                 --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \

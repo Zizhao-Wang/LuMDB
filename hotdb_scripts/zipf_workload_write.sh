@@ -48,16 +48,23 @@ for i in {10..10}; do
                 reads_data_file="/mnt/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
                 data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                 memory_log_file="$(pwd)/LuMDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}.log"
-                db_directory="/mnt/hotdb_test/hotdb10B/pointread_${zipf_a}"
-                db_directory="/mntdisk/hotdb10B/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
+                db_directory="/mntdisk/LuM10B/cold/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
+                hotdb_directory="/mntdisk/LuM10B//hot/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
+
+                if [ "$(ls -A $db_directory)" ]; then
+                    rm -rf "${db_directory:?}/"*
+                fi
 
                 if [ ! -d "$db_directory" ]; then
                     mkdir -p "$db_directory"
                 fi
 
-                # 检查目录是否为空，如果不为空则删除所有内容
-                if [ "$(ls -A $db_directory)" ]; then
-                    rm -rf "${db_directory:?}/"*
+                if [ "$(ls -A $hotdb_directory)" ]; then
+                    rm -rf "${hotdb_directory:?}/"*
+                fi
+
+                if [ ! -d "$hotdb_directory" ]; then
+                    mkdir -p "$hotdb_directory"
                 fi
 
                 # 如果日志文件存在，则跳过当前迭代
@@ -78,6 +85,7 @@ for i in {10..10}; do
                 --num=$num_entries \
                 --value_size=$value_size \
                 --batch_size=1000 \
+                --hotdb=$hotdb_directory \
                 --benchmarks=fillzipf2,stats \
                 --data_file=$data_file  \
                 --logpath=/mnt/logs \

@@ -29,7 +29,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_LuMDB_YCSB_performance"
+    dir1="${i}B_LuMDB_YCSB_performance_SATASSD"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -39,14 +39,17 @@ for i in {10..10}; do
             stats_interva=$((num_entries / 1000))
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
-            ycsb_num_entries=950000
+            ycsb_num_entries=1000000
 
             for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
 
                 log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator1"
-                ycsb_data_file="/home/jeff-wang/workloads/ycsb_b_workload.csv" # 构建数据文件路径
+                db_directory="/mntdisk/LuM10B/cold/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                hotdb_directory="/mntdisk/LuM10B/hot/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                db_directory="/mnt/nvm/LuM10B/cold/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                hotdb_directory="/mnt/nvm/LuM10B/hot/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                ycsb_data_file="/mnt/workloads/ycsb_b_workload.csv" # 构建数据文件路径
 
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -78,6 +81,7 @@ for i in {10..10}; do
                 --cache_size=8388608 \
                 --open_files=40000 \
                 --use_existing_db=true \
+                --hotdb=$hotdb_directory \
                 --reads=1000 \
                 --compression=0 \
                 --YCSB_data_file=$ycsb_data_file \

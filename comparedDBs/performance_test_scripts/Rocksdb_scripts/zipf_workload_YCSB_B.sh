@@ -46,17 +46,17 @@ for i in {10..10}; do
                 log_file="RocksDB_${num_format}_val${value_size}_mem${MEM}MB_zipf${zipf_a}_YCSBB.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径 
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal/RocksDB_memoryusage${MEM}MB_${num_format}_key16_val${value_size}_zipf${zipf_a}_mem${MEM}MiB.log"      
-                ycsb_data_file="/home/jeff-wang/workloads/ycsb_b_workload.csv" # 构建数据文件路径
+                ycsb_data_file="/mnt/workloads/ycsb_b_workload.csv" # 构建数据文件路径
 
 
                 # 创建相应的目录
-                db_dir="/mnt/hotdb_test/rocks10B/ycsba_mem${MEM}MB_${zipf_a}_ierator_1"
-                
+                db_dir="/mntdisk/rocks10B/ycsba_mem64MB_${zipf_a}_ierator_2"
+                db_dir="/mnt/nvm/rocks10B/ycsba_mem64MB_${zipf_a}_ierator_1"
                 # 如果日志文件存在，则跳过当前迭代
-                if [ -f "$log_file" ]; then
-                    echo "Log file $log_file already exists. Skipping this iteration."
-                    continue
-                fi
+                # if [ -f "$log_file" ]; then
+                #     echo "Log file $log_file already exists. Skipping this iteration."
+                #     continue
+                # fi
 
                 echo "base_num: $base_num"
                 echo "num_entries: $num_entries"
@@ -86,8 +86,7 @@ for i in {10..10}; do
                 --write_buffer_size=1048576 \
                 --mem_log_file=$memory_log_file \
                 --target_file_size_base=1048576   \
-                --compression_type=none \
-                | tee $log_file
+                --compression_type=none 
                     # &> >( tee $log_file) &  
 
                 # # 保存 db_bench 的 PID 供监控使用

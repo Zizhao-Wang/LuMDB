@@ -27,7 +27,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_RocksDB_YCSB_performance"
+    dir1="${i}B_RocksDB_YCSB_performance_SATASSD"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -38,7 +38,7 @@ for i in {10..10}; do
 
             num_format=$(convert_to_billion_format $num_entries)
             num_entries=1000000000
-            ycsb_num_entries=900000
+            ycsb_num_entries=1000000
 
             for zipf_a in 1.2; do  # 1.2 1.3 1.4 1.5
 
@@ -46,12 +46,12 @@ for i in {10..10}; do
                 log_file="RocksDB_${num_format}_val${value_size}_mem${MEM}MB_zipf${zipf_a}_YCSBD.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径 
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal/RocksDB_memoryusage${MEM}MB_${num_format}_key16_val${value_size}_zipf${zipf_a}_mem${MEM}MiB.log"      
-                ycsb_data_file="/home/jeff-wang/workloads/ycsb_d_workload.csv" # 构建数据文件路径
+                ycsb_data_file="/mnt/workloads/ycsb_d_workload.csv" # 构建数据文件路径
 
 
                 # 创建相应的目录
-                db_dir="/mnt/hotdb_test/rocks10B/ycsba_mem${MEM}MB_${zipf_a}_ierator_1"
-                
+                db_dir="/mntdisk/rocks10B/ycsba_mem64MB_${zipf_a}_ierator_1"
+                db_dir="/mnt/nvm/rocks10B/ycsba_mem64MB_${zipf_a}_ierator_1"
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
                 #     echo "Log file $log_file already exists. Skipping this iteration."
@@ -87,8 +87,7 @@ for i in {10..10}; do
                 --write_buffer_size=1048576 \
                 --mem_log_file=$memory_log_file \
                 --target_file_size_base=1048576   \
-                --compression_type=none \
-                > >( tee $log_file) &  
+                --compression_type=none 
 
                 # 保存 db_bench 的 PID 供监控使用
                 # sleep 1

@@ -64,6 +64,7 @@ for i in {10..10}; do
                 
                 db_dir="/mntdist/pebbles10B/PointRead_${zipf_a}"
                 db_dir="/mntdisk/pebbles10B/ycsb_mem${Mem}_${zipf_a}_1"
+                db_dir="/mnt/nvm/pebbles10B/ycsb_mem${Mem}_${zipf_a}_2"
                 echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
                     
                 iostat -d 100 -x $DEVICE_NAME > Pebblesdb_memory_${Mem}MiB_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
@@ -74,13 +75,13 @@ for i in {10..10}; do
                 --num=$num_entries \
                 --value_size=$value_size \
                 --ycsb_num=$ycsb_num_entries \
-                --batch_size=1000 \
+                --batch_size=1 \
                 --benchmarks=ycsba,stats \
                 --data_file=$data_file  \
                 --bloom_bits=10 \
                 --log=1  \
                 --cache_size=8388608 \
-                --open_files=40000 \
+                --open_files=1000 \
                 --mem_log_file=$memory_log_file \
                 --compression=0 \
                 --stats_interval=$stats_interva \

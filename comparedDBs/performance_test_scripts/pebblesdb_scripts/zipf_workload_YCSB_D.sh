@@ -45,7 +45,7 @@ for i in {10..10}; do
                 log_file="Pebbles10B_${num_format}_val_${value_size}_mem${Mem}MB_zipf${zipf_a}_iterator${iteration}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_YCSB_performance/Pebblesdb_memory_${Mem}MiB_${num_format}_key16_val${value_size}_zipf${zipf_a}.log"
-                ycsb_data_file="/home/jeff-wang/workloads/ycsb_d_workload.csv" # 构建数据文件路径
+                ycsb_data_file="/mnt/workloads/ycsb_d_workload.csv" # 构建数据文件路径
 
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -60,7 +60,8 @@ for i in {10..10}; do
                 echo "$num_format"
 
                 # 创建相应的目录
-                db_dir="/mnt/hotdb_test/pebbles10B/ycsb_mem${Mem}_${zipf_a}_1"
+                db_dir="/mntdisk/pebbles10B/ycsb_mem${Mem}_${zipf_a}_1"
+                db_dir="/mnt/nvm/pebbles10B/ycsb_mem${Mem}_${zipf_a}_2"
                 echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'
                     
                 iostat -d 100 -x $DEVICE_NAME > Pebblesdb_memory_${Mem}MiB_${num_format}_val_${value_size}_zipf${zipf_a}_IOstats.log &
@@ -74,11 +75,10 @@ for i in {10..10}; do
                 --batch_size=1000 \
                 --benchmarks=ycsbd,stats \
                 --data_file=$data_file  \
-                --logpath=/mnt/logs \
                 --bloom_bits=10 \
                 --log=1  \
                 --cache_size=8388608 \
-                --open_files=40000 \
+                --open_files=1000 \
                 --mem_log_file=$memory_log_file \
                 --compression=0 \
                 --stats_interval=$stats_interva \

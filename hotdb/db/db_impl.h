@@ -301,7 +301,7 @@ class DBImpl : public DB {
       return read_write_ratio;
     }
 
-    
+
 
     Autotuning_framework() : read_ops(0), write_ops(0), read_write_ratio(0.0), monitor_windows_size(1000) {}
 
@@ -383,6 +383,8 @@ class DBImpl : public DB {
 
   void MaybeScheduleCompaction() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  void MaybeScheduleCompaction2() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   // Static wrapper function: Schedules the compaction work asynchronously through env_->Schedule
   // This function wraps the Do_CompactionWork_Without_Identification call
   // Parameter arg: The task parameters wrapped in a struct, which includes DBImpl, CompactionState, and a status pointer
@@ -444,25 +446,52 @@ class DBImpl : public DB {
 
   // some new compaction jobs
 
-  Status Do_L0CompactionWork_Without_Identification(CompactionState* compact)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   
+  //============= DB Open start===============
+  Status DBOpenDo_L0CompactionWork_Without_Identification(CompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+    
+  Status DBOpen_DoOther_Levels_CompactionWork_Without_Identification(CompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  //============= DB Open end===============
+
+
+  //============= DB Open and in-progress ===============
+  Status Do_L0CompactionWork_merge_small_partitions(CompactionState* compact, bool merge_small_ranges = false)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  //============= DB Open and in-progress ===============
+
+
+  //============= compaction jobs after DB Open ===============
   Status Do_L0CompactionWork_With_Identification(CompactionState* compact, bool merge_small_ranges = false)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  Status Do_L0CompactionWork_Without_Identification(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   
   Status Do_CompactionWork_Without_Identification(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  //============= compaction jobs after DB Open ===============
 
-  // some new compaction jobs
 
   Status DoTieringCompactionWork(TieringCompactionState* compact)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  
+  Status DoTieringCompactionWork2(TieringCompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   Status OpenCompactionOutputFile(CompactionState* compact, bool is_hot = false);
 
+  Status DBOpenCompactionOutputFile(CompactionState* compact);
+
   Status OpenHotCompactionOutputFile(CompactionState* compact);
 
   Status OpenCompactionOutputFile(TieringCompactionState* compact);
+
+  Status OpenCompactionOutputFile2(TieringCompactionState* compact);
+
+  Status OpensamllCompactionOutputFile(CompactionState* compact);
 
   Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input, bool is_hot=false);
 
@@ -538,6 +567,10 @@ class DBImpl : public DB {
   std::atomic<bool> shutting_down_;
   std::atomic<int> pending_tasks_; 
   port::CondVar background_work_finished_signal_ GUARDED_BY(mutex_);
+
+  void Is_tasks(){
+    while (pending_tasks_.load()!=0){;}
+  }
 
   // port::CondVar background_tieirng_work_finished_signal_;
 

@@ -212,6 +212,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       table_cache_(new TableCache(dbname_, hot_dbname_, options_, TableCacheSize(options_))),
       db_lock_(nullptr),
       shutting_down_(false),
+      pending_tasks_(0),
       pl_or_2ppl(false),
       background_work_finished_signal_(&mutex_),
       mem_(nullptr),
@@ -554,10 +555,22 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   if (!s.ok()) {
     return s;
   }
+  std::vector<std::string> filenames2;
+  s = env_->GetChildren(hot_dbname_, &filenames2);
+  if (!s.ok()) {
+    return s;
+  }
+
   fprintf(stderr,"we got %ld files !\n", filenames.size());
   std::set<uint64_t> expected;
   versions_->AddLiveFiles(&expected);
   fprintf(stderr,"we got %ld live files !\n", expected.size());
+
+  fprintf(stderr,"we got %ld hot files !\n", filenames2.size());
+  std::set<uint64_t> expected2;
+  versions_->AddLiveHotFiles(&expected);
+  fprintf(stderr,"we got %ld live hot files !\n", expected2.size());
+
   uint64_t number;
   FileType type;
   std::vector<uint64_t> logs;
@@ -569,6 +582,16 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
         fprintf(stderr,"find %ld as a log file!\n", number);
       }
         
+    }
+  }
+
+  for (size_t i = 0; i < filenames2.size(); i++) {
+    if (ParseFileName(filenames2[i], &number, &type)) {
+      expected.erase(number);
+      if (type == kLogFile && ((number >= min_log) || (number == prev_log))){
+        logs.push_back(number);
+        fprintf(stderr,"find %ld as a log file!\n", number);
+      }
     }
   }
 
@@ -1034,7 +1057,9 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
   size_t current_key_size = iter->key().size()-8;
 
   int64_t start_micros = env_->NowMicros();
-  file_meta->smallest.DecodeFrom(iter->key()); 
+  file_meta->smallest.DecodeFrom(iter->key());
+  // fprintf(stderr,"We have created a new file[%lu] the file smallest is:%s \n",
+  //   file_meta->number, file_meta->smallest.user_key().ToString().c_str());
 
   mem_partition_guard* current_partition = nullptr;
   mem_partition_guard* next_partition = nullptr;
@@ -1043,30 +1068,27 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
   mem_partition_guard temp_partition(current_key_str, current_key_str);
 
   bool is_last_expand = false;
-    
+  
+  // Todo in LuMDB-flex
   // 使用 upper_bound 查找第一个大于 temp_partition 的 partition
   auto it = mem_partitions_.upper_bound(&temp_partition);
   if(it == mem_partitions_.begin()){
     current_partition = *it;
     it++;
     assert(current_partition->CompareWithBegin(current_key_pointer, current_key_size) > 0);
-
     if(current_partition->GetAverageFileSize() < options.min_file_size){
       std::string new_start_str(current_key_pointer,current_key_size);
       current_partition->UpdatePartitionStart(new_start_str);
     }else{
       std::string new_start_str(current_key_pointer,current_key_size);
       current_partition = CreateAndInsertPartition(new_start_str, new_start_str, versions_->NewPartitionNumber(), mem_partitions_);
-      partition_first_L0flush_map_[current_partition->partition_num] = true;
-      Log(options_.leveling_info_log,"[DEBUG] current_partition->partition_num: %lu",
-        current_partition->partition_num);
+      partition_first_L0flush_map_[current_partition->partition_num] = true; 
     }
-
   }else{
     --it;
     current_partition = *it;
   }
-
+  Log(options_.leveling_info_log,"[DEBUG] current_partition->partition_num: %lu", current_partition->partition_num);
   GetNextPartition(mem_partitions_, current_partition, next_partition);
   // fprintf(stderr, "Partition start: %s, end: %s\n", (*it)->partition_start.ToString().c_str(), (*it)->partition_end.ToString().c_str());
 
@@ -1124,6 +1146,7 @@ Status DBImpl::AddDataIntoPartitions(Iterator* iter, const Options& options,Tabl
         assert(file_meta->file_size > 0);
         // wrritten_sizes += builder->FileSize();
       }
+      
       file_meta->largest.DecodeFrom(add_key);
       current_partition->Add_File(file_meta->file_size, builder->NumEntries());
       delete builder;
@@ -1874,6 +1897,28 @@ void DBImpl::MaybeScheduleCompaction() {
   }
 }
 
+void DBImpl::MaybeScheduleCompaction2() {
+  mutex_.AssertHeld();
+  if (background_compaction_scheduled_ ) {
+    // Already scheduled
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // DB is being deleted; no more background compactions
+  } else if (!bg_error_.ok()) {
+    // Already got an error; no more changes
+  } else if (imm_ == nullptr && hot_imm_ == nullptr && manual_compaction_ == nullptr &&
+            !versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()) {
+    // No work to be done
+    fprintf(stderr,"We do not need a compaction during open\n");
+  } else {
+    background_compaction_scheduled_ = true;
+    // start a new thread!
+    // fprintf(stderr,"Schedule a leveling work!\n");
+    pending_tasks_.fetch_add(1);
+    fprintf(stderr,"start a new compaction job during DB opening!\n");
+    BackgroundCallCold();
+  }
+}
+
 void DBImpl::BGWork(void* db) {
   reinterpret_cast<DBImpl*>(db)->BackgroundCall();
 }
@@ -1917,7 +1962,8 @@ void DBImpl::BackgroundCall() {
 }
 
 void DBImpl::BackgroundCallCold() {
-  MutexLock l(&mutex_);
+  // MutexLock l(&mutex_);
+  mutex_.AssertHeld();
   assert(background_compaction_scheduled_);
   if (shutting_down_.load(std::memory_order_acquire)) {
     // No more background work when shutting down.
@@ -1927,12 +1973,13 @@ void DBImpl::BackgroundCallCold() {
     // Log(options_.info_log, "start BackgroundCall!");
     BackgroundColdCompaction();
   }
-
+  pending_tasks_.fetch_add(-1);
+  fprintf(stderr,"End a compaction job!\n");
   background_compaction_scheduled_ = false;
 
   // Previous compaction may have produced too many files in a level,
   // so reschedule another compaction if needed.
-  MaybeScheduleCompaction();
+  MaybeScheduleCompaction2();
   background_work_finished_signal_.SignalAll();
 }
 
@@ -2120,7 +2167,8 @@ void DBImpl::BGWork_CompactLevelingCompactionWork_Wrapper(void* arg) {
   reinterpret_cast<DBImpl*>(arg)->CompactLevelingMemTable();
 }
 
-void DBImpl::BackgroundColdCompaction() {
+
+void DBImpl::BackgroundCompaction() {
   mutex_.AssertHeld();
 
   Log(options_.info_log, "start background Compaction!");
@@ -2132,16 +2180,29 @@ void DBImpl::BackgroundColdCompaction() {
     Log(options_.leveling_compaction_info_log, "Finished leveling CompactMemTable\n\n");
   }
 
-  if(!versions_->NeedsCompaction()){
-    return ;
+  if (hot_imm_ != nullptr) {
+    Log(options_.info_log, "Starting tiering CompactHotMemTable");
+    CompactTieringMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished tiering CompactHotMemTable\n\n");
   }
 
+  if(!versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()){
+    return ;
+  }
   
   Compaction* c;
   std::vector<Compaction*> Partitionleveling_compactions;
+  TieringCompaction* tiering_com;
+  if(pl_or_2ppl){
+    tiering_com= nullptr;
+  }
   
   bool is_manual = (manual_compaction_ != nullptr);
   InternalKey manual_end;
+
+  // Log pointer address
+  Log(options_.info_log, "BackgroundCompaction: Address of tiering_com pointer: %p", (void*)&tiering_com);
 
   if (is_manual) {
     ManualCompaction* m = manual_compaction_;
@@ -2160,13 +2221,27 @@ void DBImpl::BackgroundColdCompaction() {
     level_stats_[m->level].number_manual_compaction++;
 
   } else {
-    versions_->PickCompaction(Partitionleveling_compactions);  
-  } 
+    if(pl_or_2ppl){
+      versions_->PickCompaction(Partitionleveling_compactions);
+    }else{
+      versions_->PickCompaction(Partitionleveling_compactions, &tiering_com);
+    }   
+  }
+
+  // Log pointer address and stored address after PickCompaction
+  if(!pl_or_2ppl){
+    Log(options_.info_log, "After PickCompaction: Address stored in tiering_com: %p", (void*)tiering_com);
+    // if(Partitionleveling_compactions.size() !=0){
+    //   fprintf(stdout,"This time we have %lu partitions needs to be merged, start from %lu!\n",
+    //     Partitionleveling_compactions.size(),Partitionleveling_compactions[0]->partition_num());
+    // }
+  }
+  
   //misssion created!
   
 
   Status status;
-  if (Partitionleveling_compactions.empty()) {
+  if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
     // Nothing to do
   } else{
     for (Compaction* c : Partitionleveling_compactions) {
@@ -2197,7 +2272,6 @@ void DBImpl::BackgroundColdCompaction() {
         CompactionState* compact = new CompactionState(c);
         fprintf(stderr,"Merging small partitions in L0\n");
         status = Do_L0CompactionWork_With_Identification(compact, true);
-        mutex_.Lock();
         if (!status.ok()) {
           RecordBackgroundError(status);
         }
@@ -2247,7 +2321,6 @@ void DBImpl::BackgroundColdCompaction() {
             status = Do_CompactionWork_Without_Identification(compact);
           }
         }
-        mutex_.Lock();
             
         if (!status.ok()) {
           RecordBackgroundError(status);
@@ -2259,6 +2332,46 @@ void DBImpl::BackgroundColdCompaction() {
       }
       Log(options_.leveling_compaction_info_log, "\n\n");
       delete c;
+    }
+
+    if(tiering_com != nullptr){
+      // fprintf(stdout,"start a tiering compaction from !\n");
+      if (!is_manual && tiering_com->IsTrivialMoveWithTier()) { 
+        // Move file to next level
+        assert(tiering_com->num_input_tier_files(0) == 1);
+        FileMetaData* f = tiering_com->tier_input(0, 0);
+        tiering_com->edit()->RemovetieringFile(tiering_com->level(),tiering_com->get_selected_run_in_input_level(), f->number);
+        tiering_com->edit()->AddTieringFile(tiering_com->level() + 1, tiering_com->get_selected_run_in_next_level(), f->number, f->file_size, f->smallest,
+                          f->largest);
+        tiering_com->edit()->set_is_tiering();
+        status = versions_->LogAndApply(tiering_com->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), tiering_com->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[tiering_com->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].number_TrivialMove++;
+      
+      }else{
+        TieringCompactionState* tier_compact = new TieringCompactionState(tiering_com);
+        status = DoTieringCompactionWork(tier_compact);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        CleanupCompaction(tier_compact);
+        tiering_com->ReleaseInputs();
+        TieringRemoveObsoleteFiles();
+      }
+      Log(options_.info_log, "\n\n");
+      delete tiering_com; 
+      tiering_com = nullptr;  
     }
   } 
 
@@ -2285,6 +2398,226 @@ void DBImpl::BackgroundColdCompaction() {
   }
 }
 
+
+void DBImpl::BackgroundColdCompaction() {
+  mutex_.AssertHeld();
+  Log(options_.info_log, "start background Compaction!");
+
+  if (imm_ != nullptr) {
+    Log(options_.leveling_compaction_info_log, "Starting leveling CompactMemTable");
+    CompactLevelingMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.leveling_compaction_info_log, "Finished leveling CompactMemTable\n\n");
+  }
+
+  if (hot_imm_ != nullptr) {
+    Log(options_.info_log, "Starting tiering CompactHotMemTable");
+    CompactTieringMemTable();
+    background_work_finished_signal_.SignalAll();
+    Log(options_.info_log, "Finished tiering CompactHotMemTable\n\n");
+  }
+
+  if(!versions_->NeedsCompaction() && !versions_->NeedsTieringCompaction()){
+    return ;
+  }
+
+  
+  Compaction* c;
+  std::vector<Compaction*> Partitionleveling_compactions;
+  TieringCompaction* tiering_com;
+  if(pl_or_2ppl){
+    tiering_com= nullptr;
+  }
+  
+  bool is_manual = (manual_compaction_ != nullptr);
+  InternalKey manual_end;
+
+  // Log pointer address
+  Log(options_.info_log, "BackgroundCompaction: Address of tiering_com pointer: %p", (void*)&tiering_com);
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    c = versions_->CompactRange(m->level, m->begin, m->end);
+    m->done = (c == nullptr);
+    if (c != nullptr) {
+      manual_end = c->input(0, c->num_input_files(0) - 1)->largest;
+    }
+    Log(options_.info_log,
+        "Manual compaction at level-%d from %s .. %s; will stop at %s\n",
+        m->level, (m->begin ? m->begin->DebugString().c_str() : "(begin)"),
+        (m->end ? m->end->DebugString().c_str() : "(end)"),
+        (m->done ? "(end)" : manual_end.DebugString().c_str()));
+    
+    // newly added source codes
+    level_stats_[m->level].number_manual_compaction++;
+
+  } else {
+    if(pl_or_2ppl){
+      versions_->PickCompaction(Partitionleveling_compactions);
+    }else{
+      versions_->PickCompaction(Partitionleveling_compactions, &tiering_com);
+    }   
+  } 
+  //misssion created!
+  
+
+  Status status;
+  if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
+    // Nothing to do
+  } else{
+    for (Compaction* c : Partitionleveling_compactions) {
+      // fprintf(stdout,"start a leveling compaction from !\n");
+      uint64_t need_partition_num = c->partition_num();
+      mem_partition_guard* temp_partition = nullptr;
+      for(auto it = mem_partitions_.begin(); it != mem_partitions_.end(); ++it){
+        if((*it)->partition_num == need_partition_num){
+          temp_partition = *it;
+          break;
+        }
+      }
+      if(c->level() == 0){
+        auto map_it = partition_first_L0flush_map_.find(need_partition_num);
+        if (map_it == partition_first_L0flush_map_.end()) {
+          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+          delete c;
+          continue;  
+        }
+      }
+      bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
+      // bool is_first_L0flush = false;
+      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<524288){
+        std::vector<uint64_t> deleted_partition_nums;
+        Merge_all_supersmall_partitions(deleted_partition_nums);
+        versions_->RePickCompaction(c, deleted_partition_nums);
+        CompactionState* compact = new CompactionState(c);
+        fprintf(stderr,"Merging small partitions in L0\n");
+        status = Do_L0CompactionWork_merge_small_partitions(compact, true);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        CleanupCompaction(compact);
+        c->ReleaseInputs();
+        RemoveObsoleteFiles();
+        fprintf(stderr,"Merging small partitions in L0 done!\n");
+      }else if (!is_manual && c->IsTrivialMove()) { 
+        // Move file to next level
+        assert(c->num_input_files(0) == 1);
+        FileMetaData* f = c->input(0, 0);
+        c->edit()->RemovePartitionFile(c->level(), c->partition_num(), f->number);
+        c->edit()->AddPartitionLevelingFile(c->partition_num(), c->level() + 1, f->number, 
+                f->file_size, f->smallest,f->largest);
+        status = versions_->LogAndApply(c->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.leveling_compaction_info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), c->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[c->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[c->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[c->level()].number_TrivialMove++;
+      } else {
+
+        CompactionState* compact = new CompactionState(c);
+
+        if(pl_or_2ppl){
+          //for Partitioning leveling
+          status = Do_CompactionWork_Without_Identification(compact);
+        }else{
+          // for 2-phase partitioning leveling
+          if(c->level()==0 && !is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            status = DBOpenDo_L0CompactionWork_Without_Identification(compact);
+          }else if(c->level()==0 && is_first_L0flush){
+            // only for L0 compaction without hot-data identification!
+            status = Do_L0CompactionWork_With_Identification(compact);
+            fprintf(stderr,"fatal error in c->level()==0 && is_first_L0flush when DB is opening?");
+            exit(0);
+          }else if(c->level()>0){
+            // for other across-level compactions!
+            status = DBOpen_DoOther_Levels_CompactionWork_Without_Identification(compact);
+          }
+        }
+            
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+
+        CleanupCompaction(compact);
+        c->ReleaseInputs();
+        RemoveObsoleteFiles();
+      }
+      Log(options_.leveling_compaction_info_log, "\n\n");
+      delete c;
+    }
+
+    if(tiering_com != nullptr){
+      // fprintf(stdout,"start a tiering compaction from !\n");
+      if (!is_manual && tiering_com->IsTrivialMoveWithTier()) { 
+        // Move file to next level
+        assert(tiering_com->num_input_tier_files(0) == 1);
+        FileMetaData* f = tiering_com->tier_input(0, 0);
+        tiering_com->edit()->RemovetieringFile(tiering_com->level(),tiering_com->get_selected_run_in_input_level(), f->number);
+        tiering_com->edit()->AddTieringFile(tiering_com->level() + 1, tiering_com->get_selected_run_in_next_level(), f->number, f->file_size, f->smallest,
+                          f->largest);
+        tiering_com->edit()->set_is_tiering();
+        status = versions_->LogAndApply(tiering_com->edit(), &mutex_);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        VersionSet::LevelSummaryStorage tmp;
+        Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
+            static_cast<unsigned long long>(f->number), tiering_com->level() + 1,
+            static_cast<unsigned long long>(f->file_size),
+            status.ToString().c_str(), versions_->LevelSummary(&tmp));
+
+        // newly added source codes
+        level_stats_[tiering_com->level()+1].moved_directly_from_last_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].moved_from_this_level_bytes = f->file_size;
+        level_stats_[tiering_com->level()].number_TrivialMove++;
+      
+      }else{
+        TieringCompactionState* tier_compact = new TieringCompactionState(tiering_com);
+        status = DoTieringCompactionWork2(tier_compact);
+        if (!status.ok()) {
+          RecordBackgroundError(status);
+        }
+        CleanupCompaction(tier_compact);
+        tiering_com->ReleaseInputs();
+        TieringRemoveObsoleteFiles();
+      }
+      Log(options_.info_log, "\n\n");
+      delete tiering_com; 
+      tiering_com = nullptr;  
+    }
+  } 
+
+  if (status.ok()) {
+    // Done
+  } else if (shutting_down_.load(std::memory_order_acquire)) {
+    // Ignore compaction errors found during shutting down
+  } else {
+    Log(options_.info_log, "Compaction error: %s", status.ToString().c_str());
+  }
+
+  if (is_manual) {
+    ManualCompaction* m = manual_compaction_;
+    if (!status.ok()) {
+      m->done = true;
+    }
+    if (!m->done) {
+      // We only compacted part of the requested range.  Update *m
+      // to the range that is left to be compacted.
+      m->tmp_storage = manual_end;
+      m->begin = &m->tmp_storage;
+    }
+    manual_compaction_ = nullptr;
+  }
+}
 
 
 void DBImpl::BackgroundCompactionMultiThread() {
@@ -2446,11 +2779,8 @@ void DBImpl::BackgroundCompactionMultiThread() {
         Merge_all_supersmall_partitions(deleted_partition_nums);
         versions_->RePickCompaction(c, deleted_partition_nums);
         CompactionState* compact = new CompactionState(c);
-        fprintf(stderr,"Merging small partitions in L0\n");
-        status = Do_L0CompactionWork_With_Identification(compact, true);
-        if(status.ok()){
-          status = InstallCompactionResults(compact);
-        }
+        fprintf(stderr,"Merging small partitions in L0 to call Do_L0CompactionWork_merge_small_partitions\n");
+        status = Do_L0CompactionWork_merge_small_partitions(compact, true);
         if (!status.ok()) {
           RecordBackgroundError(status);
         }
@@ -3095,7 +3425,7 @@ void DBImpl::BackgroundCompactionTwoThread() {
         versions_->RePickCompaction(c, deleted_partition_nums);
         CompactionState* compact = new CompactionState(c);
         fprintf(stderr,"Merging small partitions in L0\n");
-        status = Do_L0CompactionWork_With_Identification(compact, true);
+        status = Do_L0CompactionWork_merge_small_partitions(compact, true);
         if (!status.ok()) {
           RecordBackgroundError(status);
         }
@@ -3103,7 +3433,6 @@ void DBImpl::BackgroundCompactionTwoThread() {
         c->ReleaseInputs();
         RemoveObsoleteFiles();
         fprintf(stderr,"Merging small partitions in L0 done!\n");
-
       }else if (!is_manual && c->IsTrivialMove()) { 
         // Move file to next level
         assert(c->num_input_files(0) == 1);
@@ -3331,6 +3660,65 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact, bool is_hot) {
 }
 
 
+Status DBImpl::DBOpenCompactionOutputFile(CompactionState* compact) {
+  assert(compact != nullptr);
+  assert(compact->builder == nullptr);
+
+  uint64_t file_number;
+  {
+    file_number = versions_->NewFileNumber();
+    pending_outputs_.insert(file_number);
+    CompactionState::Output out;
+    out.number = file_number;
+    out.smallest.Clear();
+    out.largest.Clear();
+
+    compact->outputs.push_back(out);
+    // fprintf(stderr,"we have added a new output file\n");
+    // exit(0);
+  }
+
+  // Make the output file
+  Status s;
+
+  std::string fname = TableFileName(dbname_, file_number);
+  s = env_->NewWritableFile(fname, &compact->outfile);
+  if (s.ok()) {
+    compact->builder = new TableBuilder(options_, compact->outfile);
+  }
+  return s;
+}
+
+
+Status DBImpl::OpensamllCompactionOutputFile(CompactionState* compact) {
+  assert(compact != nullptr);
+
+  uint64_t file_number;
+  {
+    file_number = versions_->NewFileNumber();
+    pending_outputs_.insert(file_number);
+    CompactionState::Output out;
+    out.number = file_number;
+    out.smallest.Clear();
+    out.largest.Clear();
+    compact->outputs.push_back(out);
+    // fprintf(stderr,"we have added a new output file\n");
+    // exit(0);
+  }
+
+  // Make the output file
+  Status s;
+ 
+  std::string fname = TableFileName(dbname_, file_number);
+  s = env_->NewWritableFile(fname, &compact->outfile);
+  if (s.ok()) {
+    compact->builder = new TableBuilder(options_, compact->outfile);
+  }
+  return s;
+}
+
+
+
 Status DBImpl::OpenHotCompactionOutputFile(CompactionState* compact) {
   assert(compact != nullptr);
   assert(compact->hot_builder == nullptr);
@@ -3371,6 +3759,30 @@ Status DBImpl::OpenCompactionOutputFile(TieringCompactionState* compact) {
     out.largest.Clear();
     compact->outputs.push_back(out);
     mutex_.Unlock();
+  }
+
+  // Make the output file
+  std::string fname = TableFileName(hot_dbname_, file_number);
+  Status s = env_->NewWritableFile(fname, &compact->outfile);
+  if (s.ok()) {
+    compact->builder = new TableBuilder(options_, compact->outfile);
+  }
+  return s;
+}
+
+Status DBImpl::OpenCompactionOutputFile2(TieringCompactionState* compact) {
+  assert(compact != nullptr);
+  assert(compact->builder == nullptr);
+  uint64_t file_number;
+  {
+
+    file_number = versions_->NewFileNumber();
+    pending_outputs_.insert(file_number);
+    TieringCompactionState::Output out;
+    out.number = file_number;
+    out.smallest.Clear();
+    out.largest.Clear();
+    compact->outputs.push_back(out);
   }
 
   // Make the output file
@@ -4076,7 +4488,7 @@ Status DBImpl::DoTieringCompactionWork(TieringCompactionState* compact) {
 
       // Close output file if it is big enough
       if (compact->builder->FileSize() >=
-          compact->tiercompaction->MaxOutputFileSize()) {
+          compact->tiercompaction->MaxTieringOutputFileSize(compact->tiercompaction->level()+1)) {
         Log(options_.info_log, "Output file size reached max limit, closing the file");
         status = FinishCompactionOutputFile(compact, input);
         if (!status.ok()) {
@@ -4138,9 +4550,996 @@ Status DBImpl::DoTieringCompactionWork(TieringCompactionState* compact) {
   return status;
 }
 
+
+Status DBImpl::DoTieringCompactionWork2(TieringCompactionState* compact) {
+  const uint64_t start_micros = env_->NowMicros();
+  int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
+
+  new_LeveldataStats new_compact_statistics;
+
+  // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
+  // compact->compaction->num_input_files(1) 示与当前级别有重叠的下一个级别（level + 1）中参与压缩的文件数量。
+  Log(options_.info_log, "Compacting %d@%d + %d@%d files",
+      compact->tiercompaction->num_input_tier_files(0), compact->tiercompaction->level(),
+      compact->tiercompaction->num_input_tier_files(1),
+      compact->tiercompaction->level() + 1);
+
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  // record the number of files that involved in every compaction!
+  
+  if(compact->tiercompaction->get_compaction_type() == 1){ // size compaction
+    level_stats_[compact->tiercompaction->level()].number_size_tieirng_compactions++;
+    level_stats_[compact->tiercompaction->level()].number_size_compaction_tieirng_initiator_files += compact->tiercompaction->num_input_tier_files(0);
+    level_stats_[compact->tiercompaction->level()+1].number_size_compaction_tieirng_participant_files += compact->tiercompaction->num_input_tier_files(1);
+  }   
+  else if(compact->tiercompaction->get_compaction_type() == 2){ // seek compaction 
+    level_stats_[compact->tiercompaction->level()].number_seek_tiering_compactions++;
+    level_stats_[compact->tiercompaction->level()].number_seek_tiering_compaction_initiator_files += compact->tiercompaction->num_input_tier_files(0);
+    level_stats_[compact->tiercompaction->level()+1].number_seek_tiering_compaction_participant_files += compact->tiercompaction->num_input_tier_files(1);
+  }
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
+  // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
+  assert(versions_->Num_Level_tiering_Files(compact->tiercompaction->level()) > 0);
+  assert(compact->builder == nullptr);
+  assert(compact->outfile == nullptr);
+  if (snapshots_.empty()) {
+    compact->smallest_snapshot = versions_->LastSequence();
+  } else {
+    compact->smallest_snapshot = snapshots_.oldest()->sequence_number();
+  }
+
+  // 制作一个迭代器
+  Iterator* input = versions_->MakeTieringInputIterator(compact->tiercompaction);
+
+  input->SeekToFirst();
+  Status status;
+  ParsedInternalKey ikey;
+  std::string current_user_key;
+  bool has_current_user_key = false;
+  SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
+
+  while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
+    Slice key = input->key();
+
+    // if (compact->compaction->ShouldStopBefore(key) &&
+    //     compact->builder != nullptr) {
+    //   status = FinishCompactionOutputFile(compact, input);
+    //   if (!status.ok()) {
+    //     break;
+    //   }
+    // }
+
+    // Handle key/value, add to state, etc.
+    bool drop = false;
+    if (!ParseInternalKey(key, &ikey)) {
+      // Do not hide error keys
+      current_user_key.clear();
+      has_current_user_key = false;
+      last_sequence_for_key = kMaxSequenceNumber;
+    } else {
+      if (!has_current_user_key ||
+          user_comparator()->Compare(ikey.user_key, Slice(current_user_key)) !=
+              0) {
+        // First occurrence of this user key
+        current_user_key.assign(ikey.user_key.data(), ikey.user_key.size());
+        has_current_user_key = true;
+        last_sequence_for_key = kMaxSequenceNumber;
+      }
+
+      if (last_sequence_for_key <= compact->smallest_snapshot) {
+        // Hidden by an newer entry for same user key
+        drop = true;  // (A)
+      } else if (ikey.type == kTypeDeletion &&
+                 ikey.sequence <= compact->smallest_snapshot &&
+                 compact->tiercompaction->IsBaseLevelForKey(ikey.user_key)) {
+        // For this user key:
+        // (1) there is no data in higher levels
+        // (2) data in lower levels will have larger sequence numbers
+        // (3) data in layers that are being compacted here and have
+        //     smaller sequence numbers will be dropped in the next
+        //     few iterations of this loop (by rule (A) above).
+        // Therefore this deletion marker is obsolete and can be dropped.
+        drop = true;
+      }
+      last_sequence_for_key = ikey.sequence;
+    }
+    
+#if 0
+    Log(options_.info_log,
+        "  Compact: %s, seq %d, type: %d %d, drop: %d, is_base: %d, "
+        "%d smallest_snapshot: %d",
+        ikey.user_key.ToString().c_str(),
+        (int)ikey.sequence, ikey.type, kTypeValue, drop,
+        compact->compaction->IsBaseLevelForKey(ikey.user_key),
+        (int)last_sequence_for_key, (int)compact->smallest_snapshot);
+#endif
+
+    if (!drop) {
+      // Open output file if necessary
+      if (compact->builder == nullptr) {
+        status = OpenCompactionOutputFile2(compact);
+        if (!status.ok()) {
+          Log(options_.info_log, "Failed to open new compaction output file: %s", status.ToString().c_str());
+          break;
+        }
+      }
+      if (compact->builder->NumEntries() == 0) {
+        Log(options_.info_log, "First entry in the new output file, key");
+        compact->current_output()->smallest.DecodeFrom(key);
+      }
+      compact->current_output()->largest.DecodeFrom(key);
+      compact->builder->Add(key, input->value());
+
+      // Close output file if it is big enough
+      if (compact->builder->FileSize() >=
+          compact->tiercompaction->MaxTieringOutputFileSize(compact->tiercompaction->level()+1)) {
+        Log(options_.info_log, "Output file size reached max limit, closing the file");
+        status = FinishCompactionOutputFile(compact, input);
+        if (!status.ok()) {
+          Log(options_.info_log, "Failed to finish compaction output file: %s", status.ToString().c_str());
+          break;
+        }
+      }
+    }
+
+    input->Next();
+  }
+
+  if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    status = Status::IOError("Deleting DB during compaction");
+  }
+  if (status.ok() && compact->builder != nullptr) {
+    // Log(options_.info_log, "Finished all compaction output files, total number of output files: %lu", compact->outputs.size());
+    status = FinishCompactionOutputFile(compact, input);
+  }
+  if (status.ok()) {
+    status = input->status();
+  }
+  delete input;
+  input = nullptr;
+
+  CompactionStats stats;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  uint64_t init_level_bytes_read = 0;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+  stats.tiering_micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
+  for (int which = 0; which < 2; which++) {
+    for (int i = 0; i < compact->tiercompaction->num_input_tier_files(which); i++) {
+      stats.bytes_read += compact->tiercompaction->tier_input(which, i)->file_size;
+    }
+  }
+
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    stats.bytes_written += compact->outputs[i].file_size;
+  }
+
+  stats_[compact->tiercompaction->level() + 1].Add(stats);
+  level_stats_[compact->tiercompaction->level() + 1].tiering_bytes_read += stats.bytes_read;
+  level_stats_[compact->tiercompaction->level() + 1].tiering_bytes_written += stats.bytes_written;
+
+  if (status.ok()) {
+    status = InstallTieringCompactionResults(compact);
+  }
+  if (!status.ok()) {
+    RecordBackgroundError(status);
+  }
+  VersionSet::LevelSummaryStorage tmp;
+  Log(options_.info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  return status;
+}
+
+
 ////==================DoTieringCompactionWork End================
 ///===================DoTieringCompactionWork End================
 ///===================DoTieringCompactionWork End================
+
+
+////==================DoLevelingCompactionWork start================
+///===================DoLevelingCompactionWork start================
+///===================DoLevelingCompactionWork start================
+
+Status DBImpl::Do_L0CompactionWork_merge_small_partitions(CompactionState* compact, bool merge_small_ranges) {
+  const uint64_t start_micros = env_->NowMicros();
+  int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
+  new_LeveldataStats new_compact_statistics;
+
+  // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
+  // compact->compaction->num_input_files(1) 示与当前级别有重叠的下一个级别（level + 1）中参与压缩的文件数量。
+
+  Log(options_.leveling_compaction_info_log, "[small Partition:%s Leveling: Partition %lu]Compacting %d@%d + %d@%d files",
+      compact->compaction->small_merge_partitions.c_str(), compact->compaction->partition_num(),
+      compact->compaction->num_input_files(0), compact->compaction->level(),
+      compact->compaction->num_input_files(1),
+      compact->compaction->level() + 1);
+  
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  // record the number of files that involved in every compaction!
+  if(compact->compaction->get_compaction_type() == 1){ // size compaction
+  level_stats_[compact->compaction->level()].number_size_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_size_compaction_leveling_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_size_compaction_leveling_participant_files += compact->compaction->num_input_files(1);
+  }
+  else if(compact->compaction->get_compaction_type() == 2){ // seek compaction 
+    level_stats_[compact->compaction->level()].number_seek_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_seek_leveling_compaction_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_leveling_compaction_participant_files += compact->compaction->num_input_files(1);
+  }
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
+  // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
+  if(!compact->compaction->is_merge_compaction()){
+    assert(versions_->Num_Level_Partitionleveling_Files(compact->compaction->level(), compact->compaction->partition_num()) > 0);
+  }
+
+  assert(compact->builder == nullptr);
+  assert(compact->outfile == nullptr);
+  if (snapshots_.empty()) {
+    compact->smallest_snapshot = versions_->LastSequence();
+  } else {
+    compact->smallest_snapshot = snapshots_.oldest()->sequence_number();
+  }
+
+  // 制作一个迭代器
+  Iterator* input = versions_->MakeInputIterator(compact->compaction);
+  // add lockfile
+
+  // Release mutex while we're actually doing the compaction work
+  // mutex_.Unlock();
+
+  input->SeekToFirst();
+  Status status;
+  ParsedInternalKey ikey;
+  std::string current_user_key;
+  bool has_current_user_key = false;
+  SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
+  bool is_output = false;
+  int i = 0;
+  int sequence_of_each_key = 0;
+  if(compact->compaction->level() ==1 ){
+    is_output = true;
+  }
+  Slice last_user_key;
+  std::string range_start, range_end;
+  bool has_range = false;
+  int user_key_numbers = 0;
+  std::queue<std::string> key_queues;
+  std::queue<std::string> key_queues_;
+  std::queue<std::string> val_queues_;
+
+  // 在 while 循环之前声明局部 vector
+  std::vector<std::string> local_range_boundaries;
+
+  while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
+    // Prioritize immutable compaction work
+    Slice key = input->key();
+    // Handle key/value, add to state, etc.
+    bool drop = false;
+    if (!ParseInternalKey(key, &ikey)) {
+      // Do not hide error keys
+      current_user_key.clear();
+      has_current_user_key = false;
+      last_sequence_for_key = kMaxSequenceNumber;
+    } else {
+      if (!has_current_user_key ||
+        user_comparator()->Compare(ikey.user_key, Slice(current_user_key)) != 0) {
+        // Log(options_.leveling_compaction_info_log, "Last userkey occurs %d times, Parsed a new user key: %s, sequence: %llu, type: %d",
+        //   sequence_of_each_key, ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, ikey.type);
+
+        // First occurrence of this user key
+        if (key_queues.size() == 3) {
+          key_queues.pop();
+        }
+        key_queues.push(ikey.user_key.ToString());
+
+        if(sequence_of_each_key==0){
+          // do nothing!
+        }else if(sequence_of_each_key > hot_key_threshold){
+          if (compact->hot_builder == nullptr) {
+            // fprintf(stderr, "Open hot output file in loop\n");
+            status = OpensamllCompactionOutputFile(compact);
+            if (!status.ok()) {
+              Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
+              break;
+            }
+          }
+          while (!key_queues_.empty() && !val_queues_.empty()) {
+            if (compact->hot_builder->NumEntries() == 0) {
+              compact->current_hot_output()->smallest.DecodeFrom(key_queues_.front());
+            }
+            compact->current_hot_output()->largest.DecodeFrom(key_queues_.front());
+            compact->hot_builder->Add(key_queues_.front(), val_queues_.front());
+            // Log(options_.leveling_compaction_info_log, "Adding to hot_builder: key = %s", key_queues_.front().data());
+            key_queues_.pop();
+            val_queues_.pop();
+          }
+        }else if(sequence_of_each_key <= hot_key_threshold){ 
+          // Open output file if necessary
+          if (compact->builder == nullptr) {
+            // fprintf(stderr, "Open output file in loop\n");
+            status = OpensamllCompactionOutputFile(compact);
+            if (!status.ok()) {
+              Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
+              break;
+            }
+          }
+          while (!key_queues_.empty() && !val_queues_.empty()) {
+            if (compact->builder->NumEntries() == 0) {
+              compact->current_output()->smallest.DecodeFrom(key_queues_.front());
+            }
+            compact->current_output()->largest.DecodeFrom(key_queues_.front());
+            compact->builder->Add(key_queues_.front(), val_queues_.front());
+            // Log(options_.leveling_compaction_info_log, "Adding to builder: key = %s", key_queues_.front().data());
+            key_queues_.pop();
+            val_queues_.pop();
+          }
+          // Close output file if it is big enough 30M 31457280 20M 20971520 compact->compaction->MinOutputFileSize()
+          if (compact->builder->FileSize() >= compact->compaction->MinOutputFileSize()) {
+            status = FinishCompactionOutputFile(compact, input);
+            if (!status.ok()) {
+              Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing compaction output file: %s", status.ToString().c_str());
+              break;
+            }
+          }
+        }
+
+        if(sequence_of_each_key >hot_key_threshold && !has_range ){
+          // range_boundaries.push_back(current_user_key);
+          local_range_boundaries.push_back(current_user_key);
+          has_range = true;
+          // Log(options_.leveling_compaction_info_log, "Range start:[%s]", range_start.c_str());
+        }else if(sequence_of_each_key <= hot_key_threshold && has_range){
+          local_range_boundaries.push_back(key_queues.front());
+          has_range = false;
+          // hot_range new_hot_range(local_range_boundaries[local_range_boundaries.size()-2].data(), local_range_boundaries[local_range_boundaries.size()-2].size(),
+          //   local_range_boundaries[local_range_boundaries.size()-1].data(),local_range_boundaries[local_range_boundaries.size()-1].size());
+          // HotRanges->hot_ranges_.insert(new_hot_range);
+          // Log(options_.leveling_compaction_info_log, "We created a new Range: [%s, %s]", new_hot_range.start_ptr, new_hot_range.end_ptr);
+        }
+
+        current_user_key.assign(ikey.user_key.data(), ikey.user_key.size());
+        has_current_user_key = true;
+        last_sequence_for_key = kMaxSequenceNumber;
+
+        // Log(options_.leveling_compaction_info_log, "Last key occurs %ld times, New user key: %s",sequence_of_each_key, current_user_key.c_str());
+        sequence_of_each_key = 1;
+      } else {
+        sequence_of_each_key++;
+        // Log(options_.leveling_compaction_info_log, "Existing user key: %s", current_user_key.c_str());
+      }
+
+      if (last_sequence_for_key <= compact->smallest_snapshot) {
+        // Hidden by a newer entry for the same user key
+        drop = true;  // (A)
+        // Log(options_.leveling_compaction_info_log, "Key %s is hidden by a newer entry, last_sequence_for_key: %llu, smallest_snapshot: %llu",
+        //     ikey.user_key.ToString().c_str(), (unsigned long long)last_sequence_for_key, (unsigned long long)compact->smallest_snapshot);
+      } else if (ikey.type == kTypeDeletion &&
+                ikey.sequence <= compact->smallest_snapshot &&
+                compact->compaction->IsBaseLevelForKey(ikey.user_key)) {
+        // Deletion marker is obsolete and can be dropped
+        drop = true;
+        // Log(options_.leveling_compaction_info_log, "Key %s is a deletion marker and can be dropped, sequence: %llu, smallest_snapshot: %llu",
+        //     ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, (unsigned long long)compact->smallest_snapshot);
+      } else {
+        // Log(options_.leveling_compaction_info_log, "Key %s is kept, sequence: %llu, last_sequence_for_key: %llu",
+        //     ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, (unsigned long long)last_sequence_for_key);
+      }
+
+      last_sequence_for_key = ikey.sequence;
+      // Log(options_.leveling_compaction_info_log, "Updated last_sequence_for_key: %llu\n\n", (unsigned long long)last_sequence_for_key);
+    }
+    
+#if 0
+    Log(options_.info_log,
+        "  Compact: %s, seq %d, type: %d %d, drop: %d, is_base: %d, "
+        "%d smallest_snapshot: %d",
+        ikey.user_key.ToString().c_str(),
+        (int)ikey.sequence, ikey.type, kTypeValue, drop,
+        compact->compaction->IsBaseLevelForKey(ikey.user_key),
+        (int)last_sequence_for_key, (int)compact->smallest_snapshot);
+#endif
+    
+    if (!drop) {
+      key_queues_.push(key.ToString());
+      val_queues_.push(input->value().ToString());
+    }
+
+    input->Next();
+    i++;
+  }
+
+  if(sequence_of_each_key > hot_key_threshold){
+    if (compact->hot_builder == nullptr) {
+      // fprintf(stderr, "Open hot output file in ending\n");
+      status = OpensamllCompactionOutputFile(compact);
+      if (!status.ok()) {
+        Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
+      }
+    }
+    while (!key_queues_.empty() && !val_queues_.empty()) {
+      if (compact->hot_builder->NumEntries() == 0) {
+        compact->current_hot_output()->smallest.DecodeFrom(key_queues_.front());
+      }
+      compact->current_hot_output()->largest.DecodeFrom(key_queues_.front());
+      compact->hot_builder->Add(key_queues_.front(), val_queues_.front());
+      // Log(options_.leveling_compaction_info_log, "Adding to hot_builder: key = %s", key_queues_.front().data());
+      key_queues_.pop();
+      val_queues_.pop();
+    }
+  }else{
+    if (compact->builder == nullptr) {
+      // fprintf(stderr, "Open output file in ending\n");
+      status = OpensamllCompactionOutputFile(compact);
+      if (!status.ok()) {
+        Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error opening compaction output file: %s", status.ToString().c_str());
+      }
+    }
+    while (!key_queues_.empty() && !val_queues_.empty()) {
+      if (compact->builder->NumEntries() == 0) {
+        compact->current_output()->smallest.DecodeFrom(key_queues_.front());
+      }
+      compact->current_output()->largest.DecodeFrom(key_queues_.front());
+      compact->builder->Add(key_queues_.front(), val_queues_.front());
+      // Log(options_.leveling_compaction_info_log, "Adding to hot_builder: key = %s", key_queues_.front().data());
+      key_queues_.pop();
+      val_queues_.pop();
+    }
+  }
+
+  if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    status = Status::IOError("Deleting DB during compaction");
+  }
+
+  if (status.ok() && compact->builder != nullptr) {
+    status = FinishCompactionOutputFile(compact, input);
+    if (!status.ok()) {
+      Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
+    }
+  }
+
+  if (status.ok() && compact->hot_builder != nullptr) {
+    status = FinishCompactionOutputFile(compact, input, true);
+    if (!status.ok()) {
+      Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
+    }
+  }
+
+  if (status.ok()) {
+    status = input->status();
+  }
+  delete input;
+  input = nullptr;
+
+  CompactionStats stats;
+  stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
+  for (int which = 0; which < 2; which++) {
+
+    for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
+      stats.bytes_read += compact->compaction->input(which, i)->file_size;
+    }
+  }
+
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    stats.bytes_written += compact->outputs[i].file_size;
+  }
+
+  // mutex_.Lock();
+
+  for (auto& s : local_range_boundaries) {
+    range_boundaries.push_back(std::move(s));
+  }
+
+  for (size_t i = 1; i < range_boundaries.size(); i += 2) {
+    hot_range new_hot_range ( 
+      range_boundaries[i-1].data(), 
+      range_boundaries[i-1].size(),
+      range_boundaries[i].data(),   
+      range_boundaries[i].size() 
+    );
+    HotRanges->hot_ranges_.insert(new_hot_range);
+  }
+
+  if (has_range && sequence_of_each_key > hot_key_threshold) {
+    range_boundaries.push_back(key_queues.back());
+    hot_range new_hot_range(range_boundaries[range_boundaries.size()-2].data(), range_boundaries[range_boundaries.size()-2].size(),
+          range_boundaries[range_boundaries.size()-1].data(),range_boundaries[range_boundaries.size()-1].size());
+    HotRanges->hot_ranges_.insert(new_hot_range);
+    Log(options_.leveling_compaction_info_log, "Ending final hot range: %s - %s", new_hot_range.start_ptr, new_hot_range.end_ptr);
+  }else if(!has_range && sequence_of_each_key > hot_key_threshold){
+    range_boundaries.push_back(key_queues.back());
+    range_boundaries.push_back(key_queues.back());
+    hot_range new_hot_range(range_boundaries[range_boundaries.size()-2].data(), range_boundaries[range_boundaries.size()-2].size(),
+      range_boundaries[range_boundaries.size()-1].data(),range_boundaries[range_boundaries.size()-1].size());
+    HotRanges->hot_ranges_.insert(new_hot_range);
+    Log(options_.leveling_compaction_info_log, "Ending final hot range: %s - %s", new_hot_range.start_ptr, new_hot_range.end_ptr);
+  }
+
+  if(!HotRanges->hot_ranges_.empty()){
+    auto it = HotRanges->hot_ranges_.begin();
+    auto it1 = HotRanges->hot_ranges_.end();
+    it1--;
+    
+    HotRanges->min_max_range = new hot_range(it->start_ptr,it->start_size, it1->end_ptr,it1->end_size);
+    // fprintf(stderr, "we create a min_max_range start: %.*s, end: %.*s\n",
+    //     static_cast<int>(HotRanges->min_max_range->start_size),
+    //     HotRanges->min_max_range->start_ptr,
+    //     static_cast<int>(HotRanges->min_max_range->end_size),
+    //     HotRanges->min_max_range->end_ptr);
+
+    if (HotRanges->largest_intensity_range == nullptr) {
+      HotRanges->largestindensity_start_str = it ->getStartString();
+      HotRanges->largestindensity_end_str = it ->getEndString();
+      // Create a new hot_range object if it is null
+      HotRanges->largest_intensity_range = new hot_range(HotRanges->largestindensity_start_str.data(),HotRanges->largestindensity_start_str.size(),
+                                               HotRanges->largestindensity_end_str.data(), HotRanges->largestindensity_end_str.size());
+    }
+  }
+
+  Log(options_.leveling_compaction_info_log, "We have already executed %d operations!\n", i);
+  Log(options_.leveling_compaction_info_log, "Range size %lu in partition %lu", HotRanges->hot_ranges_.size(), compact->compaction->partition_num());
+
+  stats_[compact->compaction->level() + 1].Add(stats);
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
+  
+  if (status.ok()) {
+    status = status = InstallCompactionResults(compact);
+    // if(compact->hot_builder != nullptr){}
+    if (status.ok()) {
+      Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error installing from L%d to L%d compaction results: %s",
+      compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
+    }
+  } 
+  if (!status.ok()) {
+    RecordBackgroundError(status);
+  }
+  VersionSet::LevelSummaryStorage tmp;
+  Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  return status;
+}
+
+Status DBImpl::DBOpen_DoOther_Levels_CompactionWork_Without_Identification(CompactionState* compact) {
+  const uint64_t start_micros = env_->NowMicros();
+  int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
+  new_LeveldataStats new_compact_statistics;
+
+  // compact->compaction->num_input_files(), 0代表要发生合并的level的文件的数量，1代表有overlap的level的文件的数量
+  // compact->compaction->num_input_files(1) 示与当前级别有重叠的下一个级别（level + 1）中参与压缩的文件数量。
+  Log(options_.leveling_compaction_info_log, "[Partition Leveling: Partition %lu]Compacting %d@%d + %d@%d files",
+    compact->compaction->partition_num(), compact->compaction->num_input_files(0), compact->compaction->level(),
+    compact->compaction->num_input_files(1), compact->compaction->level() + 1);
+
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  // record the number of files that involved in every compaction!
+  if(compact->compaction->get_compaction_type() == 1){ // size compaction
+  level_stats_[compact->compaction->level()].number_size_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_size_compaction_leveling_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_size_compaction_leveling_participant_files += compact->compaction->num_input_files(1);
+  }
+  else if(compact->compaction->get_compaction_type() == 2){ // seek compaction 
+    level_stats_[compact->compaction->level()].number_seek_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_seek_leveling_compaction_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_leveling_compaction_participant_files += compact->compaction->num_input_files(1);
+  }
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
+  // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
+  if(!compact->compaction->is_merge_compaction()){
+    assert(versions_->Num_Level_Partitionleveling_Files(compact->compaction->level(), compact->compaction->partition_num()) > 0);
+  }
+
+  assert(compact->builder == nullptr);
+  assert(compact->outfile == nullptr);
+  if(pl_or_2ppl){
+    assert(compact->compaction->level()>=0);
+  }else{
+    assert(compact->compaction->level()>=1);
+  }
+
+  if (snapshots_.empty()) {
+    compact->smallest_snapshot = versions_->LastSequence();
+  } else {
+    compact->smallest_snapshot = snapshots_.oldest()->sequence_number();
+  }
+
+  // 制作一个迭代器
+  Iterator* input = versions_->MakeInputIterator(compact->compaction);
+
+
+  input->SeekToFirst();
+  Status status;
+  ParsedInternalKey ikey;
+  std::string current_user_key;
+  bool has_current_user_key = false;
+  SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
+  bool is_output = false;
+  int i = 0;
+  int sequence_of_each_key = 0;
+  if(compact->compaction->level() ==1 ){
+    is_output = true;
+  }
+
+
+  while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
+
+    Slice key = input->key();
+    // Handle key/value, add to state, etc.
+    bool drop = false;
+    if (!ParseInternalKey(key, &ikey)) {
+      // Do not hide error keys
+      current_user_key.clear();
+      has_current_user_key = false;
+      last_sequence_for_key = kMaxSequenceNumber;
+    } else {
+      if (!has_current_user_key || user_comparator()->Compare(ikey.user_key, Slice(current_user_key)) != 0) {
+        // Log(options_.leveling_compaction_info_log, "Last userkey occurs %d times, Parsed a new user key: %s, sequence: %llu, type: %d",
+        //   sequence_of_each_key, ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, ikey.type);
+        current_user_key.assign(ikey.user_key.data(), ikey.user_key.size());
+        has_current_user_key = true;
+        last_sequence_for_key = kMaxSequenceNumber;
+      } 
+      if (last_sequence_for_key <= compact->smallest_snapshot) {
+        // Hidden by a newer entry for the same user key
+        drop = true;  // (A)
+        // Log(options_.leveling_compaction_info_log, "Key %s is hidden by a newer entry, last_sequence_for_key: %llu, smallest_snapshot: %llu",
+        //     ikey.user_key.ToString().c_str(), (unsigned long long)last_sequence_for_key, (unsigned long long)compact->smallest_snapshot);
+      } else if (ikey.type == kTypeDeletion &&
+                ikey.sequence <= compact->smallest_snapshot &&
+                compact->compaction->IsBaseLevelForKey(ikey.user_key)) {
+        // Deletion marker is obsolete and can be dropped
+        drop = true;
+        Log(options_.leveling_compaction_info_log, "Key %s is a deletion marker and can be dropped, sequence: %llu, smallest_snapshot: %llu",
+            ikey.user_key.ToString().c_str(), (unsigned long long)ikey.sequence, (unsigned long long)compact->smallest_snapshot);
+      } 
+
+      last_sequence_for_key = ikey.sequence;
+      // Log(options_.leveling_compaction_info_log, "Updated last_sequence_for_key: %llu\n\n", (unsigned long long)last_sequence_for_key);
+    }
+    
+#if 0
+    Log(options_.info_log,
+        "  Compact: %s, seq %d, type: %d %d, drop: %d, is_base: %d, "
+        "%d smallest_snapshot: %d",
+        ikey.user_key.ToString().c_str(),
+        (int)ikey.sequence, ikey.type, kTypeValue, drop,
+        compact->compaction->IsBaseLevelForKey(ikey.user_key),
+        (int)last_sequence_for_key, (int)compact->smallest_snapshot);
+#endif
+    
+    if (!drop) {
+      // Open output file if necessary
+      if (compact->builder == nullptr) {
+        status = DBOpenCompactionOutputFile(compact);
+        if (!status.ok()) {
+          break;
+        }
+      }
+      if (compact->builder->NumEntries() == 0) {
+        compact->current_output()->smallest.DecodeFrom(key);
+      }
+      compact->current_output()->largest.DecodeFrom(key);
+      compact->builder->Add(key, input->value());
+
+      // Close output file if it is big enough
+      if (compact->builder->FileSize() >= compact->compaction->MaxOutputFileSize(compact->compaction->level()+1)) {
+        status = FinishCompactionOutputFile(compact, input);
+        if (!status.ok()) {
+          break;
+        }
+      }
+    }
+    input->Next();
+    i++;
+  }  
+
+  Log(options_.leveling_compaction_info_log, "We have already executed %d operations!\n", i);
+  if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    status = Status::IOError("Deleting DB during compaction");
+  }
+
+  if (status.ok() && compact->builder != nullptr) {
+    status = FinishCompactionOutputFile(compact, input);
+    if (!status.ok()) {
+      Log(options_.leveling_compaction_info_log, "Do_CompactionWork_Without_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
+    }
+  }
+
+  if (status.ok()) {
+    status = input->status();
+  }
+  delete input;
+  input = nullptr;
+
+  CompactionStats stats;
+  stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
+  for (int which = 0; which < 2; which++) {
+
+    for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
+      stats.bytes_read += compact->compaction->input(which, i)->file_size;
+    }
+  }
+
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    stats.bytes_written += compact->outputs[i].file_size;
+  }
+
+  stats_[compact->compaction->level() + 1].Add(stats);
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
+
+  if (status.ok()) {
+    status = InstallCompactionResults(compact);
+
+    if(compact->hot_builder != nullptr){}
+    
+    if (!status.ok()) {
+      Log(options_.leveling_compaction_info_log, "Do_CompactionWork_Without_Identification: Error installing from L%d to L%d compaction results: %s",
+        compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
+    }
+  } 
+  if (!status.ok()) {
+    RecordBackgroundError(status);
+  }
+  VersionSet::LevelSummaryStorage tmp;
+  Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  return status;
+}
+
+Status DBImpl::DBOpenDo_L0CompactionWork_Without_Identification(CompactionState* compact) {
+  const uint64_t start_micros = env_->NowMicros();
+  int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
+  new_LeveldataStats new_compact_statistics;
+  Log(options_.leveling_info_log, "[Partition Leveling: Partition %lu]Compacting %d@%d + %d@%d files",
+      compact->compaction->partition_num(),
+      compact->compaction->num_input_files(0), compact->compaction->level(),
+      compact->compaction->num_input_files(1),
+      compact->compaction->level() + 1);
+
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+  // record the number of files that involved in every compaction!
+  if(compact->compaction->get_compaction_type() == 1){ // size compaction
+  level_stats_[compact->compaction->level()].number_size_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_size_compaction_leveling_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_size_compaction_leveling_participant_files += compact->compaction->num_input_files(1);
+  }
+  else if(compact->compaction->get_compaction_type() == 2){ // seek compaction 
+    level_stats_[compact->compaction->level()].number_seek_leveling_compactions++;
+    level_stats_[compact->compaction->level()].number_seek_leveling_compaction_initiator_files += compact->compaction->num_input_files(0);
+    level_stats_[compact->compaction->level()+1].number_seek_leveling_compaction_participant_files += compact->compaction->num_input_files(1);
+  }
+  //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
+
+  // 这个 compact->compaction->level() 是指当前 compaction 的 level，也是就是哪个level需要被合并
+  assert(versions_->Num_Level_Partitionleveling_Files(compact->compaction->level(), compact->compaction->partition_num()) > 0);
+  assert(compact->builder == nullptr);
+  assert(compact->outfile == nullptr);
+  if (snapshots_.empty()) {
+    compact->smallest_snapshot = versions_->LastSequence();
+  } else {
+    compact->smallest_snapshot = snapshots_.oldest()->sequence_number();
+  }
+
+  // 制作一个迭代器
+  Iterator* input = versions_->MakeInputIterator(compact->compaction);
+
+  // Release mutex while we're actually doing the compaction work
+
+
+  input->SeekToFirst();
+  Status status;
+  ParsedInternalKey ikey;
+  std::string current_user_key;
+  bool has_current_user_key = false;
+  SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
+
+  bool output_key = false;
+  mem_partition_guard *current_partition = nullptr;
+  int i = 0;
+  Slice prev_key;
+  int key_happens = 0;  
+
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+  // PrintPartitions(mem_partitions_);
+  std::string new_str(input->key().data(), input->key().size()-8);
+  mem_partition_guard* temp_partition = new mem_partition_guard(new_str, new_str);
+  Log(options_.leveling_info_log, "Current key:%s ",temp_partition->partition_start_str.c_str());
+
+  if(new_str == "0000000000003875"){
+    output_key = true;
+  }
+  auto it1 = mem_partitions_.upper_bound(temp_partition);
+  if(it1 == mem_partitions_.begin()){
+    fprintf(stderr, "fatal error!\n");
+  }else {
+    it1--;
+  }
+  Log(options_.leveling_info_log, "upper_bound it1 partition: start=%s, end=%s",
+    (*it1)->partition_start.ToString().c_str(), (*it1)->partition_end.ToString().c_str());
+  auto it = (*it1)->sub_partitions_.upper_bound(temp_partition); 
+  if(it == (*it1)->sub_partitions_.begin()){
+    (*it)->UpdatePartitionStart(new_str);
+  }else if(it != (*it1)->sub_partitions_.end() && it != (*it1)->sub_partitions_.begin()){
+    it--;
+  }else{
+    it--;
+  }
+  current_partition = *it;
+
+  assert(current_partition->is_key_contains(input->key().data(), input->key().size()-8));
+  Log(options_.leveling_info_log, "upper_bound it partition: start=%s, end=%s",
+      (*it)->partition_start.ToString().c_str(), (*it)->partition_end.ToString().c_str());
+  Log(options_.leveling_info_log, "current_partition: start=%s, end=%s",
+      current_partition->partition_start.ToString().c_str(), current_partition->partition_end.ToString().c_str());
+  delete temp_partition;
+  //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
+
+  while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
+
+    Slice key = input->key();
+    if(current_partition->CompareWithEnd(key.data(), key.size()-8)<0){
+      if(compact->builder != nullptr){
+        status = FinishCompactionOutputFile(compact, input);
+        if (!status.ok()) {
+          break;
+        }
+        if(output_key){
+          Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: finishing compaction output file: %s key: %s", status.ToString().c_str(), key.data());
+        }
+        compact->L1_partitions_.emplace_back(current_partition->partition_num);
+      }
+      it++;
+      current_partition = *it; 
+      if(current_partition->CompareWithBegin(key.data(),key.size()-8)>0){
+        std::string new_start_str(key.data(), input->key().size()-8);
+        current_partition->UpdatePartitionStart(new_start_str);
+      }
+    }
+    // if (compact->compaction->ShouldStopBefore(key) &&
+    //     compact->builder != nullptr) {
+    //   status = FinishCompactionOutputFile(compact, input);
+    //   Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: finished compaction output file: %s", status.ToString().c_str());
+    //   if (!status.ok()) {
+    //     break;
+    //   }
+    // }
+
+    // Handle key/value, add to state, etc.
+    bool drop = false;
+    if (!ParseInternalKey(key, &ikey)) {
+      // Do not hide error keys
+      current_user_key.clear();
+      has_current_user_key = false;
+      last_sequence_for_key = kMaxSequenceNumber;
+      Log(options_.leveling_compaction_info_log, "Error parsing key: %s", key.ToString().c_str());
+    } else {
+      if (!has_current_user_key ||
+          user_comparator()->Compare(ikey.user_key, Slice(current_user_key)) !=
+              0) {
+        // First occurrence of this user key
+        current_user_key.assign(ikey.user_key.data(), ikey.user_key.size());
+        has_current_user_key = true;
+        last_sequence_for_key = kMaxSequenceNumber;
+      }
+
+      if (last_sequence_for_key <= compact->smallest_snapshot) {
+        // Hidden by an newer entry for same user key
+        drop = true;  // (A)
+        // Log(options_.leveling_compaction_info_log, "Key %s is hidden by a newer entry", ikey.user_key.ToString().c_str());
+      } else if (ikey.type == kTypeDeletion &&
+                 ikey.sequence <= compact->smallest_snapshot &&
+                 compact->compaction->IsBaseLevelForKey(ikey.user_key)) {
+        // For this user key:
+        // (1) there is no data in higher levels
+        // (2) data in lower levels will have larger sequence numbers
+        // (3) data in layers that are being compacted here and have
+        //     smaller sequence numbers will be dropped in the next
+        //     few iterations of this loop (by rule (A) above).
+        // Therefore this deletion marker is obsolete and can be dropped.
+        drop = true;
+        // Log(options_.leveling_compaction_info_log, "Key %s is a deletion marker and can be dropped", ikey.user_key.ToString().c_str());
+      }
+
+      last_sequence_for_key = ikey.sequence;
+    }
+    
+#if 0
+    Log(options_.info_log,
+        "  Compact: %s, seq %d, type: %d %d, drop: %d, is_base: %d, "
+        "%d smallest_snapshot: %d",
+        ikey.user_key.ToString().c_str(),
+        (int)ikey.sequence, ikey.type, kTypeValue, drop,
+        compact->compaction->IsBaseLevelForKey(ikey.user_key),
+        (int)last_sequence_for_key, (int)compact->smallest_snapshot);
+#endif
+
+    if (!drop) {
+      // Open output file if necessary
+      if (compact->builder == nullptr) {
+        status = DBOpenCompactionOutputFile(compact);
+        // Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Open compaction output file: %s", status.ToString().c_str());
+        if (!status.ok()) {
+          Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error opening compaction output file: %s", status.ToString().c_str());
+          break;
+        }
+      }
+      if (compact->builder->NumEntries() == 0) {
+        compact->current_output()->smallest.DecodeFrom(key);
+      }
+      compact->current_output()->largest.DecodeFrom(key);
+      compact->builder->Add(key, input->value());
+    }
+
+    input->Next();
+    i++;
+  }
+  Log(options_.leveling_info_log, "We have already executed %d operations!\n", i);
+
+  if (status.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    status = Status::IOError("Deleting DB during compaction");
+  }
+
+  if (status.ok() && compact->builder != nullptr) {
+    Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Finishing last compaction output file");
+    status = FinishCompactionOutputFile(compact, input);
+    if (!status.ok()) {
+      Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error finishing last compaction output file: %s", status.ToString().c_str());
+    }
+    compact->L1_partitions_.emplace_back(current_partition->partition_num);
+  }
+  if (status.ok()) {
+    Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: we need to execute input->status(), last status: %s", status.ToString().c_str());
+    status = input->status();
+  }
+  delete input;
+  input = nullptr;
+
+  CompactionStats stats;
+  stats.micros = env_->NowMicros() - start_micros - imm_micros;
+  stats.tiering_micros = 0;
+  stats.total_micros = env_->NowMicros() - start_micros - imm_micros;
+  for (int which = 0; which < 2; which++) {
+
+    for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
+      stats.bytes_read += compact->compaction->input(which, i)->file_size;
+    }
+  }
+
+  for (size_t i = 0; i < compact->outputs.size(); i++) {
+    stats.bytes_written += compact->outputs[i].file_size;
+  }
+
+  stats_[compact->compaction->level() + 1].Add(stats);
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
+  level_stats_[compact->compaction->level() + 1].leveling_bytes_written += stats.bytes_written;
+
+  if (status.ok()) { 
+    status = InstallCompactionResults(compact);
+    if (!status.ok()) {
+      Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error installing from L%d to L%d compaction results: %s",
+        compact->compaction->level(), compact->compaction->level()+1, status.ToString().c_str());
+    }
+  } else {
+    Log(options_.leveling_info_log, "Do_L0CompactionWork_Without_Identification: Error during compaction: %s", status.ToString().c_str());
+  }
+  if (!status.ok()) {
+    RecordBackgroundError(status);
+  }
+  VersionSet::LevelSummaryStorage tmp;
+  Log(options_.leveling_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
+  return status;
+}
+
+////==================DoLevelingCompactionWork End================
+///===================DoLevelingCompactionWork End================
+///===================DoLevelingCompactionWork End================
+
 
 Status DBImpl::Do_CompactionWork_Without_Identification(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
@@ -4281,8 +5680,7 @@ Status DBImpl::Do_CompactionWork_Without_Identification(CompactionState* compact
       compact->builder->Add(key, input->value());
 
       // Close output file if it is big enough
-      if (compact->builder->FileSize() >=
-          compact->compaction->MaxOutputFileSize()) {
+      if (compact->builder->FileSize() >= compact->compaction->MaxOutputFileSize(compact->compaction->level() + 1)) {
         status = FinishCompactionOutputFile(compact, input);
         if (!status.ok()) {
           break;
@@ -4347,7 +5745,7 @@ Status DBImpl::Do_CompactionWork_Without_Identification(CompactionState* compact
   // }
   // VersionSet::LevelSummaryStorage tmp;
   // Log(options_.leveling_compaction_info_log, "compacted to: %s", versions_->LevelSummary(&tmp));
-  config::kInitialPartitionLevelingCompactionTrigger = 24;
+  // config::kInitialPartitionLevelingCompactionTrigger = 24;
   pending_tasks_.fetch_add(-1);
   mutex_.Unlock();
   return status;
@@ -4416,6 +5814,7 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
   ParsedInternalKey ikey;
   std::string current_user_key;
   bool has_current_user_key = false;
+  int num_hot_ranges = 0;
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
   bool is_output = false;
   int i = 0;
@@ -4490,6 +5889,7 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
             key_queues_.pop();
             val_queues_.pop();
           }
+          num_hot_ranges++;
         }else if(sequence_of_each_key <= hot_key_threshold){ 
           // Open output file if necessary
           if (compact->builder == nullptr) {
@@ -4511,7 +5911,7 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
             val_queues_.pop();
           }
           // Close output file if it is big enough 30M 31457280 20M 20971520 compact->compaction->MinOutputFileSize()
-          if (compact->builder->FileSize() >= compact->compaction->MinOutputFileSize()) {
+          if (compact->builder->FileSize() >= compact->compaction->MaxOutputFileSize(compact->compaction->level())) {
             status = FinishCompactionOutputFile(compact, input);
             if (!status.ok()) {
               Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing compaction output file: %s", status.ToString().c_str());
@@ -4708,14 +6108,19 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
     if (HotRanges->largest_intensity_range == nullptr) {
       HotRanges->largestindensity_start_str = it ->getStartString();
       HotRanges->largestindensity_end_str = it ->getEndString();
+
       // Create a new hot_range object if it is null
-      HotRanges->largest_intensity_range = new hot_range(HotRanges->largestindensity_start_str.data(),HotRanges->largestindensity_start_str.size(),
-                                               HotRanges->largestindensity_end_str.data(), HotRanges->largestindensity_end_str.size());
+      HotRanges->largest_intensity_range = new hot_range(
+        HotRanges->largestindensity_start_str.data(),
+        HotRanges->largestindensity_start_str.size(),
+        HotRanges->largestindensity_end_str.data(), 
+        HotRanges->largestindensity_end_str.size());
     }
   }
 
   Log(options_.leveling_compaction_info_log, "We have already executed %d operations!\n", i);
   Log(options_.leveling_compaction_info_log, "Range size %lu in partition %lu", HotRanges->hot_ranges_.size(), compact->compaction->partition_num());
+  fprintf(stderr, "hot:Range size %lu hot-keys:%d \n", HotRanges->hot_ranges_.size(), num_hot_ranges);
 
   stats_[compact->compaction->level() + 1].Add(stats);
   level_stats_[compact->compaction->level() + 1].leveling_bytes_read += stats.bytes_read;
@@ -4810,14 +6215,18 @@ Status DBImpl::Do_L0CompactionWork_Without_Identification(CompactionState* compa
   if(new_str == "0000000000003875"){
     output_key = true;
   }
+
+  
   auto it1 = mem_partitions_.upper_bound(temp_partition);
   if(it1 == mem_partitions_.begin()){
     fprintf(stderr, "fatal error!\n");
   }else {
     it1--;
   }
+
   Log(options_.leveling_info_log, "upper_bound it1 partition: start=%s, end=%s",
     (*it1)->partition_start.ToString().c_str(), (*it1)->partition_end.ToString().c_str());
+
   auto it = (*it1)->sub_partitions_.upper_bound(temp_partition); 
   if(it == (*it1)->sub_partitions_.begin()){
     (*it)->UpdatePartitionStart(new_str);
@@ -5322,6 +6731,7 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
             // int64_t disk_start_time = env_->NowMicros();
             s = current->Get(options, lkey, value, &stats, (*it)->partition_num, (*it2)->partition_num);
             // disk_time = env_->NowMicros() - disk_start_time;
+            // return Status::NotFound(Slice());
           }
         }
       }
@@ -6636,7 +8046,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   // fflush(stderr);
 
   // Initialize compaction configs before creating DBImpl instance
-  CompactionConfig::InitializeCompactionConfigs();
+  // CompactionConfig::InitializeCompactionConfigs();
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();
   VersionEdit edit;
@@ -6675,8 +8085,12 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   }
   if (s.ok()) {
     impl->RemoveObsoleteFiles();
-    impl->MaybeScheduleCompaction();
+    impl->TieringRemoveObsoleteFiles();
+    impl->MaybeScheduleCompaction2();
   }
+
+  impl->Is_tasks();
+  
   impl->mutex_.Unlock();
   if (s.ok()) {
     assert(impl->mem_ != nullptr);
@@ -6686,6 +8100,8 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   }
   // impl->versions_->Finalize(versions_->current());
   // impl->MaybeScheduleCompaction();
+
+  // impl->versions_->InitializeFileLevelBloomFilter();
 
   // //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // std::fprintf(stdout,"Test start!\n");

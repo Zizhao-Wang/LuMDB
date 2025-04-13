@@ -169,14 +169,14 @@ for i in {10..10}; do
         for value_size in 128; do
             num_entries=$base_num 
             stats_interva=$((num_entries / 100))
-
+            num_entries=1000000
             num_format=$(convert_to_billion_format $num_entries)
 
             for zipf_a in 1.3 ; do  #  1.2 
                     # buffer_size_mb=$((buffer_size / 1048576))
                     # log_file="prismdb2_${num_format}_val_${value_size}_zipf${zipf_a}_1-30.log"
                     log_file="prismdb_${num_format}_val_${value_size}_zipf${zipf_a}memory_budget${memory_budget}G.log"
-                    data_file1="/home/jeff-wang/LuMDB/comparedDBs/prismdb-fix/kvexe-prismdb/10B_prismdb_twitter_workloads_odirect/latency_log_twitter_49_40G.log" # 构建数据文件路径
+                    data_file1="/home/jeff-wang/LuMDB/comparedDBs/prismdb-fix/kvexe-prismdb/10B_prismdb_YCSB_workloads_odirect/latency_log_YCSB-A_1.2_10G.log" # 构建数据文件路径
                     memory_log_file1="/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/prismdb_scripts/10B_prismdb_zipf_hot/prismdb_memory_usage_${num_format}_key16_val${value_size}zipf${zipf_a}membudget${memory_budget}.log"
                     code_type="prismdb"
                     prismdb_srouce_path="/home/jeff-wang/LuMDB/comparedDBs/prismdb"

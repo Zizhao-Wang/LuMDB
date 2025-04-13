@@ -21,6 +21,7 @@ namespace leveldb {
 
 class FilterPolicy;
 
+
 // A FilterBlockBuilder is used to construct all of the filters for a
 // particular Table.  It generates a single string which is stored as
 // a special block in the Table.

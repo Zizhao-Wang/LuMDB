@@ -176,7 +176,10 @@ void VersionEdit::EncodeTo(std::string* dst) const {
   for (size_t i = 0; i < new_partitioning_files_.size(); i++) {
     const auto& file_tuple = new_partitioning_files_[i];
     const FileMetaData& f = std::get<2>(file_tuple);  // 获取 FileMetaData
-
+    // fprintf(stderr,"File[%lu] The largest key is:%s \n",f.number, f.largest.user_key().data());
+    if(f.largest.user_key().empty()){
+      fprintf(stderr,"wrong key in file %lu!\n",f.number);
+    }
     // 编码操作
     PutVarint32(dst, kNewLFile);
     PutVarint32(dst, std::get<0>(file_tuple));  // level
@@ -184,7 +187,7 @@ void VersionEdit::EncodeTo(std::string* dst) const {
     PutVarint64(dst, f.number);                 // file number
     PutVarint64(dst, f.file_size);              // file size
     PutLengthPrefixedSlice(dst, f.smallest.Encode());  // smallest key
-    PutLengthPrefixedSlice(dst, f.largest.Encode());   // largest key
+    PutLengthPrefixedSlice(dst, f.largest.Encode());   // largest key 
   }
 
   // 编码删除的分区文件

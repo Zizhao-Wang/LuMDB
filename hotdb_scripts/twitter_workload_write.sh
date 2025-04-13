@@ -38,11 +38,11 @@ for i in {10..10}; do
         cd $dir1
         for value_size in 1380; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            num_entries=600000000
+            num_entries=100000000
             stats_interva=10000000
             num_format=$(convert_to_billion_format $num_entries)  
 
-            for cluster_a in 19; do  # 1.2 1.3 1.4 1.5
+            for cluster_a in 45; do  # 1.2 1.3 1.4 1.5
 
                 log_file="LuMDB_Write_${num_format}_val_${value_size}_mem${Mem}MiB_twitter${cluster_a}.log"
                 # reads_data_file="/home/jeff-wang/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"

@@ -1075,7 +1075,7 @@ class Benchmark {
     PrintHeader();
     // std::fprintf(stderr,"open dbs in Run()\n");
     // fflush(stderr);
-    // Open();
+    Open();
 
     const char* benchmarks = FLAGS_benchmarks.c_str();
     while (benchmarks != nullptr) {
@@ -1199,7 +1199,9 @@ class Benchmark {
       } else if (name == Slice("ycsbf")) {
         FLAGS_ycsb_type = kYCSB_F;
         method = &Benchmark::YCSB_F;
-      }else if (name == Slice("stats")) {
+      } else if (name == Slice("twitterexecute")) {
+        method = &Benchmark::twitter_traces_execute; 
+      } else if (name == Slice("stats")) {
         PrintStats("leveldb.stats");
       } else if (name == Slice("sstables")) {
         PrintStats("leveldb.sstables");
@@ -1600,6 +1602,8 @@ class Benchmark {
     ReadOptions options;
     std::string value;
     int found = 0;
+    int write_ops=0;
+    int read_ops=0;
 
     std::ifstream csv_file(FLAGS_YCSB_data_file);
     std::string line;
@@ -1649,7 +1653,8 @@ class Benchmark {
           }
           bytes = (16 + FLAGS_value_size);
           thread->stats.AddBytes(bytes);
-        }else if(row_data[0]=="INSERT1" || row_data[0]=="UPDATE1"){
+          read_ops++;
+        }else if(row_data[0]=="INSERT" || row_data[0]=="UPDATE"){
           // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
           char key[100];
           snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
@@ -1662,11 +1667,15 @@ class Benchmark {
           if(thread->stats.done_ % FLAGS_stats_interval == 0){
             thread->stats.AddBytes(bytes);
             bytes = 0;
-          } 
-        }else{}
+          }
+          write_ops++; 
+        }else{
+          continue;
+        }
         thread->stats.FinishedSingleOp();
       }
     }
+    fprintf(stdout,"There are %d write ops is executed and %d read ops are executed!\n", write_ops, read_ops);
     thread->stats.AddBytes(bytes);
   }
 
@@ -1687,6 +1696,8 @@ class Benchmark {
     ReadOptions options;
     std::string value;
     int found = 0;
+    int write_ops=0;
+    int scan_ops=0;
     
 
     int seek_lengthE=20;
@@ -1694,7 +1705,7 @@ class Benchmark {
     std::ifstream csv_file(FLAGS_YCSB_data_file);
     std::string line;
     if (!csv_file.is_open()) {
-        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        fprintf(stderr,"Unable to open CSV file in YCSB_E\n");
         return;
     }
     std::getline(csv_file, line);
@@ -1712,7 +1723,7 @@ class Benchmark {
         row_data.clear();
         // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         if (!std::getline(csv_file, line)) { // 从文件中读取一行
-          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          fprintf(stderr, "Error reading key from file in YCSB_E\n");
           return;
         }
         line_stream << line;
@@ -1733,16 +1744,17 @@ class Benchmark {
 
         if (row_data[0]=="INSERT"){
           char key[100];
-          snprintf(key, sizeof(key), "%016llu", (unsigned long long)(k+2000000));
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)(k));
           s = db_->Put(write_options_, key, gen.Generate(value_size_));
           if (!s.ok()) {
             std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
             std::exit(1);
           }
           bytes += value_size_ + strlen(key);
-        }else if(row_data[0]=="READ"){
+          write_ops++;
+        }else if(row_data[0]=="SCAN"){
           Iterator* iter = db_->NewIterator(ReadOptions());
-          Read_Key.Set(k);
+          Read_Key.Set(k+2000000);
           iter->Seek(Read_Key.slice());
           if (iter->Valid() && iter->key() == Read_Key.slice()) found++;
           while (seek_lengthE--){
@@ -1752,6 +1764,7 @@ class Benchmark {
             }
           }
           delete iter;
+          scan_ops++;
         }else{}
         thread->stats.AddBytes(bytes);
         bytes = 0;
@@ -1759,6 +1772,7 @@ class Benchmark {
         seek_lengthE = 20;
       }
     }
+    fprintf(stdout,"There are %d write ops is executed and %d scan ops are executed!\n", write_ops, scan_ops);
   }
 
   void YCSB_F(ThreadState* thread) {
@@ -1782,7 +1796,7 @@ class Benchmark {
     std::ifstream csv_file(FLAGS_YCSB_data_file);
     std::string line;
     if (!csv_file.is_open()) {
-        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        fprintf(stderr,"Unable to open CSV file in YCSB_F\n");
         return;
     }
     std::getline(csv_file, line);
@@ -1800,7 +1814,7 @@ class Benchmark {
         row_data.clear();
         // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         if (!std::getline(csv_file, line)) { // 从文件中读取一行
-          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          fprintf(stderr, "Error reading key from file in YCSB_F\n");
           return;
         }
         line_stream << line;
@@ -1844,6 +1858,88 @@ class Benchmark {
         thread->stats.FinishedSingleOp();
       }
     }
+    thread->stats.AddBytes(bytes);
+  }
+
+  void twitter_traces_execute(ThreadState* thread) {
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    KeyBuffer key;
+    variable_Buffer Read_Key;
+    ReadOptions options;
+    std::string value;
+    int found = 0;
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+        fprintf(stderr,"Unable to open CSV file in twitter_traces_execute\n");
+        return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %d entries in every Batch, FLAGS_ycsb_num = %lu\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (uint64_t i = 0; i < FLAGS_ycsb_num; i += entries_per_batch_) {
+      batch.Clear();
+      for (uint64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 7) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[5]=="get"){
+          // fprintf(stdout,"The key is %lu!\n",k);
+          Read_Key.Set(k,24);
+          if (db_->Get(options, Read_Key.slice(), &value).ok()) {
+            found++;
+          }
+          bytes = (16 + FLAGS_value_size);
+          thread->stats.AddBytes(bytes);
+        }else if(row_data[5]=="set"){
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          char key[100];
+          snprintf(key, sizeof(key), "%024llu", (unsigned long long)k);
+          s = db_->Put(write_options_, key, gen.Generate(value_size_));
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+          bytes += value_size_ + strlen(key);
+          if(thread->stats.done_ % FLAGS_stats_interval == 0){
+            thread->stats.AddBytes(bytes);
+            bytes = 0;
+          } 
+        }else{}
+        thread->stats.FinishedSingleOp();
+      }
+    }
+    fprintf(stderr,"We found %d keys and !\n",found);
     thread->stats.AddBytes(bytes);
   }
 

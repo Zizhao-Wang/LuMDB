@@ -1,0 +1,114 @@
+Starting program: /home/jeff-wang/LuMDB/comparedDBs/leveldb/release/db_bench --db=/mntdisk/level10B/YCSBa_mem64_1.2_iterator1 --num=100000000 --value_size=128 --batch_size=1000 --benchmarks=ycsba,stats --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=0 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage1MB_10B_key16_val128.log --open_files=40000 --ycsb_num=1000000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --YCSB_data_file=/mnt/workloads/ycsb_a_workload.csv --use_existing_db=true --max_file_size=1048576 --print_wa=true
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+/home/jeff-wang/LuMDB/comparedDBs/leveldb/release/db_bench --db=/mntdisk/level10B/YCSBa_mem64_1.2_iterator1 --num=100000000 --value_size=128 --batch_size=1000 --benchmarks=ycsba,stats --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --logpath=/mnt/logs --bloom_bits=10 --log=1 --cache_size=0 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_hot_removal/leveldb_memory_usage1MB_10B_key16_val128.log --open_files=40000 --ycsb_num=1000000 --compression=0 --stats_interval=10000000 --histogram=1 --write_buffer_size=1048576 --YCSB_data_file=/mnt/workloads/ycsb_a_workload.csv --use_existing_db=true --max_file_size=1048576 --print_wa=true
+LevelDB:    version 1.23
+Date:       Sat Apr  5 14:23:18 2025
+CPU:        112 * Intel(R) Xeon(R) Gold 6348 CPU @ 2.60GHz
+CPUCache:   43008 KB
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    100000000
+RawSize:    13732.9 MB (estimated)
+FileSize:   7629.4 MB (estimated)
+WARNING: Optimization is disabled: benchmarks unnecessarily slow
+WARNING: Assertions are enabled; benchmarks unnecessarily slow
+some command parameters have been selected:
+  threads: 1
+  duration: 0
+  print_wa: 1
+  num_entries: 100000000
+  bechmark selected ycsba,stats
+  hot_file_path:
+  Hot_data_triggered_compaction_file_path:
+  data_file_path: /home/jeff-wang/workloads/zipf1.2_keys10.0B.csv
+  percentages:
+------------------------------------------------
+open dbs:in Open()
+entering db_impl.cc:/mntdisk/level10B/YCSBa_mem64_1.2_iterator1
+[New Thread 0x7ffff7200640 (LWP 2305057)]
+initialize 0 objects(LevelHotColdStats) for 7 levels
+[New Thread 0x7ffff6800640 (LWP 2305058)]
+Processing 1 entries in every Batch, FLAGS_ycsb_num = 1000000
+Non-numeric key encountered: Key in line 292701
+There are 500000 write ops is executed and 499999 read ops are executed!
+999999 operations have been finished (68.665 MB data have been written into db)
+ycsba        :      33.423 micros/op 29919 ops/sec;    2.1 MB/s
+Microseconds per op:
+Count: 999999  Average: 33.4227  StdDev: 222.58
+Percentiles: P50: 13.29 P75: 20.54 P99: 469.80 P99.9: 3518.69 P99.99: 6553.85
+------------------------------------------------------
+[       2,       3 )      11   0.001%   0.001%
+[       3,       4 )    3956   0.396%   0.397%
+[       4,       5 )   39829   3.983%   4.380% #
+[       5,       6 )   70224   7.022%  11.402% #
+[       6,       7 )   78804   7.880%  19.282% ##
+[       7,       8 )   67981   6.798%  26.081% #
+[       8,       9 )   56146   5.615%  31.695% #
+[       9,      10 )   50247   5.025%  36.720% #
+[      10,      12 )   86866   8.687%  45.406% ##
+[      12,      14 )   70961   7.096%  52.503% #
+[      14,      16 )   68820   6.882%  59.385% #
+[      16,      18 )   76315   7.632%  67.016% ##
+[      18,      20 )   67049   6.705%  73.721% #
+[      20,      25 )  117482  11.748%  85.469% ##
+[      25,      30 )   64487   6.449%  91.918% #
+[      30,      35 )   24219   2.422%  94.340%
+[      35,      40 )   10739   1.074%  95.414%
+[      40,      45 )    5464   0.546%  95.960%
+[      45,      50 )    3400   0.340%  96.300%
+[      50,      60 )    5899   0.590%  96.890%
+[      60,      70 )    5214   0.521%  97.411%
+[      70,      80 )    2725   0.273%  97.684%
+[      80,      90 )    1849   0.185%  97.869%
+[      90,     100 )    3089   0.309%  98.178%
+[     100,     120 )    4823   0.482%  98.660%
+[     120,     140 )     668   0.067%  98.727%
+[     140,     160 )     220   0.022%  98.749%
+[     160,     180 )     260   0.026%  98.775%
+[     180,     200 )     239   0.024%  98.799%
+[     200,     250 )     523   0.052%  98.851%
+[     250,     300 )     566   0.057%  98.908%
+[     300,     350 )     326   0.033%  98.940%
+[     350,     400 )     251   0.025%  98.965%
+[     400,     450 )     227   0.023%  98.988%
+[     450,     500 )     303   0.030%  99.018%
+[     500,     600 )     897   0.090%  99.108%
+[     600,     700 )     914   0.091%  99.199%
+[     700,     800 )     832   0.083%  99.283%
+[     800,     900 )     658   0.066%  99.348%
+[     900,    1000 )     529   0.053%  99.401%
+[    1000,    1200 )     759   0.076%  99.477%
+[    1200,    1400 )     633   0.063%  99.540%
+[    1400,    1600 )     605   0.061%  99.601%
+[    1600,    1800 )     517   0.052%  99.653%
+[    1800,    2000 )     458   0.046%  99.698%
+[    2000,    2500 )     977   0.098%  99.796%
+[    2500,    3000 )     618   0.062%  99.858%
+[    3000,    3500 )     408   0.041%  99.899%
+[    3500,    4000 )     321   0.032%  99.931%
+[    4000,    4500 )     289   0.029%  99.960%
+[    4500,    5000 )     137   0.014%  99.973%
+[    5000,    6000 )     129   0.013%  99.986%
+[    6000,    7000 )      65   0.007%  99.993%
+[    7000,    8000 )      24   0.002%  99.995%
+[    8000,    9000 )      13   0.001%  99.997%
+[    9000,   10000 )      11   0.001%  99.998%
+[   10000,   12000 )       4   0.000%  99.998%
+[   12000,   14000 )       8   0.001%  99.999%
+[   14000,   16000 )       4   0.000%  99.999%
+[   16000,   18000 )       1   0.000%  99.999%
+[   18000,   20000 )       5   0.001% 100.000%
+[   20000,   25000 )       1   0.000% 100.000%
+
+entering io_statistics1
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        3        2         1        0        72
+  1       13        9         9      660       658
+  2      128       79        20     1319      1259
+  3     1118      967         0        0         0
+  4     1502     5339         0        0         0
+user_io:71.978MB total_ios: 1989.525MB WriteAmplification: 27.6408

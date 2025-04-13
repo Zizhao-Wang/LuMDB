@@ -1,7 +1,13 @@
 import re
+import os
 
 # 文件路径
-file_path = '/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_write_open1000/leveldb_memory_usage_key16val128_zipf1.1_memory64MiB.log'
+# file_path = '/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/leveldb_scripts/10B_leveldb_zipf_write_open1000/leveldb_memory_usage_key16val128_zipf1.1_memory64MiB.log'
+# 获取当前脚本所在的目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
+file_name = 'leveldb_memory_usage_key16val128_zipf1.3_memory64MiB.log'
+# 拼接成完整路径
+absolute_path = os.path.join(current_dir, file_name)
 
 # 正则表达式：提取每行中的 "Resident set size" 值（以MB为单位）
 pattern = r"Resident set size:\s([\d\.]+)\sMB"
@@ -10,7 +16,7 @@ pattern = r"Resident set size:\s([\d\.]+)\sMB"
 resident_sizes = []
 
 # 以只读模式打开文件
-with open(file_path, 'r') as file:
+with open(absolute_path, 'r') as file:
     for line in file:
         # 使用正则表达式查找每行中的Resident set size
         match = re.search(pattern, line)

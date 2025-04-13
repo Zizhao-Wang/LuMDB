@@ -124,7 +124,7 @@ Status TableCache::FindTableHot(uint64_t file_number, uint64_t file_size,
       if (env_->NewRandomAccessFile(old_fname, &file).ok()) {
         s = Status::OK();
       }
-      fprintf(stdout,"can not find file: %s in cold part\n",fname.c_str());
+      fprintf(stdout,"can not find file: %s in Hot part\n",fname.c_str());
     }
     end_time = env_->NowMicros();
     table_cache_time_stats.disk_load_time += (end_time - start_time);

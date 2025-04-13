@@ -27,7 +27,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_leveldb_Cluster_write_open1000"
+    dir1="${i}B_leveldb_TwitterCluster_benchmarking"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -35,10 +35,11 @@ for i in {10..10}; do
         for value_size in 1380; do
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
             stats_interva=10000000
+            num_entries=100000000
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for Cluster_a in 49 40; do  #  1.2 
+            for Cluster_a in 45; do  #  1.2 
 
                 for buffer_size in 67108864; do
                     wbs_mbb=40
@@ -61,7 +62,7 @@ for i in {10..10}; do
                     fi
 
                     # 创建相应的目录
-                    db_dir="/mntdisk/level10B/write_10B_${Cluster_a}_mem${wbs_mb}MB"
+                    db_dir="/mntdisk/level10B/twitter_workloads_${Cluster_a}_mem${wbs_mb}MB"
                     if [ ! -d "$db_dir" ]; then
                         mkdir -p "$db_dir"
                     fi

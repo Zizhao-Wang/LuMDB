@@ -442,6 +442,10 @@ if(LEVELDB_BUILD_BENCHMARKS)
     leveldb_benchmark("benchmarks/db_bench.cc")
   endif(NOT BUILD_SHARED_LIBS)
 
+  if(USE_DIO)
+    target_compile_definitions(db_bench PRIVATE USE_O_DIRECT)
+  endif(USE_DIO)
+
   check_library_exists(sqlite3 sqlite3_open "" HAVE_SQLITE3)
   if(HAVE_SQLITE3)
     leveldb_benchmark("benchmarks/db_bench_sqlite3.cc")

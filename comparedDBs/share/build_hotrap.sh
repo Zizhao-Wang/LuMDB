@@ -9,4 +9,4 @@ mkdir ./hotrap/release
 
 # Change directory, configure to only build the core library, and make it
 cd ./hotrap/release && \
-cmake -DCMAKE_BUILD_TYPE=Debug  .. &&  make -j30 rocksdb && cd ../../
+cmake -DCMAKE_BUILD_TYPE=Debug -DUSE_DIO=ON  .. &&  make -j30 rocksdb && cd ../../

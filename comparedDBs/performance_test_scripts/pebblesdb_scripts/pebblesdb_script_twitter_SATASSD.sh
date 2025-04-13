@@ -28,7 +28,7 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_Pebblesdb_Twitter_SATA_SSDOpen1000_max402"
+    dir1="${i}B_Pebblesdb_Twitter_benchmarking"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
@@ -37,11 +37,11 @@ for i in {10..10}; do
             num_entries=600000000
             num_entries=1000000000
             stats_interva=10000000
-            num_entries=600000000
+            num_entries=100000000
 
             num_format=$(convert_to_billion_format $num_entries)
 
-            for cluster_a in 49 40; do  #  1.2 
+            for cluster_a in 37; do  #  1.2 
 
                 for buffer_size in 67108864 ; do
                     max_file=40

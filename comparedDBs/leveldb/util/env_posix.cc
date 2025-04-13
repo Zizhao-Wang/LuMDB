@@ -209,8 +209,27 @@ class PosixRandomAccessFile final : public RandomAccessFile {
     assert(fd != -1);
 
     Status status;
-    ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
-    *result = Slice(scratch, (read_size < 0) ? 0 : read_size);
+    ssize_t read_size;
+#ifdef USE_O_DIRECT
+    if (use_dio_) {
+      ssize_t real_offset = offset / logical_sector_size_ * logical_sector_size_;
+      ssize_t real_n = (n + offset - real_offset + logical_sector_size_ - 1) / logical_sector_size_ * logical_sector_size_;
+      //auto start = high_resolution_clock::now();
+      read_size = ::pread(fd, scratch, real_n, static_cast<off_t>(real_offset));
+      std::memmove(scratch, scratch + offset - real_offset, std::min(n, read_size - (offset - real_offset)));
+      //fprintf(stderr, "PREAD: time %llu ns\n", duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
+      *result = Slice(scratch, std::min(n, read_size - (offset - real_offset)));  
+    } else {
+      read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
+      *result = Slice(scratch, read_size);  
+    }
+#else
+      read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
+      *result = Slice(scratch, read_size);  
+#endif
+
+    // ssize_t read_size = ::pread(fd, scratch, n, static_cast<off_t>(offset));
+    // *result = Slice(scratch, (read_size < 0) ? 0 : read_size);
     if (read_size < 0) {
       // An error: return a non-ok status.
       status = PosixError(filename_, errno);
@@ -539,35 +558,43 @@ class PosixEnv : public Env {
 
   Status NewRandomAccessFile(const std::string& filename,
                              RandomAccessFile** result) override {
-    *result = nullptr;
+  *result = nullptr;
+  #ifdef USE_O_DIRECT
+    int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags | O_DIRECT);
+  #else 
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
+  #endif
+
     if (fd < 0) {
       return PosixError(filename, errno);
     }
 
-    if (!mmap_limiter_.Acquire()) {
-      *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
-      return Status::OK();
-    }
+    *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
+    return Status::OK();
 
-    uint64_t file_size;
-    Status status = GetFileSize(filename, &file_size);
-    if (status.ok()) {
-      void* mmap_base =
-          ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
-      if (mmap_base != MAP_FAILED) {
-        *result = new PosixMmapReadableFile(filename,
-                                            reinterpret_cast<char*>(mmap_base),
-                                            file_size, &mmap_limiter_);
-      } else {
-        status = PosixError(filename, errno);
-      }
-    }
-    ::close(fd);
-    if (!status.ok()) {
-      mmap_limiter_.Release();
-    }
-    return status;
+    // if (!mmap_limiter_.Acquire()) {
+    //   *result = new PosixRandomAccessFile(filename, fd, &fd_limiter_);
+    //   return Status::OK();
+    // }
+
+    // uint64_t file_size;
+    // Status status = GetFileSize(filename, &file_size);
+    // if (status.ok()) {
+    //   void* mmap_base =
+    //       ::mmap(/*addr=*/nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
+    //   if (mmap_base != MAP_FAILED) {
+    //     *result = new PosixMmapReadableFile(filename,
+    //                                         reinterpret_cast<char*>(mmap_base),
+    //                                         file_size, &mmap_limiter_);
+    //   } else {
+    //     status = PosixError(filename, errno);
+    //   }
+    // }
+    // ::close(fd);
+    // if (!status.ok()) {
+    //   mmap_limiter_.Release();
+    // }
+    // return status;
   }
 
   Status NewWritableFile(const std::string& filename,

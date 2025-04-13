@@ -42,6 +42,33 @@ class Version;
 class VersionSet;
 class WritableFile;
 
+
+static uint64_t MaxFileSizeForLevel(int level) {
+  assert(level < leveldb::config::kNumLevels);
+  static const uint64_t bytes[] = {10 * 1048576,
+                                   40 * 1048576,
+                                   64 * 1048576,
+                                   64 * 1048576,
+                                   128 * 1048576,
+                                   256 * 1048576,
+                                   512 * 1048576};
+  return bytes[level];
+}
+
+
+// tiering
+static uint64_t MaxFileSizeForLevelTiering(int level) {
+  assert(level < leveldb::config::kNumLevels);
+  static const uint64_t bytes[] = {40 * 1048576,
+                                   40 * 1048576,
+                                   64 * 1048576,
+                                   64 * 1048576,
+                                   128 * 1048576,
+                                   256 * 1048576,
+                                   512 * 1048576};
+  return bytes[level];
+}
+
 // Return the smallest index i such that files[i]->largest >= key.
 // Return files.size() if there is no such file.
 // REQUIRES: "files" contains a sorted list of non-overlapping files.
@@ -259,6 +286,8 @@ class VersionSet {
   // REQUIRES: no other thread concurrently calls LogAndApply()
   Status LogAndApply(VersionEdit* edit, port::Mutex* mu)
       EXCLUSIVE_LOCKS_REQUIRED(mu);
+
+  void InitializeFileLevelBloomFilter();
 
   // Recover the last saved descriptor from persistent storage.
   Status Recover(bool* save_manifest);
@@ -523,7 +552,9 @@ class Compaction {
   FileMetaData* input(int which, int i) const { return inputs_[which][i]; }
 
   // Maximum size of files to build during this compaction.
-  uint64_t MaxOutputFileSize() const { return max_output_file_size_; }
+  uint64_t MaxOutputFileSize(int level) const { 
+    return MaxFileSizeForLevel(level); 
+  }
 
   uint64_t MinOutputFileSize() const { return min_output_file_size_; }
 
@@ -634,10 +665,14 @@ class TieringCompaction {
   VersionEdit* edit() { return &edit_; }
 
   // Maximum size of files to build during this compaction.
-  uint64_t MaxOutputFileSize() const { return max_output_file_size_; }
+  uint64_t MaxOutputFileSize(int level) const { 
+    return max_tiering_file_size_; 
+  }
 
     // Maximum size of files to build during this compaction.
-  uint64_t MaxTieringOutputFileSize() const { return max_tiering_file_size_; }
+  uint64_t MaxTieringOutputFileSize(int level) const { 
+    return MaxFileSizeForLevelTiering(level); 
+    }
 
   bool IsTrivialMoveWithTier() const;
 

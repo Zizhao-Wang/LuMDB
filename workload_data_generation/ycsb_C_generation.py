@@ -22,8 +22,8 @@ def process_csv(input_file, n, m, k, output_ops_file):
     update_keys = update_data['Key'].reset_index(drop=True)
     
     # 为读取和更新操作添加操作类型
-    read_ops = pd.DataFrame({'Operation': 'READ', 'Key': update_keys})
-    update_ops = pd.DataFrame({'Operation': 'UPDATE', 'Key': read_keys})
+    read_ops = pd.DataFrame({'Operation': 'READ', 'Key': read_keys })
+    update_ops = pd.DataFrame({'Operation': 'UPDATE', 'Key': update_keys })
     
     # 合并读取和更新操作
     all_ops = pd.concat([read_ops, update_ops], ignore_index=True)
@@ -42,6 +42,7 @@ m = 0   # 从去重后的数据中随机选取 m 个读取操作
 k = 950000  # 从第 n+1 到 n+k 行数据提取 k 个更新操作
 
 output_ops_file = '/mnt/workloads/ycsb_c_workload.csv'  # 最终操作数据保存路径
+output_ops_file = '/mnt/workloads/random_read_workload1.2.csv'
 
 # 执行处理
 process_csv(input_file, n, m, k, output_ops_file)

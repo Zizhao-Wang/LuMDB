@@ -45,8 +45,11 @@ for i in {10..10}; do
 
                 log_file="LuMDB_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
-                db_directory="/mnt/hotdb_test/hotdb10B/ycsba_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator1"
-                ycsb_data_file="/home/jeff-wang/workloads/ycsb_d_workload.csv" # 构建数据文件路径
+                db_directory="/mntdisk/LuM10B/cold/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator2"
+                hotdb_directory="/mntdisk/LuM10B/hot/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator2"
+                db_directory="/mnt/nvm/LuM10B/cold/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                hotdb_directory="/mnt/nvm/LuM10B/hot/ycsb_hot_${hot_identification}_P${partition}_${Mem}_${zipf_a}_iterator8"
+                ycsb_data_file="/mnt/workloads/ycsb_d_workload.csv" # 构建数据文件路径
 
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -79,6 +82,7 @@ for i in {10..10}; do
                 --open_files=40000 \
                 --use_existing_db=true \
                 --reads=1000 \
+                --hotdb=$hotdb_directory \
                 --compression=0 \
                 --YCSB_data_file=$ycsb_data_file \
                 --stats_interval=$stats_interva \

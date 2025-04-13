@@ -1266,7 +1266,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
 
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-#ifdef zipf_hc_compaction_monitor
+
   std::map<int,uint64_t> hot_data_counts; 
   std::map<int,uint64_t> cold_data_counts;
   uint64_t total_data_count = 0;
@@ -1275,7 +1275,6 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     hot_data_counts[percentage] = 0;
     cold_data_counts[percentage] = 0;
   }
-#endif
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
   while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
@@ -1295,7 +1294,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     Slice key = input->key();
     
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
-#ifdef zipf_hc_compaction_monitor
+
     bool is_hot_data1 = false;
     if(versions_->compute_hot_cold_range(key, hot_range, is_hot_data1)){
       std::string str(key.data(), key.size());
@@ -1309,8 +1308,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
         }
       }
       total_data_count++;
-    }
-#endif 
+    } 
     //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
     if (compact->compaction->ShouldStopBefore(key) &&
@@ -1453,7 +1451,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   // level_stats_[compact->compaction->level() + 1].bytes_written_cold += stats.bytes_written*cold_data_percentage;
   //  ~~~~~ WZZ's comments for his adding source codes ~~~~~
 
-#ifdef zipf_hc_compaction_monitor
+
   for (int i=0;i<percentages1.size();i++) {
     int64_t hot_count = hot_data_counts[percentages1[i]];
     int64_t cold_count = cold_data_counts[percentages1[i]];
@@ -1507,7 +1505,6 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
     // fprintf(stdout,"hot_data_percentage: %f, cold_data_percentage: %f read: %f\n", hot_data_percentage, cold_data_percentage, read_diff);
     // assert(written_diff < epsilon);
   }
-#endif
   // fprintf(stdout,"==========\n\n");
   // fflush(stdout);
 
@@ -2143,6 +2140,12 @@ Status DB::Delete(const WriteOptions& opt, const Slice& key) {
 DB::~DB() = default;
 
 Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
+
+  #ifdef USE_O_DIRECT
+    fprintf(stderr, "Macro USE_O_DIRECT is defined.\n");
+  #else
+    fprintf(stderr, "Macro USE_O_DIRECT is NOT defined.\n");
+  #endif
   *dbptr = nullptr;
   std::fprintf(stderr, "entering db_impl.cc:%s\n", dbname.c_str());
   fflush(stderr);
@@ -2183,6 +2186,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   } else {
     delete impl;
   }
+
 
   // //  ~~~~~~~ WZZ's comments for his adding source codes ~~~~~~~
   // std::fprintf(stdout,"Test start!\n");

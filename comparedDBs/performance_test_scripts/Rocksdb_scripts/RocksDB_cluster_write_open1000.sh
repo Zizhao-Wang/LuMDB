@@ -55,8 +55,8 @@ for i in {10..10}; do
         num_entries=$((base_num * BASE_VALUE_SIZE / value_size))
         stats_interva=$((num_entries / 100))
         num_format=$(convert_to_billion_format "$num_entries")
-
-        for cluster in 40 49; do
+        num_entries=100000000
+        for cluster in 40 ; do
 
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
             for wbs_mb in 64; do
@@ -76,7 +76,7 @@ for i in {10..10}; do
                     continue
                 fi
 
-                db_dir="/mntdisk/rocks10B/twitter${cluster}_write_10B_mem${wbs_mb}MB"
+                db_dir="/mntdisk/rocks10B/twitter_workloads_${cluster}_write_mem${wbs_mb}MB"
                 if [ ! -d "$db_dir" ]; then
                     mkdir -p "$db_dir"
                 fi

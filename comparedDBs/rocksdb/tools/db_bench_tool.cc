@@ -3649,6 +3649,8 @@ class Benchmark {
         method = &Benchmark::YCSB_E;
       } else if (name == Slice("ycsbf")) {
         method = &Benchmark::YCSB_F;
+      } else if (name == Slice("twitterexecute")) {
+        method = &Benchmark::twitter_traces_execute;
       } else if (name == "filluniquerandom" ||
                  name == "fillanddeleteuniquerandom") {
         fresh_db = true;
@@ -5759,6 +5761,93 @@ class Benchmark {
     
   }
 
+  void twitter_traces_execute(ThreadState* thread) {
+    fprintf(stderr,"Enter twitter_traces_execute\n");
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
+                      FLAGS_write_batch_protection_bytes_per_key,
+                      user_timestamp_size_);
+    Status s;
+    int64_t bytes = 0;
+    ReadOptions options = read_options_;
+    std::string value;
+    int found = 0;
+
+    std::ifstream csv_file(FLAGS_YCSB_data_file);
+    std::string line;
+    if (!csv_file.is_open()) {
+      fprintf(stderr,"Unable to open CSV file in twitter_traces_execute\n");
+      return;
+    }
+    std::getline(csv_file, line);
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    std::fprintf(stderr, "Processing %ld entries in every Batch, FLAGS_ycsb_num = %lu in twitter_traces_execute\n", entries_per_batch_,FLAGS_ycsb_num);
+
+    for (int64_t i = 0; i < FLAGS_ycsb_num; i += entries_per_batch_) {
+      batch.Clear();
+      int64_t batch_bytes = 0;
+      for (int64_t j = 0; j < entries_per_batch_; j++) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+        // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
+        if (!std::getline(csv_file, line)) { // 从文件中读取一行
+          fprintf(stderr, "Error reading key from file in twitter_traces_execute\n");
+          return;
+        }
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 7) {
+          fprintf(stderr, "Invalid CSV row format\n");
+          continue;
+        }
+
+        const uint64_t k = std::stoull(row_data[1]);
+
+        if (row_data[5]=="get"){
+          // fprintf(stdout,"The key is %lu!\n",k);
+          char key1[100];
+          snprintf(key1, sizeof(key1), "%024llu", (unsigned long long)k);
+          Slice key(key1);
+          std::string* ts_ptr = nullptr;
+          auto sta = db_.db->Get(options, key, &value, ts_ptr);
+          if (sta.ok()) {
+            found++;
+          }
+          bytes = (16 + FLAGS_value_size);
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+        }else if(row_data[5]=="set"){
+          // const uint64_t k = seq ? i+j : (thread->trace->Next() % FLAGS_range);
+          // fprintf(stderr, "Read key: %llu\n", (unsigned long long)k); // 输出读取的键
+
+          char key2[100];
+          snprintf(key2, sizeof(key2), "%024llu", (unsigned long long)k);
+          Slice val = gen.Generate(FLAGS_value_size_);
+          // fprintf(stderr, "Writing key: %s, value size: %zu\n", key, val.size()); // 输出写入的键和值大小
+          batch.Put(key2, val);
+            
+          batch_bytes += val.size() + key_size_ + user_timestamp_size_;
+          bytes += val.size() + key_size_ + user_timestamp_size_;
+          s = db_.db->Write(write_options_, &batch);
+          thread->stats.AddBytes(bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kWrite);
+        }else{}
+      }
+    }
+    
+  }
+
   void YCSB_E(ThreadState* thread) {
     fprintf(stderr,"Enter YCSB_E\n");
     if (num_ != FLAGS_num) {
@@ -5779,7 +5868,7 @@ class Benchmark {
     std::ifstream csv_file(FLAGS_YCSB_data_file);
     std::string line;
     if (!csv_file.is_open()) {
-        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        fprintf(stderr,"Unable to open CSV file in YCSB_E\n");
         return;
     }
     std::getline(csv_file, line);
@@ -5798,7 +5887,7 @@ class Benchmark {
         row_data.clear();
         // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         if (!std::getline(csv_file, line)) { // 从文件中读取一行
-          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          fprintf(stderr, "Error reading key from file in YCSB_E\n");
           return;
         }
         line_stream << line;
@@ -5817,7 +5906,7 @@ class Benchmark {
 
         const uint64_t k = std::stoull(row_data[1]);
 
-        if (row_data[0]=="READ"){
+        if (row_data[0]=="SCAN"){
           // fprintf(stdout,"The key is %lu!\n",k);
           char key1[100];
           snprintf(key1, sizeof(key1), "%016llu", (unsigned long long)(k+2000000));
@@ -5882,7 +5971,7 @@ class Benchmark {
     std::ifstream csv_file(FLAGS_YCSB_data_file);
     std::string line;
     if (!csv_file.is_open()) {
-        fprintf(stderr,"Unable to open CSV file in YCSB_A\n");
+        fprintf(stderr,"Unable to open CSV file in YCSB_F\n");
         return;
     }
     std::getline(csv_file, line);
@@ -5901,7 +5990,7 @@ class Benchmark {
         row_data.clear();
         // const int k = seq ? i + j : thread->rand.Uniform(FLAGS_num);
         if (!std::getline(csv_file, line)) { // 从文件中读取一行
-          fprintf(stderr, "Error reading key from file in YCSB_A\n");
+          fprintf(stderr, "Error reading key from file in YCSB_F\n");
           return;
         }
         line_stream << line;
@@ -7280,20 +7369,27 @@ class Benchmark {
   // needs to decide the ratio between Get, Put, Iterator queries before
   // starting the benchmark.
   // Function to log the key, key size, and value size to a CSV file
-  void LogKeyToCSV(const int64_t key, size_t key_size, size_t val_size) {
-    std::ofstream log_file(FLAGS_ZippyDB_FILE_PATH, std::ios::app); // Open file in append mode
+  void LogKeyToCSV(const int64_t key, const std::string& op_type,
+                 size_t key_size, ssize_t val_size = -1) {
+    std::ofstream log_file(FLAGS_ZippyDB_FILE_PATH, std::ios::app); // Append mode
     if (!log_file.is_open()) {
       fprintf(stderr, "Error opening log file: %s\n", FLAGS_ZippyDB_FILE_PATH.c_str());
       return;
     }
 
-    // If file is empty, write the header (column names)
+    // 写入 CSV 表头
     if (log_file.tellp() == 0) {
-      log_file << "Key,Key Size,Value Size\n";
+      log_file << "Key,OpType,KeySize,ValueSize\n";
     }
 
-    // Write the key, key size, and value size to the file
-    log_file << key << "," << key_size << "," << val_size << "\n";
+    // 写入内容（如果 val_size 为 -1，则输出为空）
+    log_file << key << "," << op_type << "," << key_size;
+    if (val_size >= 0)
+      log_file << "," << val_size;
+    else
+      log_file << ",";
+    log_file << "\n";
+
     log_file.close();
   }
 
@@ -7328,8 +7424,8 @@ class Benchmark {
 
     // Check if the log file exists and remove it if it does
     if (access(FLAGS_ZippyDB_FILE_PATH.c_str(), F_OK) != -1) {
-        // File exists, so remove it
-        remove(FLAGS_ZippyDB_FILE_PATH.c_str());
+      // File exists, so remove it
+      remove(FLAGS_ZippyDB_FILE_PATH.c_str());
     }
 
     
@@ -7413,85 +7509,88 @@ class Benchmark {
       // Start the query
       if (query_type == 0) {
         // the Get query
+        LogKeyToCSV(actual_key, "get", key.size());
         gets++;
-        if (FLAGS_num_column_families > 1) {
-          s = db_with_cfh->db->Get(read_options_, db_with_cfh->GetCfh(key_rand),
-                                   key, &pinnable_val);
-        } else {
-          pinnable_val.Reset();
-          s = db_with_cfh->db->Get(read_options_,
-                                   db_with_cfh->db->DefaultColumnFamily(), key,
-                                   &pinnable_val);
-        }
+        // if (FLAGS_num_column_families > 1) {
+        //   s = db_with_cfh->db->Get(read_options_, db_with_cfh->GetCfh(key_rand),
+        //                            key, &pinnable_val);
+        // } else {
+        //   pinnable_val.Reset();
+        //   s = db_with_cfh->db->Get(read_options_,
+        //                            db_with_cfh->db->DefaultColumnFamily(), key,
+        //                            &pinnable_val);
+        // }
 
-        if (s.ok()) {
-          get_found++;
-          bytes += key.size() + pinnable_val.size();
-        } else if (!s.IsNotFound()) {
-          fprintf(stderr, "Get returned an error: %s\n", s.ToString().c_str());
-          abort();
-        }
+        // if (s.ok()) {
+        //   get_found++;
+        //   bytes += key.size() + pinnable_val.size();
+        // } else if (!s.IsNotFound()) {
+        //   fprintf(stderr, "Get returned an error: %s\n", s.ToString().c_str());
+        //   abort();
+        // }
 
-        if (thread->shared->read_rate_limiter && (gets + seek) % 100 == 0) {
-          thread->shared->read_rate_limiter->Request(100, Env::IO_HIGH,
-                                                     nullptr /*stats*/);
-        }
+        // if (thread->shared->read_rate_limiter && (gets + seek) % 100 == 0) {
+        //   thread->shared->read_rate_limiter->Request(100, Env::IO_HIGH,
+        //                                              nullptr /*stats*/);
+        // }
         thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kRead);
+
       } else if (query_type == 1) {
         // the Put query
+        // Log the key to CSV
+        
         puts++;
         int64_t val_size = ParetoCdfInversion(u, FLAGS_value_theta,
                                               FLAGS_value_k, FLAGS_value_sigma);
-        if (val_size < 10) {
-          val_size = 10;
-        } else if (val_size > value_max) {
-          val_size = val_size % value_max;
-        }
-        total_val_size += val_size;
+        LogKeyToCSV(actual_key, "put", key.size(), val_size);
+        // if (val_size < 10) {
+        //   val_size = 10;
+        // } else if (val_size > value_max) {
+        //   val_size = val_size % value_max;
+        // }
+        // total_val_size += val_size;
 
-        // Log the key to CSV
-        LogKeyToCSV(actual_key, key.size(), val_size);
+        // s = db_with_cfh->db->Put(
+        //     write_options_, key,
+        //     gen.Generate(static_cast<unsigned int>(val_size)));
+        // if (!s.ok()) {
+        //   fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+        //   ErrorExit();
+        // }
 
-        s = db_with_cfh->db->Put(
-            write_options_, key,
-            gen.Generate(static_cast<unsigned int>(val_size)));
-        if (!s.ok()) {
-          fprintf(stderr, "put error: %s\n", s.ToString().c_str());
-          ErrorExit();
-        }
-
-        if (thread->shared->write_rate_limiter && puts % 100 == 0) {
-          thread->shared->write_rate_limiter->Request(100, Env::IO_HIGH,
-                                                      nullptr /*stats*/);
-        }
+        // if (thread->shared->write_rate_limiter && puts % 100 == 0) {
+        //   thread->shared->write_rate_limiter->Request(100, Env::IO_HIGH,
+        //                                               nullptr /*stats*/);
+        // }
         thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kWrite);
       } else if (query_type == 2) {
         // Seek query
-        if (db_with_cfh->db != nullptr) {
-          Iterator* single_iter = nullptr;
-          single_iter = db_with_cfh->db->NewIterator(read_options_);
-          if (single_iter != nullptr) {
-            single_iter->Seek(key);
-            seek++;
-            if (single_iter->Valid() && single_iter->key().compare(key) == 0) {
-              seek_found++;
-            }
-            int64_t scan_length =
-                ParetoCdfInversion(u, FLAGS_iter_theta, FLAGS_iter_k,
-                                   FLAGS_iter_sigma) %
-                scan_len_max;
-            for (int64_t j = 0; j < scan_length && single_iter->Valid(); j++) {
-              Slice value = single_iter->value();
-              memcpy(value_buffer, value.data(),
-                     std::min(value.size(), sizeof(value_buffer)));
-              bytes += single_iter->key().size() + single_iter->value().size();
-              single_iter->Next();
-              assert(single_iter->status().ok());
-              total_scan_length++;
-            }
-          }
-          delete single_iter;
-        }
+        LogKeyToCSV(actual_key, "seek", key.size());
+        // if (db_with_cfh->db != nullptr) {
+        //   Iterator* single_iter = nullptr;
+        //   single_iter = db_with_cfh->db->NewIterator(read_options_);
+        //   if (single_iter != nullptr) {
+        //     single_iter->Seek(key);
+        //     seek++;
+        //     if (single_iter->Valid() && single_iter->key().compare(key) == 0) {
+        //       seek_found++;
+        //     }
+        //     int64_t scan_length =
+        //         ParetoCdfInversion(u, FLAGS_iter_theta, FLAGS_iter_k,
+        //                            FLAGS_iter_sigma) %
+        //         scan_len_max;
+        //     for (int64_t j = 0; j < scan_length && single_iter->Valid(); j++) {
+        //       Slice value = single_iter->value();
+        //       memcpy(value_buffer, value.data(),
+        //              std::min(value.size(), sizeof(value_buffer)));
+        //       bytes += single_iter->key().size() + single_iter->value().size();
+        //       single_iter->Next();
+        //       assert(single_iter->status().ok());
+        //       total_scan_length++;
+        //     }
+        //   }
+        //   delete single_iter;
+        // }
         thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kSeek);
       }
     }

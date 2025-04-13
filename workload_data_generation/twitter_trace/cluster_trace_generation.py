@@ -2,7 +2,7 @@ import pandas as pd
 import logging
 
 # Step 1: 全局定义文件路径
-CLUSTER_NUM = 49  # 这里可以修改为任何需要的 cluster 数字
+CLUSTER_NUM = 1 # 这里可以修改为任何需要的 cluster 数字
 file_path = f'/mnt/nvm/cluster{CLUSTER_NUM}.sort'  # 根据全局定义的 CLUSTER_NUM 来确定文件路径
 
 # 定义输出日志文件路径
@@ -13,7 +13,7 @@ logging.basicConfig(filename=log_file_path, level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Step 2: 读取原始文件
-df = pd.read_csv(file_path, header=None)  # 读取文件并忽略列名
+df = pd.read_csv(file_path, header=None, nrows=500000000)  # 读取文件并忽略列名
 
 # 输出读取的数据文件内容（前几行）
 logging.info("Step 1: Loaded data from cluster%s.sort", CLUSTER_NUM)

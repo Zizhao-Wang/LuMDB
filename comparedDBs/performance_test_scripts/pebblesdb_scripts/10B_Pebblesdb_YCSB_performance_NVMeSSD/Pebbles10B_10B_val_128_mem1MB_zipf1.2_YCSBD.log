@@ -1,0 +1,67 @@
+base_num: 10000000000
+num_entries: 1000000000
+value_size:128
+stats_interval: 100000000
+10B
+PebblesDB:    version 1.17
+Date:       Tue Apr  8 22:29:47 2025
+CPU:        112 * Intel(R) Xeon(R) Gold 6348 CPU @ 2.60GHz
+CPUCache:   43008 KB
+Processing 1000 entries in every Batch, FLAGS_ycsb_num = 1000000
+../../../pebblesdb/release/db_bench --db=/mnt/nvm/pebbles10B/ycsb_mem64_1.2_2 --num=1000000000 --value_size=128 --ycsb_num=1000000 --batch_size=1000 --benchmarks=ycsbd,stats --data_file=/home/jeff-wang/workloads/zipf1.2_keys10.0B.csv --bloom_bits=10 --log=1 --cache_size=8388608 --open_files=1000 --mem_log_file=/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/pebblesdb_scripts/10B_Pebblesdb_YCSB_performance/Pebblesdb_memory_64MiB_10B_key16_val128_zipf1.2.log --compression=0 --stats_interval=100000000 --use_existing_db=true --YCSB_data_file=/mnt/workloads/ycsb_d_workload.csv --histogram=1 --write_buffer_size=1048576 --max_file_size=1048576 --print_wa=true
+Keys:       16 bytes each
+Values:     128 bytes each (64 bytes after compression)
+Entries:    1000000000
+RawSize:    137329.1 MB (estimated)
+FileSize:   76293.9 MB (estimated)
+WARNING: Snappy compression is not enabled
+------------------------------------------------
+Recover Time : 18446744073709543056
+PebblesDB Open Time: 24880
+Write buffer: 1024.00 KB
+The number of found keys is 673697!, the total number of read is: 950000 the total number of write is: 50000, other:0
+ycsbd        :      11.814 micros/op 84644 ops/sec;   11.0 MB/s
+Microseconds per op:
+Count: 1000000 Average: 11.8139  StdDev: 392.23
+Min: 0  Median: 3.7978  Max: 386790
+Percentiles: P50: 3.80 P75: 12.96 P99: 107.67 P99.9: 394.58 P99.99: 1398.51
+------------------------------------------------------
+[       0,       1 ]   196632  19.663%  19.663% ####
+(       1,       2 ]   107151  10.715%  30.378% ##
+(       2,       3 ]   110064  11.006%  41.385% ##
+(       3,       4 ]   107985  10.799%  52.183% ##
+(       4,       6 ]    50543   5.054%  57.238% #
+(       6,      10 ]    83083   8.308%  65.546% ##
+(      10,      15 ]   159886  15.989%  81.534% ###
+(      15,      22 ]   137101  13.710%  95.245% ###
+(      22,      34 ]    22056   2.206%  97.450%
+(      34,      51 ]     1974   0.197%  97.648%
+(      51,      76 ]     4138   0.414%  98.061%
+(      76,     110 ]    10079   1.008%  99.069%
+(     110,     170 ]     2794   0.279%  99.349%
+(     170,     250 ]     2342   0.234%  99.583%
+(     250,     380 ]     3137   0.314%  99.897%
+(     380,     580 ]      480   0.048%  99.945%
+(     580,     870 ]      241   0.024%  99.969%
+(     870,    1300 ]      203   0.020%  99.989%
+(    1300,    1900 ]       67   0.007%  99.996%
+(    1900,    2900 ]       14   0.001%  99.997%
+(    2900,    4400 ]        5   0.001%  99.998%
+(    4400,    6600 ]        2   0.000%  99.998%
+(    6600,    9900 ]        9   0.001%  99.999%
+(    9900,   14000 ]       11   0.001% 100.000%
+(   22000,   33000 ]        2   0.000% 100.000%
+(  380000,  570000 ]        1   0.000% 100.000%
+
+
+                               Compactions
+Level  Files Size(MB) Time(sec) Read(MB) Write(MB)
+--------------------------------------------------
+  0        1        1         0        0         7
+  1        6        3         0        6         6
+  2        0        0         0        4         4
+  3       20       11         0       13        13
+  4       62       41         0       17        17
+  5      393      250         0       21        20
+  6     2336     6016         0        4         4
+WriteAmplification: 10.2613

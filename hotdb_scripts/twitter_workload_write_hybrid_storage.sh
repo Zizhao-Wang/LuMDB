@@ -1,0 +1,119 @@
+
+# ./config.sh
+
+echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
+sudo bash -c 'ulimit -n 800000'
+
+BASE_VALUE_SIZE=128
+billion=1000000000
+percentages=(1 5 10 15 20 25 30) # 定义百分比值
+range_dividers=(1)
+DEVICE_NAME="nvme0n1"
+Mem=64
+partition=9
+hot_identification=2
+
+convert_to_billion_format() {
+    local num=$1
+    local integer_part=$((num / billion))
+    local decimal_part=$((num % billion))
+
+    if ((decimal_part == 0)); then
+        echo "${integer_part}B"
+    else
+        # Convert decimal part to the format of "x billionths"
+        local formatted_decimal=$(echo "scale=9; $decimal_part / $billion" | bc | sed 's/0*$//' | sed 's/\.$//')
+        # Extract only the fractional part after the decimal point
+        formatted_decimal=$(echo $formatted_decimal | cut -d'.' -f2)
+        echo "${integer_part}.${formatted_decimal}B"
+    fi
+}
+
+for i in {10..10}; do
+    base_num=$(($billion * $i))
+    dir1="${i}B_LuMDB_twitter_workloads"
+    if [ ! -d "$dir1" ]; then
+        mkdir $dir1
+    fi
+        cd $dir1
+        for value_size in 1380; do
+            num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
+            num_entries=600000000
+            stats_interva=10000000
+            num_format=$(convert_to_billion_format $num_entries)  
+
+            for cluster_a in 40; do  # 1.2 1.3 1.4 1.5
+
+                log_file="LuMDB_Write_${num_format}_val_${value_size}_mem${Mem}MiB_twitter${cluster_a}.log"
+                # reads_data_file="/home/jeff-wang/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
+                data_file="/mnt/nvm/second_cluster${cluster_a}.sort" 
+                memory_log_file="$(pwd)/LuMDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_cluster${cluster_a}.log"
+                pm_log_file="$(pwd)/LuMDB_pmusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_cluster${cluster_a}.log"
+                db_directory="/mnt/pmem0/pmem0/cold/write_mem${Mem}MiB_cluster${cluster_a}_64_15C0100_hybrid_test"
+                hotdb_directory="/mntdisk/LuM10B/hot/write_mem${Mem}MiB_cluster${cluster_a}_64_15C0100_hybrid_test"
+
+                # 如果日志文件存在，则跳过当前迭代
+                # if [ -f "$log_file" ]; then
+                #     echo "Log file $log_file already exists. Skipping this iteration."
+                #     continue
+                # fi
+
+                # 检查目录是否为空，如果不为空则删除所有内容
+                if [ "$(ls -A $db_directory)" ]; then
+                    rm -rf "${db_directory:?}/"*
+                fi
+
+                if [ ! -d "$db_directory" ]; then
+                    mkdir -p "$db_directory"
+                fi
+
+                if [ "$(ls -A $hotdb_directory)" ]; then
+                    rm -rf "${hotdb_directory:?}/"*
+                fi
+
+                if [ ! -d "$hotdb_directory" ]; then
+                    mkdir -p "$hotdb_directory"
+                fi
+
+                echo "base_num: $base_num"
+                echo "num_entries: $num_entries"
+                echo "value_size:$value_size"
+                echo "stats_interval: $stats_interva"
+                echo "$num_format"
+
+                # 启动 pcm-memory 性能监控，后台运行并将输出写入 CSV 文件
+                echo "启动 PCM 内存性能监控，输出到 $pm_log_file"
+                nohup /home/jeff-wang/pcm/build/bin/pcm-memory -pmm 1 -csv=$pm_log_file & 
+                PCM_PID=$!
+                   
+                gdb --args ../../hotdb/twitter_release/db_bench \
+                --db=$db_directory \
+                --hotdb=$hotdb_directory \
+                --num=$num_entries \
+                --value_size=$value_size \
+                --batch_size=1000 \
+                --benchmarks=filltwitter,stats \
+                --data_file=$data_file  \
+                --logpath=/mnt/logs \
+                --mem_log_file=$memory_log_file \
+                --bloom_bits=10 \
+                --log=1  \
+                --RangeRead_data_file=$reads_data_file \
+                --range_query_length=10 \
+                --cache_size=8388608 \
+                --open_files=1000 \
+                --use_existing_db=false \
+                --reads=1000 \
+                --compression=0 \
+                --stats_interval=$stats_interva \
+                --histogram=1 \
+                --print_wa=true 
+
+                kill -9 "$PCM_PID"
+                
+            done
+        done
+done
+
+
+
