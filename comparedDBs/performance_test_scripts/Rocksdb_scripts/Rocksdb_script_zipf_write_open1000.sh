@@ -44,7 +44,7 @@ MEM=512                # 你的 MEM 大小（MB）
 
 for i in {10..10}; do
     base_num=$((billion * i))
-    dir1="${i}B_RocksDB_zipf_hot_removal_SATASSD_Open1000"
+    dir1="${i}B_RocksDB_zipf_hot_removal_SATASSD_Open1000_Mthread"
     if [ ! -d "$dir1" ]; then
         mkdir "$dir1"
     fi
@@ -113,6 +113,8 @@ for i in {10..10}; do
                     --bloom_bits=10 \
                     --cache_size=8388608 \
                     --open_files=1000 \
+                    --max_background_compactions=6 \
+                    --max_background_flushes=1 \
                     --compression_ratio=0 \
                     --stats_interval="$stats_interva" \
                     --stats_per_interval="$stats_interva" \

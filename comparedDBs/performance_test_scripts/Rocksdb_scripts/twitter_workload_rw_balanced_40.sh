@@ -41,7 +41,7 @@ BASE_VALUE_SIZE=128
 DEVICE_NAME="sdc"  # 你的设备名称
 MEM=512   # 你的 MEM 大小（MB）
 
-log_dir="RocksDB_TwitterCluster_benchmarking"
+log_dir="RocksDB_TwitterCluster_benchmarking_Multithread"
 
 for i in {10..10}; do
     base_num=$((billion * i))
@@ -56,8 +56,8 @@ for i in {10..10}; do
         stats_interva=$((num_entries / 100))
         num_format=$(convert_to_billion_format "$num_entries")
         num_entries=100000000
-        ycsb_num_entries=10000000
-        for cluster in 40 ; do
+        ycsb_num_entries=1000000
+        for cluster in 40; do
 
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
             for wbs_mb in 64; do
@@ -84,7 +84,7 @@ for i in {10..10}; do
                 log_file="RocksDB_${num_format}_val${value_size}_mem${MEM}MB_zipf${zipf_a}_YCSBB.log"
                 data_file="/home/jeff-wang/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径 
                 memory_log_file="/home/jeff-wang/WorkloadAnalysis/comparedDBs/performance_test_scripts/Rocksdb_scripts/10B_RocksDB_zipf_hot_removal/RocksDB_memoryusage${MEM}MB_${num_format}_key16_val${value_size}_zipf${zipf_a}_mem${MEM}MiB.log"      
-                ycsb_data_file="/mnt/nvm/second_cluster39.sort" # 构建数据文件路径
+                ycsb_data_file="/mnt/nvm/second_cluster40.sort" # 构建数据文件路径
                 db_dir="/mnt/nvm/rocks10B/twitter${cluster}_write_10B_mem${wbs_mb}MB"
                 # 如果日志文件存在，则跳过当前迭代
                 # if [ -f "$log_file" ]; then
@@ -113,6 +113,8 @@ for i in {10..10}; do
                 --cache_size=8388608 \
                 --open_files=80000 \
                 --compression_ratio=0 \
+                --max_background_compactions=6 \
+                --max_background_flushes=1 \
                 --ycsb_num=$ycsb_num_entries \
                 --YCSB_data_file=$ycsb_data_file \
                 --stats_interval=$stats_interva \

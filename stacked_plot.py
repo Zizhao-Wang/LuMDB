@@ -29,9 +29,9 @@ df = df.iloc[selected_rows].reset_index(drop=True)
 # -------------------------------
 # 定义每个分组的列名（每组2列，共4组）
 group_names = [
-    ("Zipf1.1-Toatl",   "Zipf1.1-user"), 
-    ("Zipf1.3-Toatl",   "Zipf1.3-user"), 
+    ("Zipf1.1-Toatl",   "Zipf1.1-user"),
     ("cluster40-Toatl", "cluster40-user"), 
+    ("Zipf1.3-Toatl",   "Zipf1.3-user"), 
     ("cluster49-Toatl", "cluster49-user")
 ]
 
