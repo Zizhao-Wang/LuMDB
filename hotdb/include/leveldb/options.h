@@ -85,15 +85,15 @@ struct LEVELDB_EXPORT Options {
   // so you may wish to adjust this parameter to control memory usage.
   // Also, a larger write buffer will result in a longer recovery time
   // the next time the database is opened.
-  size_t write_buffer_size = 60 * 1024 * 1024;
+  size_t write_buffer_size = 64 * 1024 * 1024;
 
   size_t write_hot_buffer_size = 4 * 1024 * 1024;
 
-  size_t min_file_size = 40*1024 * 1024;
+  size_t min_file_size = 48*1024 * 1024;
 
   size_t generated_file_size_in_compaction = 10*1024*1024;
 
-  size_t min_partition_size = 40 * 1024 * 1024;
+  size_t min_partition_size = 48 * 1024 * 1024;
 
   size_t max_partition_size = 10 * 1024 * 1024;
 
@@ -122,7 +122,7 @@ struct LEVELDB_EXPORT Options {
 
   bool Two_stage_switch = false;
 
-  int hot_frequency_identification = 15;
+  int hot_frequency_identification = 2;
 
   // Leveldb will write up to this amount of bytes to a file before
   // switching to a new one.

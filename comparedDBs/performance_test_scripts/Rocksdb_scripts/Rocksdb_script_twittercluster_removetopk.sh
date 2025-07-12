@@ -44,7 +44,7 @@ MEM=512                # 你的 MEM 大小（MB）
 
 for i in {10..10}; do
     base_num=$((billion * i))
-    dir1="${i}B_RocksDB_TwitterCluster_workloads"
+    dir1="${i}B_RocksDB_TwitterCluster_Removal_workloads"
     if [ ! -d "$dir1" ]; then
         mkdir "$dir1"
     fi
@@ -54,14 +54,15 @@ for i in {10..10}; do
         num_entries=$((base_num * BASE_VALUE_SIZE / value_size))
         stats_interva=$((num_entries / 1000))
         num_format=$(convert_to_billion_format "$num_entries")
+        num_entries=500000000
 
-        for clsuternum_a in 19; do
+        for clsuternum_a in 35 25 13 30 47 1 40 49; do
 
             # 只用一个循环，同时设置 write_buffer_size 和 target_file_size_base
             for wbs_mb in 64; do
                 # for top_k in 10 20 30 40 50 60 70 80 90 100; do
                 # for top_k in 100 90 80 70 60 50 40 30 20 10; do
-                for top_k in 100 10; do
+                for top_k in 100 10 200 500 300 800; do
                     # 将 MB 转换为字节
                     wbs_bytes=$((wbs_mb * 1024 * 1024))
                     # target_file_size_base 同样用这个值
@@ -78,7 +79,10 @@ for i in {10..10}; do
                         continue
                     fi
 
+                    db_dir="/mnt/workloads/rocks10B/write_cluster${clsuternum_a}_mem${wbs_mb}MiB_Removaltop${top_k}"
+                    db_dir="/mnt/pmem1/rocks10B/write_cluster${clsuternum_a}_mem${wbs_mb}MiB_Removaltop${top_k}"
                     db_dir="/mntdisk/rocks10B/write_cluster${clsuternum_a}_mem${wbs_mb}MiB_Removaltop${top_k}"
+                    
                     if [ ! -d "$db_dir" ]; then
                         mkdir -p "$db_dir"
                     fi

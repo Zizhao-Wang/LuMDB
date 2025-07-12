@@ -45,8 +45,8 @@ class WritableFile;
 
 static uint64_t MaxFileSizeForLevel(int level) {
   assert(level < leveldb::config::kNumLevels);
-  static const uint64_t bytes[] = {10 * 1048576,
-                                   40 * 1048576,
+  static const uint64_t bytes[] = {5 * 1048576,
+                                   10 * 1048576,
                                    64 * 1048576,
                                    64 * 1048576,
                                    128 * 1048576,

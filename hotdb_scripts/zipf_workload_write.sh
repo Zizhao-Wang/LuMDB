@@ -1,5 +1,5 @@
 
-./config.sh
+# ./config.sh
 
 echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
 sudo bash -c 'ulimit -n 800000'
@@ -31,25 +31,26 @@ convert_to_billion_format() {
 
 for i in {10..10}; do
     base_num=$(($billion * $i))
-    dir1="${i}B_LuMDB_Ablation_perfromance"
+    dir1="${i}B_LuMDB_Sep_skewness_sentivity_study"
     if [ ! -d "$dir1" ]; then
         mkdir $dir1
     fi
         cd $dir1
         for value_size in 128; do
+            disk_prefix="/mnt/ssd1"
             num_entries=$(($base_num * $BASE_VALUE_SIZE / $value_size))
-            stats_interva=$((num_entries / 1000))
+            stats_interva=$((num_entries / 100))
             num_format=$(convert_to_billion_format $num_entries)
-            # num_entries=100000000    
+            num_entries=1000000000    
 
-            for zipf_a in 1.3; do  # 1.2 1.3 1.4 1.5
+            for zipf_a in 1.1; do  # 1.2 1.3 1.4 1.5
 
                 log_file="LuMDB_Write_${num_format}_val_${value_size}_mem${Mem}MiB_zipf${zipf_a}.log"
                 reads_data_file="/mnt/workloads/zipf${zipf_a}_random_select_1000_read_keys.csv"
-                data_file="/mnt/workloads/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
+                data_file="/mnt/nvm/zipf${zipf_a}_keys10.0B.csv" # 构建数据文件路径
                 memory_log_file="$(pwd)/LuMDB_memoryusage_${num_format}_key16_val${value_size}_wbs${wbs_mb}MB_zipf${zipf_a}.log"
-                db_directory="/mntdisk/LuM10B/cold/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
-                hotdb_directory="/mntdisk/LuM10B//hot/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
+                db_directory="${disk_prefix}/LuM10B/cold/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
+                hotdb_directory="${disk_prefix}/LuM10B//hot/write_mem${Mem}MiB_hot${hot_identification}_zipf${zipf_a}"
 
                 if [ "$(ls -A $db_directory)" ]; then
                     rm -rf "${db_directory:?}/"*
@@ -100,8 +101,7 @@ for i in {10..10}; do
                 --compression=0 \
                 --stats_interval=$stats_interva \
                 --histogram=1 \
-                --print_wa=true \ 
-                &> >( tee $log_file) &  
+                --print_wa=true  
 
                 
             done

@@ -213,7 +213,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       db_lock_(nullptr),
       shutting_down_(false),
       pending_tasks_(0),
-      pl_or_2ppl(false),
+      pl_or_2ppl(true),
       background_work_finished_signal_(&mutex_),
       mem_(nullptr),
       imm_(nullptr),
@@ -1315,155 +1315,315 @@ uint64_t UpdateSubPartitionsStart(leveldb::mem_partition_guard* partition, const
   return 0;
 }
 
-void DBImpl::Merge_all_supersmall_partitions( std::vector<uint64_t>& merge_deleted_partition_nums) {
-  std::vector<mem_partition_guard*> to_merge;
-  mem_partition_guard* first_partition = nullptr;
-  mem_partition_guard* last_partition = nullptr;
+// void DBImpl::Merge_all_supersmall_partitions( std::vector<uint64_t>& merge_deleted_partition_nums) {
+//   std::vector<mem_partition_guard*> to_merge;
+//   mem_partition_guard* first_partition = nullptr;
+//   mem_partition_guard* last_partition = nullptr;
 
-  mem_partition_guard* prev_first_partition = nullptr;
-  mem_partition_guard* suces_last_partition = nullptr;
-  mem_partition_guard* merge_target = nullptr;
+//   mem_partition_guard* prev_first_partition = nullptr;
+//   mem_partition_guard* suces_last_partition = nullptr;
+//   mem_partition_guard* merge_target = nullptr;
 
-  uint64_t total_average_file_size = 0;
-  uint64_t need_merge_to_partition;
+//   uint64_t total_average_file_size = 0;
+//   uint64_t need_merge_to_partition;
 
-  auto it = mem_partitions_.begin();
-  while (it != mem_partitions_.end()) {
-    mem_partition_guard* partition = *it;
-    if (partition->GetAverageFileSize() < 1024) {
-      total_average_file_size += partition->GetAverageFileSize();
-      if (first_partition == nullptr) {
-        first_partition = partition;
-        prev_first_partition = (it == mem_partitions_.begin()) ? nullptr : *(std::prev(it));
-      }
-      last_partition = partition;
-      to_merge.push_back(partition);
-      Log(options_.leveling_info_log, "Marked for merge: partition[%lu] start=%s, partition_end=%s, average_file_size=%llu",
-          partition->partition_num, partition->partition_start.ToString().c_str(),
-          partition->partition_end.ToString().c_str(),
-          (unsigned long long)partition->GetAverageFileSize());
-      merge_deleted_partition_nums.emplace_back((*it)->partition_num);
-      it = mem_partitions_.erase(it);
-    } else {
-      if (!to_merge.empty()) {
-        bool merge_with_prev = false;
-        if (total_average_file_size / to_merge.size() < 512*1024) {
-          suces_last_partition = (it == mem_partitions_.end()) ? nullptr : *it;
-          if (prev_first_partition && suces_last_partition) {
-            merge_with_prev = prev_first_partition->GetAverageFileSize() < suces_last_partition->GetAverageFileSize();
-          } else if (prev_first_partition) {
-            merge_with_prev = true;
-          }
-        }
+//   auto it = mem_partitions_.begin();
+//   while (it != mem_partitions_.end()) {
+//     mem_partition_guard* partition = *it;
+//     if (partition->GetAverageFileSize() < 1024) {
+//       total_average_file_size += partition->GetAverageFileSize();
+//       if (first_partition == nullptr) {
+//         first_partition = partition;
+//         prev_first_partition = (it == mem_partitions_.begin()) ? nullptr : *(std::prev(it));
+//       }
+//       last_partition = partition;
+//       to_merge.push_back(partition);
+//       Log(options_.leveling_info_log, "Marked for merge: partition[%lu] start=%s, partition_end=%s, average_file_size=%llu",
+//           partition->partition_num, partition->partition_start.ToString().c_str(),
+//           partition->partition_end.ToString().c_str(),
+//           (unsigned long long)partition->GetAverageFileSize());
+//       merge_deleted_partition_nums.emplace_back((*it)->partition_num);
+//       it = mem_partitions_.erase(it);
+//     } else {
+//       if (!to_merge.empty()) {
+//         bool merge_with_prev = false;
+//         if (total_average_file_size / to_merge.size() < 512*1024) {
+//           suces_last_partition = (it == mem_partitions_.end()) ? nullptr : *it;
+//           if (prev_first_partition && suces_last_partition) {
+//             merge_with_prev = prev_first_partition->GetAverageFileSize() < suces_last_partition->GetAverageFileSize();
+//           } else if (prev_first_partition) {
+//             merge_with_prev = true;
+//           }
+//         }
 
-        if (merge_with_prev) {
-          need_merge_to_partition = UpdateSubPartitionsEnd(prev_first_partition, last_partition->partition_end.ToString());
-          for (auto& p : to_merge) {
-            if (p != last_partition) {
-              delete p;
-              partition_first_L0flush_map_.erase(p->partition_num); 
-              fprintf(stdout,"delete partition %lu\n",p->partition_num);
-            }
-          }
-        } else if (suces_last_partition) {
-          need_merge_to_partition = UpdateSubPartitionsStart(suces_last_partition, first_partition->partition_start.ToString());
-          for (auto& p : to_merge) {
-            if (p != first_partition) {
-              delete p;
-              partition_first_L0flush_map_.erase(p->partition_num); // 移除被删除的 partition
-              fprintf(stdout,"delete partition %lu\n",p->partition_num);
-            }
-          }
-        } else {
-          std::string new_start = first_partition->partition_start.ToString();
-          std::string new_end = last_partition->partition_end.ToString();
-          mem_partition_guard* new_partition = new leveldb::mem_partition_guard(new_start, new_end);
-          new_partition->partition_num = versions_->NewPartitionNumber();
-          need_merge_to_partition = new_partition->partition_num;
-          Log(options_.leveling_info_log, "Creating new merged partition: new_start=%s, new_end=%s, partition_num=%llu",
-            new_start.c_str(), new_end.c_str(), (unsigned long long)new_partition->partition_num);
+//         if (merge_with_prev) {
+//           need_merge_to_partition = UpdateSubPartitionsEnd(prev_first_partition, last_partition->partition_end.ToString());
+//           for (auto& p : to_merge) {
+//             if (p != last_partition) {
+//               delete p;
+//               partition_first_L0flush_map_.erase(p->partition_num); 
+//               fprintf(stdout,"delete partition %lu\n",p->partition_num);
+//             }
+//           }
+//         } else if (suces_last_partition) {
+//           need_merge_to_partition = UpdateSubPartitionsStart(suces_last_partition, first_partition->partition_start.ToString());
+//           for (auto& p : to_merge) {
+//             if (p != first_partition) {
+//               delete p;
+//               partition_first_L0flush_map_.erase(p->partition_num); // 移除被删除的 partition
+//               fprintf(stdout,"delete partition %lu\n",p->partition_num);
+//             }
+//           }
+//         } else {
+//           std::string new_start = first_partition->partition_start.ToString();
+//           std::string new_end = last_partition->partition_end.ToString();
+//           mem_partition_guard* new_partition = new leveldb::mem_partition_guard(new_start, new_end);
+//           new_partition->partition_num = versions_->NewPartitionNumber();
+//           need_merge_to_partition = new_partition->partition_num;
+//           Log(options_.leveling_info_log, "Creating new merged partition: new_start=%s, new_end=%s, partition_num=%llu",
+//             new_start.c_str(), new_end.c_str(), (unsigned long long)new_partition->partition_num);
 
-          for (mem_partition_guard* p : to_merge) {
-            Log(options_.leveling_info_log, "Deleting old partition: partition_start=%s, partition_end=%s",
-              p->partition_start.ToString().c_str(), p->partition_end.ToString().c_str());
-            partition_first_L0flush_map_.erase(p->partition_num); // 移除被删除的 partition
-            fprintf(stdout,"delete partition %lu\n",p->partition_num);
-            delete p;
-          }
-          mem_partitions_.insert(new_partition);
-        }
+//           for (mem_partition_guard* p : to_merge) {
+//             Log(options_.leveling_info_log, "Deleting old partition: partition_start=%s, partition_end=%s",
+//               p->partition_start.ToString().c_str(), p->partition_end.ToString().c_str());
+//             partition_first_L0flush_map_.erase(p->partition_num); // 移除被删除的 partition
+//             fprintf(stdout,"delete partition %lu\n",p->partition_num);
+//             delete p;
+//           }
+//           mem_partitions_.insert(new_partition);
+//         }
         
-        // Reset for next merge
-        merge_deleted_partition_nums.emplace_back(need_merge_to_partition);
-        to_merge.clear();
-        first_partition = nullptr;
-        last_partition = nullptr;
-        total_average_file_size = 0;
-        return ;
-      }
-      ++it;
-    }
-  }
+//         // Reset for next merge
+//         merge_deleted_partition_nums.emplace_back(need_merge_to_partition);
+//         to_merge.clear();
+//         first_partition = nullptr;
+//         last_partition = nullptr;
+//         total_average_file_size = 0;
+//         return ;
+//       }
+//       ++it;
+//     }
+//   }
 
   
-  // If there are remaining partitions to merge after the loop
-  if (!to_merge.empty()) {
+//   // If there are remaining partitions to merge after the loop
+//   if (!to_merge.empty()) {
     
-    bool merge_with_prev = false;
-    if (total_average_file_size / to_merge.size() < 512*1024) {
-      suces_last_partition = (it == mem_partitions_.end()) ? nullptr : *it;
-      if (prev_first_partition && suces_last_partition) {
-          merge_with_prev = prev_first_partition->GetAverageFileSize() < suces_last_partition->GetAverageFileSize();
-      } else if (prev_first_partition) {
-          merge_with_prev = true;
-      }
-    }
+//     bool merge_with_prev = false;
+//     if (total_average_file_size / to_merge.size() < 512*1024) {
+//       suces_last_partition = (it == mem_partitions_.end()) ? nullptr : *it;
+//       if (prev_first_partition && suces_last_partition) {
+//           merge_with_prev = prev_first_partition->GetAverageFileSize() < suces_last_partition->GetAverageFileSize();
+//       } else if (prev_first_partition) {
+//           merge_with_prev = true;
+//       }
+//     }
 
-    if (merge_with_prev) {
-      need_merge_to_partition = UpdateSubPartitionsEnd(prev_first_partition, last_partition->partition_end.ToString());
-      for (mem_partition_guard* p : to_merge) { 
-        partition_first_L0flush_map_.erase(p->partition_num);
-        fprintf(stdout,"delete partition %lu\n",p->partition_num);
-        delete p;
-      }
-    } else if (suces_last_partition) {
-      need_merge_to_partition = UpdateSubPartitionsStart(suces_last_partition, first_partition->partition_start.ToString());
-      for (mem_partition_guard* p : to_merge) {
-        partition_first_L0flush_map_.erase(p->partition_num); 
-        fprintf(stdout,"delete partition %lu\n",p->partition_num);
-        delete p;
-      }
-    } else {
-      std::string new_start = first_partition->partition_start.ToString();
-      std::string new_end = last_partition->partition_end.ToString();
-      mem_partition_guard* new_partition = new mem_partition_guard(new_start, new_end);
-      new_partition->partition_num = versions_->NewPartitionNumber();
-      partition_first_L0flush_map_[new_partition->partition_num] = false;
-      fprintf(stdout,"create a new partition %lu\n",new_partition->partition_num);
-      Log(options_.leveling_info_log, "Creating final merged partition: new_start=%s, new_end=%s, partition_num=%llu",
-          new_start.c_str(), new_end.c_str(), (unsigned long long)new_partition->partition_num);
+//     if (merge_with_prev) {
+//       need_merge_to_partition = UpdateSubPartitionsEnd(prev_first_partition, last_partition->partition_end.ToString());
+//       for (mem_partition_guard* p : to_merge) { 
+//         partition_first_L0flush_map_.erase(p->partition_num);
+//         fprintf(stdout,"delete partition %lu\n",p->partition_num);
+//         delete p;
+//       }
+//     } else if (suces_last_partition) {
+//       need_merge_to_partition = UpdateSubPartitionsStart(suces_last_partition, first_partition->partition_start.ToString());
+//       for (mem_partition_guard* p : to_merge) {
+//         partition_first_L0flush_map_.erase(p->partition_num); 
+//         fprintf(stdout,"delete partition %lu\n",p->partition_num);
+//         delete p;
+//       }
+//     } else {
+//       std::string new_start = first_partition->partition_start.ToString();
+//       std::string new_end = last_partition->partition_end.ToString();
+//       mem_partition_guard* new_partition = new mem_partition_guard(new_start, new_end);
+//       new_partition->partition_num = versions_->NewPartitionNumber();
+//       partition_first_L0flush_map_[new_partition->partition_num] = false;
+//       fprintf(stdout,"create a new partition %lu\n",new_partition->partition_num);
+//       Log(options_.leveling_info_log, "Creating final merged partition: new_start=%s, new_end=%s, partition_num=%llu",
+//           new_start.c_str(), new_end.c_str(), (unsigned long long)new_partition->partition_num);
 
-      for (mem_partition_guard* p : to_merge) {
-        Log(options_.leveling_info_log, "Deleting old partition: partition_start=%s, partition_end=%s",
-            p->partition_start.ToString().c_str(), p->partition_end.ToString().c_str());
-        partition_first_L0flush_map_.erase(p->partition_num);
-        fprintf(stdout,"delete partition %lu\n",p->partition_num); 
-        delete p;
-      }
-      mem_partitions_.insert(new_partition);
-    }
+//       for (mem_partition_guard* p : to_merge) {
+//         Log(options_.leveling_info_log, "Deleting old partition: partition_start=%s, partition_end=%s",
+//             p->partition_start.ToString().c_str(), p->partition_end.ToString().c_str());
+//         partition_first_L0flush_map_.erase(p->partition_num);
+//         fprintf(stdout,"delete partition %lu\n",p->partition_num); 
+//         delete p;
+//       }
+//       mem_partitions_.insert(new_partition);
+//     }
+//   }
+
+//   if(need_merge_to_partition != 0){
+//     merge_deleted_partition_nums.emplace_back(need_merge_to_partition);
+//   }
+  
+//   PrintPartitions(mem_partitions_);
+
+//   return ;
+// }
+
+  
+void DBImpl::Merge_all_supersmall_partitions(std::vector<uint64_t>& merge_deleted_partition_nums) {
+  
+  const uint64_t kSmallPartitionThreshold = 1024; // 定义小分区的阈值
+
+  // --- Phase 1: Find the first contiguous small partition block and locate the iterator for the first small partition.
+  auto first_small_it = std::find_if(mem_partitions_.begin(), mem_partitions_.end(),
+    [=](mem_partition_guard* p) {
+      return p->GetAverageFileSize() < kSmallPartitionThreshold;
+  });
+
+  // If no subpartitions are found, no action is taken.
+  if (first_small_it == mem_partitions_.end()) {
+    return ; 
   }
 
-  if(need_merge_to_partition != 0){
-    merge_deleted_partition_nums.emplace_back(need_merge_to_partition);
+  // 从第一个小分区开始，找到这个连续块的末尾
+  auto end_small_it = std::find_if(std::next(first_small_it), mem_partitions_.end(),
+    [=](mem_partition_guard* p) {
+      return p->GetAverageFileSize() >= kSmallPartitionThreshold;
+  });
+
+  // --- Phase 2: Identify merged neighbor candidates ---
+  // Get the neighbor on the left side of the small partition block (if any)
+  mem_partition_guard* prev_neighbor = nullptr;
+  if (first_small_it != mem_partitions_.begin()) {
+    prev_neighbor = *std::prev(first_small_it);
+  }
+
+  // 获取小分区块右边的邻居（如果有的话）
+  mem_partition_guard* next_neighbor = nullptr;
+  if (end_small_it != mem_partitions_.end()) {
+    next_neighbor = *end_small_it;
   }
   
+  // --- 阶段3: 决定合并目标 ---
+  mem_partition_guard* target_neighbor = nullptr;
+  // 决策逻辑：优先和存在的邻居合并。如果两边都有，选更小的那一个合并。
+  if (prev_neighbor && next_neighbor) {
+    target_neighbor = (prev_neighbor->GetAverageFileSize() <= next_neighbor->GetAverageFileSize())? prev_neighbor: next_neighbor;
+  } else if (prev_neighbor) {
+    target_neighbor = prev_neighbor;
+  } else if (next_neighbor) {
+    target_neighbor = next_neighbor;
+  }
+  
+  // --- 阶段4: 执行合并并更新元数据 ---
+  // 收集所有要被合并的小分区的元数据
+  std::vector<mem_partition_guard*> small_partitions_to_merge;
+  std::string small_partitions_str = "[";
+  for (auto it = first_small_it; it != end_small_it; ++it) {
+    small_partitions_to_merge.push_back(*it);
+    small_partitions_str += std::to_string((*it)->partition_num) + " ";
+  }
+  small_partitions_str += "]";
+
+  uint64_t target_partition_num = 0;
+  Log(options_.leveling_info_log, "[MERGE-DEBUG] Found %zu contiguous small partitions to merge: %s", 
+    small_partitions_to_merge.size(), small_partitions_str.c_str());
+  fprintf(stderr, "[MERGE-DEBUG-STDERR] Found %zu contiguous small partitions to merge: %s\n", 
+    small_partitions_to_merge.size(), small_partitions_str.c_str());
+    
+  if (target_neighbor) {
+    // --- 情况A: 与邻居合并 ---
+    // 1. 确定最终合并的目标分区ID
+    target_partition_num = target_neighbor->partition_num; 
+    const char* direction_str = (target_neighbor == prev_neighbor) ? "LEFT" : "RIGHT";
+    Log(options_.leveling_info_log, "[MERGE-DEBUG] Decision: Merging with %s neighbor (Partition %lu)",
+      direction_str, target_partition_num);
+    fprintf(stderr, "[MERGE-DEBUG-STDERR] Decision: Merging with %s neighbor (Partition %lu)\n",
+      direction_str, target_partition_num);
+
+    // 2. 更新目标邻居的key范围，使其包含所有小分区
+    if (target_neighbor == prev_neighbor) {
+      // 与左邻居合并，更新它的 end_key
+      Log(options_.leveling_info_log, "[MERGE-DEBUG] Updating Partition %lu. Old boundaries: [%s] - [%s]. New End Key will be [%s].",
+        target_partition_num, target_neighbor->partition_start.ToString().c_str(),        // 直接使用，不定义old_start
+        target_neighbor->partition_end.ToString().c_str(),          
+        (*std::prev(end_small_it))->partition_end.ToString().c_str() );
+      fprintf(stderr,"[MERGE-DEBUG-STDERR] Updating Partition %lu. Old boundaries: [%s] - [%s]. New End Key will be [%s].\n",
+        target_partition_num, target_neighbor->partition_start.ToString().c_str(),
+        target_neighbor->partition_end.ToString().c_str(),
+        (*std::prev(end_small_it))->partition_end.ToString().c_str());
+      UpdateSubPartitionsEnd(target_neighbor, (*std::prev(end_small_it))->partition_end.ToString());
+
+    } else {
+      // 与右邻居合并，更新它的 start_key
+      Log(options_.leveling_info_log, "[MERGE-DEBUG] Updating Partition %lu. Old boundaries: [%s] - [%s]. New Start Key will be [%s].",
+        target_partition_num, target_neighbor->partition_start.ToString().c_str(),      // 直接使用，不定义old_start
+        target_neighbor->partition_end.ToString().c_str(),        // 直接使用，不定义old_end
+        (*first_small_it)->partition_start.ToString().c_str() );
+      fprintf(stderr, "[MERGE-DEBUG-STDERR] Updating Partition %lu. Old boundaries: [%s] - [%s]. New Start Key will be [%s].\n",
+        target_partition_num, target_neighbor->partition_start.ToString().c_str(),
+          target_neighbor->partition_end.ToString().c_str(),
+          (*first_small_it)->partition_start.ToString().c_str() );
+      UpdateSubPartitionsStart(target_neighbor, (*first_small_it)->partition_start.ToString());
+    }
+
+    // 3. 填充“待删除列表”
+    for (mem_partition_guard* p : small_partitions_to_merge) {
+      merge_deleted_partition_nums.push_back(p->partition_num);
+    }
+    
+  } else {
+    // --- 情况B: 无邻居可合并，小分区自己合并成一个新分区 ---
+    // 1. 创建一个新的分区元数据来代表合并后的整体
+    Log(options_.leveling_info_log, "[MERGE-DEBUG] Decision: No suitable neighbor found. Creating a new merged partition.");
+    fprintf(stderr, "[MERGE-DEBUG-STDERR] Decision: No suitable neighbor found. Creating a new merged partition.\n");
+
+    auto new_partition = new mem_partition_guard((*first_small_it)->partition_start.ToString(), (*std::prev(end_small_it))->partition_end.ToString());
+    new_partition->partition_num = versions_->NewPartitionNumber();
+    target_partition_num = new_partition->partition_num;
+
+    Log(options_.leveling_info_log, "[MERGE-DEBUG] Created new Partition %lu with boundaries: [%s] - [%s]",
+      target_partition_num,
+      new_partition->partition_start.ToString().c_str(), // 直接从新创建的对象中获取
+      new_partition->partition_end.ToString().c_str() );
+    fprintf(stderr, "[MERGE-DEBUG-STDERR] Created new Partition %lu with boundaries: [%s] - [%s]\n",
+      target_partition_num, new_partition->partition_start.ToString().c_str(),
+      new_partition->partition_end.ToString().c_str());
+    
+    // 2. 将新分区插入到元数据列表中
+    // erase会返回指向被删除区域下一个元素的迭代器，正好是插入点
+    auto insert_pos = mem_partitions_.erase(first_small_it, end_small_it);
+    mem_partitions_.insert(insert_pos, new_partition);
+
+    // 3. 填充“待删除列表”，就是所有这些小分区
+    for (mem_partition_guard* p : small_partitions_to_merge) {
+      merge_deleted_partition_nums.push_back(p->partition_num);
+    }
+  }
+
+  std::string deleted_partitions_str = "[";
+  for (uint64_t p_num : merge_deleted_partition_nums) {
+    deleted_partitions_str += std::to_string(p_num) + " ";
+  }
+  deleted_partitions_str += "]";
+  Log(options_.leveling_info_log,"[MERGE-DEBUG] Final list of partitions to be deleted/merged away: %s",
+    deleted_partitions_str.c_str());
+  fprintf(stderr, "[MERGE-DEBUG-STDERR] Final list of partitions to be deleted/merged away: %s\n",
+    deleted_partitions_str.c_str());
+
+  // --- 阶段5: 清理工作 ---
+  // 如果是与邻居合并，现在才从主列表中删除小分区
+  if (target_neighbor) {
+    mem_partitions_.erase(first_small_it, end_small_it);
+  }
+  
+  // 释放所有被合并的小分区的内存
+  for (mem_partition_guard* p : small_partitions_to_merge) {
+    partition_first_L0flush_map_.erase(p->partition_num);
+    delete p;
+  }
+
+  Log(options_.leveling_info_log, "[MERGE-DEBUG] Function finished. Final merge target partition ID: %lu",target_partition_num);
+  fprintf(stderr, "[MERGE-DEBUG-STDERR] Function finished. Final merge target partition ID: %lu\n",target_partition_num);
+  merge_deleted_partition_nums.push_back(target_partition_num);  
   PrintPartitions(mem_partitions_);
 
   return ;
 }
-
-
 
 
 Status DBImpl::CreatePartitions(Iterator* iter, const Options& options, TableCache* table_cache, 
@@ -1880,6 +2040,7 @@ void DBImpl::RecordBackgroundError(const Status& s) {
 
 void DBImpl::MaybeScheduleCompaction() {
   mutex_.AssertHeld();
+  // fprintf(stderr,"We entering MaybeScheduleCompaction\n");
   if (background_compaction_scheduled_ ) {
     // Already scheduled
   } else if (shutting_down_.load(std::memory_order_acquire)) {
@@ -2244,6 +2405,16 @@ void DBImpl::BackgroundCompaction() {
   if (tiering_com == nullptr && Partitionleveling_compactions.empty()) {
     // Nothing to do
   } else{
+
+    // fprintf(stderr, "-------> Entering Compaction Loop. Tasks to process: %zu\n", Partitionleveling_compactions.size());
+    // std::string tasks_list = "       [";
+    // for (Compaction* c_debug : Partitionleveling_compactions) {
+    //     tasks_list += std::to_string(c_debug->partition_num()) + ", ";
+    // }
+    // tasks_list += "]";
+    // fprintf(stderr, "%s\n", tasks_list.c_str());
+    // ==============================================================
+
     for (Compaction* c : Partitionleveling_compactions) {
       
       // fprintf(stdout,"start a leveling compaction from !\n");
@@ -2258,7 +2429,9 @@ void DBImpl::BackgroundCompaction() {
       if(c->level() == 0){
         auto map_it = partition_first_L0flush_map_.find(need_partition_num);
         if (map_it == partition_first_L0flush_map_.end()) {
-          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+          // ================== DEBUG 日志 2: 跳过已合并的任务 ==================
+          fprintf(stderr, "       Skipping partition %lu because it's already merged (not in map).\n", need_partition_num);
+          // ====================================================================
           delete c;
           continue;  
         }
@@ -2267,6 +2440,7 @@ void DBImpl::BackgroundCompaction() {
       // bool is_first_L0flush = false;
       if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
         std::vector<uint64_t> deleted_partition_nums;
+        fprintf(stderr, "       Partition %lu is merging super-small partitions.\n", c->partition_num());
         Merge_all_supersmall_partitions(deleted_partition_nums);
         versions_->RePickCompaction(c, deleted_partition_nums);
         CompactionState* compact = new CompactionState(c);
@@ -2753,7 +2927,15 @@ void DBImpl::BackgroundCompactionMultiThread() {
     // if(tiering_com != nullptr){
     //   mutex_.Lock();
     // }
-    
+
+    // fprintf(stderr, "-------> Entering Compaction Loop. Tasks to process: %zu\n", Partitionleveling_compactions.size());
+    // std::string tasks_list = "       [";
+    // for (Compaction* c_debug : Partitionleveling_compactions) {
+    //     tasks_list += std::to_string(c_debug->partition_num()) + ", ";
+    // }
+    // tasks_list += "]";
+    // fprintf(stderr, "%s\n", tasks_list.c_str());
+
     for (Compaction* c : Partitionleveling_compactions) {  
       // fprintf(stdout,"start a leveling compaction from !\n");
       uint64_t need_partition_num = c->partition_num();
@@ -2767,7 +2949,9 @@ void DBImpl::BackgroundCompactionMultiThread() {
       if(c->level() == 0){
         auto map_it = partition_first_L0flush_map_.find(need_partition_num);
         if (map_it == partition_first_L0flush_map_.end()) {
-          fprintf(stderr,"current merged partition is:%lu, we need to continue\n", need_partition_num);
+          // ================== DEBUG 日志 2: 跳过已合并的任务 ==================
+          fprintf(stderr, "       Skipping partition %lu because it's already merged (not in map).\n", need_partition_num);
+          // ====================================================================
           delete c;
           continue;  
         }
@@ -2776,6 +2960,9 @@ void DBImpl::BackgroundCompactionMultiThread() {
       // bool is_first_L0flush = false;
       if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
         std::vector<uint64_t> deleted_partition_nums;
+        // ================== DEBUG 日志 3: 执行合并 ==================
+        fprintf(stderr, "       Partition %lu is merging super-small partitions.\n", c->partition_num());
+        // ==============================================================
         Merge_all_supersmall_partitions(deleted_partition_nums);
         versions_->RePickCompaction(c, deleted_partition_nums);
         CompactionState* compact = new CompactionState(c);
@@ -7335,7 +7522,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
 
-    } else if (versions_->Num_Level_maxPartitionleveling_Files(0) >= config::kInitialPartitionLevelingCompactionTrigger ) {
+    } else if (versions_->Num_Level_maxPartitionleveling_Files(0) >= (config::kInitialPartitionLevelingCompactionTrigger+10) ) {
       // There are too many level-0 leveling files.
       Log(options_.info_log, "Too many L0 leveling files; waiting...\n");
       background_work_finished_signal_.Wait();

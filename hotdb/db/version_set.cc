@@ -2372,15 +2372,22 @@ void VersionSet::Finalize(Version* v) {
       uint64_t partition_number = partition.first;
       double level_score = 0.0;
 
+      // if (level == 0) {
+      //   level_score = partition.second.size() / static_cast<double>(config::kInitialPartitionLevelingCompactionTrigger);   
+      // }else if(level == 1){
+      //   level_score = partition.second.size() / static_cast<double>(config::kPartitionLevelingL1CompactionTrigger); 
+      // }else{
+      //   const uint64_t level_bytes = TotalFileSize(partition.second);  
+      //   level_score = static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level) );
+      // }
+      
       if (level == 0) {
         level_score = partition.second.size() / static_cast<double>(config::kInitialPartitionLevelingCompactionTrigger);   
-      }else if(level == 1){
-        level_score = partition.second.size() / static_cast<double>(config::kPartitionLevelingL1CompactionTrigger); 
       }else{
         const uint64_t level_bytes = TotalFileSize(partition.second);  
         level_score = static_cast<double>(level_bytes) / (MaxBytesForLevel(options_, level) );
       }
-      
+
       if(level_score >= 1.00){
         need_compaction_in_leveling = true;
         auto it = best_scores.find(partition_number);
