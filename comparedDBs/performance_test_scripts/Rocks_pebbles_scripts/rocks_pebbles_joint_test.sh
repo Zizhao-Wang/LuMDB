@@ -7,7 +7,7 @@ echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
 sudo bash -c 'ulimit -n 800000'
 
 # 定义可执行文件的路径
-EXECUTABLE=./build/rocks_level_joint_test
+EXECUTABLE=./build/rocks_pebbles_joint_test
 
 # 检查可执行文件是否存在
 if [ ! -f "$EXECUTABLE" ]; then
@@ -26,7 +26,7 @@ NUM_READS=1000000
 # --- 定义循环测试的参数列表 ---
 # 在这里定义你想要测试的所有 Zipfian 参数和 Threshold
 ZIPF_PARAMS=(1.1 1.3)
-THRESHOLDS=(0 10 20 100 200 300 500 800) # 你可以添加更多阈值，例如：(10 100000 5000000)
+THRESHOLDS=(2000 10000 100000) # 你可以添加更多阈值，例如：(10 100000 5000000)
 
 # --- 创建日志目录 ---
 # 使用日期和时间创建一个唯一的日志目录
@@ -46,8 +46,8 @@ do
         DATA_FILE="/mnt/nvm/zipf${zipf_param}_keys10.0B.csv"
         
         # 2. 为本次测试生成唯一的数据库路径，包含 zipf 和 threshold 信息
-        ROCKSDB_PATH="/mntdisk/rocks10B/rocksdb_zipf_${zipf_param}_thresh_${threshold_val}"
-        LEVELDB_PATH="/mntdisk/pebbles10B/leveldb_zipf_${zipf_param}_thresh_${threshold_val}"
+        ROCKSDB_PATH="/mnt/workloads/rocks10B/rocksdb_zipf_${zipf_param}_thresh_${threshold_val}"
+        LEVELDB_PATH="/mnt/workloads/pebbles10B/leveldb_zipf_${zipf_param}_thresh_${threshold_val}"
 
         # 3. 为本次测试生成唯一的日志文件路径
         LOG_FILE="${LOG_DIR}/zipf_${zipf_param}_thresh_${threshold_val}.log"
@@ -58,7 +58,11 @@ do
             echo "Skipping this iteration."
             continue # 跳过本次循环，继续下一次
         fi
-
+        if [ -f "$LOG_FILE" ]; then
+            echo "Log file already exists for zipf=${zipf_param}, threshold=${threshold_val}: ${LOG_FILE}"
+            echo "Skipping this iteration."
+            continue
+        fi 
         # --- 执行并记录日志 ---
         # 使用子 shell 和 tee 命令，将所有输出 (包括标准输出和标准错误) 
         # 同时显示在屏幕上并写入到日志文件中。

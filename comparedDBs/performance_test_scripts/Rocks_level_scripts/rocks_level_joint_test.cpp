@@ -7,6 +7,8 @@
 #include <chrono>
 #include <cassert>
 #include <sys/stat.h>
+#include <cstdlib>
+#include <unistd.h>
 
 // 包含 gflags 头文件
 #include <gflags/gflags.h>
@@ -110,6 +112,7 @@ int main(int argc, char* argv[]) {
         CreateTestCsvFile(FLAGS_data_file, FLAGS_num_keys);
     }
 
+
     // 1. 初始化并打开两个数据库
     rocksdb::DB* rocksdb_db;
     rocksdb::Options rocksdb_options;
@@ -177,6 +180,22 @@ int main(int argc, char* argv[]) {
     csv_file.close();
     std::cout << "Loaded " << all_keys.size() << " keys into memory." << std::endl;
 
+    // **新增**: 在写入前暂停并提示用户清除缓存
+    std::cout << "\n\n********************************************************" << std::endl;
+    std::cout << "  Load phase complete. Clearing file system cache..." << std::endl;
+    std::cout << "********************************************************" << std::endl;
+    // 先同步文件系统，确保所有待写入数据都写入磁盘
+    sync();
+    // 清除所有缓存（页面缓存 + 目录项和inode缓存）
+    int result = system("echo 3 > /proc/sys/vm/drop_caches");
+    if (result == 0) {
+        std::cout << "  File system cache cleared successfully." << std::endl;
+    } else {
+        std::cout << "  Failed to clear cache. Error code: " << result << std::endl;
+    }
+    std::cout << "  Continuing to write phase..." << std::endl;
+    std::cout << "********************************************************\n" << std::endl;
+
 
     // 3. **已修改**: 从内存中的 vector 读取数据并写入数据库
     std::cout << "\n--- Starting Write Phase (from memory) ---" << std::endl;
@@ -242,13 +261,19 @@ int main(int argc, char* argv[]) {
 
     // **已修改**: 在读取前暂停并提示用户清除缓存
     std::cout << "\n\n********************************************************" << std::endl;
-    std::cout << "  Write phase complete. Clear file system cache now." << std::endl;
-    std::cout << "  In a separate terminal, run: " << std::endl;
-    std::cout << "  sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'" << std::endl;
-    std::cout << "  Press [Enter] to continue to the read phase..." << std::endl;
+    std::cout << "  Load phase complete. Clearing file system cache..." << std::endl;
     std::cout << "********************************************************" << std::endl;
-    // 使用 std::cin.ignore() 来确保清除输入缓冲区
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    // 先同步文件系统，确保所有待写入数据都写入磁盘
+    sync();
+    // 清除所有缓存（页面缓存 + 目录项和inode缓存）
+    int result2 = system("echo 3 > /proc/sys/vm/drop_caches");
+    if (result2 == 0) {
+        std::cout << "  File system cache cleared successfully." << std::endl;
+    } else {
+        std::cout << "  Failed to clear cache. Error code: " << result2 << std::endl;
+    }
+    std::cout << "  Continuing to write phase..." << std::endl;
+    std::cout << "********************************************************\n" << std::endl;
 
     // 4. 读取阶段
     std::cout << "\n\n--- Starting Random Read Phase ---" << std::endl;
