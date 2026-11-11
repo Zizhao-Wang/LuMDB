@@ -137,50 +137,51 @@ class MemTableInserter : public WriteBatch::Handler {
 
   void Put(const Slice& key, const Slice& value) override {
 
-    if(!hot_identifier->hot_ranges_.empty()){
-      hot_range new_hot_range(key.data(), key.size(), key.data(), key.size());
+    if (hot_identifier->hotranges_updating_.load() || hot_identifier->hot_ranges_.empty() ) {
+      mem_->Add(sequence_, kTypeValue, key, value);
+      sequence_++;
+      return;
+    }
+
+    hot_range new_hot_range(key.data(), key.size(), key.data(), key.size());
       // fprintf(stderr, "min_max_range start: %.*s, end: %.*s\n",
       //   static_cast<int>(hot_identifier->min_max_range->start_size),
       //   hot_identifier->min_max_range->start_ptr,
       //   static_cast<int>(hot_identifier->min_max_range->end_size),
       //   hot_identifier->min_max_range->end_ptr);
 
-      if(hot_identifier->min_max_range->CompareWithEnd(key.data(), key.size()) < 0 ||
-        hot_identifier->min_max_range->CompareWithBegin(key.data(), key.size()) > 0){
-        // fprintf(stderr, "Key: %.*s, Result: Outside min_max_range\n\n", static_cast<int>(key.size()), key.data());
-        mem_->Add(sequence_, kTypeValue, key, value);
-        mem_count++;
-        sequence_++;
-        return;
-      }
-
-      if(hot_identifier->largest_intensity_range->is_key_contains(key.data(), key.size())){
-        hot_mem_->Add(sequence_, kTypeValue, key, value);
-        hot_intensity_count++;  // Increment hot intensity data counter
-        sequence_++;
-        return;
-      }
-
-      auto it = hot_identifier->hot_ranges_.upper_bound(new_hot_range);
-      if(it!= hot_identifier->hot_ranges_.begin()){
-        --it;
-        if(it->is_key_contains(key.data(), key.size())){
-          hot_mem_->Add(sequence_, kTypeValue, key, value);
-          hot_range_count++;  // Increment hot range data counters
-        }else{
-          mem_->Add(sequence_, kTypeValue, key, value);
-          cold_data_count++;  // Increment cold data counter
-        }
-      }
+    if(hot_identifier->min_max_range->CompareWithEnd(key.data(), key.size()) < 0 ||
+      hot_identifier->min_max_range->CompareWithBegin(key.data(), key.size()) > 0){
+      // fprintf(stderr, "Key: %.*s, Result: Outside min_max_range\n\n", static_cast<int>(key.size()), key.data());
+      mem_->Add(sequence_, kTypeValue, key, value);
+      mem_count++;
       sequence_++;
       return;
-
-    }else{
-      mem_->Add(sequence_, kTypeValue, key, value);
-      cold_data_count++;  // Increment cold data counter
     }
-    // fprintf(stderr, "key:%s,  unordered_map:%d, hot key count: %d cold key count: %d \n", key.ToString().c_str(), (*batch_data_map)[key.ToString()],hot_mem_count, mem_count);
+
+    if(hot_identifier->largest_intensity_range->is_key_contains(key.data(), key.size())){
+      hot_mem_->Add(sequence_, kTypeValue, key, value);
+      hot_intensity_count++;  // Increment hot intensity data counter
+      sequence_++;
+      return;
+    }
+
+    auto it = hot_identifier->hot_ranges_.upper_bound(new_hot_range);
+    if(it!= hot_identifier->hot_ranges_.begin()){
+      --it;
+      if(it->is_key_contains(key.data(), key.size())){
+        hot_mem_->Add(sequence_, kTypeValue, key, value);
+        hot_range_count++;  // Increment hot range data counters
+      }else{
+        mem_->Add(sequence_, kTypeValue, key, value);
+        cold_data_count++;  // Increment cold data counter
+      }
+    }
     sequence_++;
+    return;
+
+    // fprintf(stderr, "key:%s,  unordered_map:%d, hot key count: %d cold key count: %d \n", key.ToString().c_str(), (*batch_data_map)[key.ToString()],hot_mem_count, mem_count);
+
   }
 
   void Delete(const Slice& key) override {

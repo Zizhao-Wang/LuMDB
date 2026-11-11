@@ -3,7 +3,7 @@
 # 这是一个用于运行 RocksDB 和 LevelDB 联合测试的自动化脚本
 # 它可以通过嵌套 for 循环，针对不同的 Zipfian 参数和阈值进行多次测试，
 # 并将每次测试的完整输出记录到独立的日志文件中。
-echo fb0-=0-= | sudo -S bash -c 'echo 800000 > /proc/sys/fs/file-max'
+sudo bash -c 'echo 800000 > /proc/sys/fs/file-max'
 sudo bash -c 'ulimit -n 800000'
 
 # 定义可执行文件的路径
@@ -33,8 +33,8 @@ TOTAL_MEMTABLE_SIZE=$((64 * 1024 * 1024))
 
 # --- 定义循环测试的参数列表 ---
 # 在这里定义你想要测试的所有 Zipfian 参数和 Threshold
-Cluster_numS=(30)
-THRESHOLDS=(0 100 10000 70000 100000 ) 
+Cluster_numS=(40 30)
+THRESHOLDS=(18446744073709551615) 
 
 # --- 创建日志目录 ---
 # 使用日期和时间创建一个唯一的日志目录

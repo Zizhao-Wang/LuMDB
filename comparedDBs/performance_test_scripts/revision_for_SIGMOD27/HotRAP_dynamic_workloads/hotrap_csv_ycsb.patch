@@ -1,0 +1,231 @@
+--- a/tools/db_bench_tool.cc
++++ b/tools/db_bench_tool.cc
+@@ -3645,10 +3645,20 @@
+         method = &Benchmark::WriteClusterCSV;
+       } else if (name == "readcsv") {
+         method = &Benchmark::ReadCSV;
+-      } else if (name == "scancsv" || name == "ycsbe") {
++      } else if (name == "scancsv") {
+         method = &Benchmark::ScanCSV;
+       } else if (name == "ycsba") {
+         method = &Benchmark::YCSBACSV;
++      } else if (name == "ycsbb") {
++        method = &Benchmark::YCSBBCSV;
++      } else if (name == "ycsbc") {
++        method = &Benchmark::YCSBCCSV;
++      } else if (name == "ycsbd") {
++        method = &Benchmark::YCSBDCSV;
++      } else if (name == "ycsbe") {
++        method = &Benchmark::YCSBECSV;
++      } else if (name == "ycsbf") {
++        method = &Benchmark::YCSBFCSV;
+       } else if (name == "filluniquerandom" ||
+                  name == "fillanddeleteuniquerandom") {
+         fresh_db = true;
+@@ -5148,6 +5158,11 @@
+   void ReadCSV(ThreadState* thread) { RunCSVWorkload(thread, "readcsv"); }
+   void ScanCSV(ThreadState* thread) { RunCSVWorkload(thread, "scancsv"); }
+   void YCSBACSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsba"); }
++  void YCSBBCSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbb"); }
++  void YCSBCCSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbc"); }
++  void YCSBDCSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbd"); }
++  void YCSBECSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbe"); }
++  void YCSBFCSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbf"); }
+ 
+   void RunCSVWorkload(ThreadState* thread, const std::string& kind) {
+     // These trace-driven experiments use one worker and one operation per batch,
+@@ -5156,11 +5171,12 @@
+       fprintf(stderr, "CSV workloads require --threads=1 --batch_size=1 and a positive value_size_\n");
+       ErrorExit();
+     }
+-    const bool ycsba = kind == "ycsba";
++    const bool ycsb = kind.size() == 5 && kind.compare(0, 4, "ycsb") == 0 &&
++                      kind[4] >= 'a' && kind[4] <= 'f';
+     const bool point_query = kind == "readcsv";
+     const bool scan_query = kind == "scancsv";
+     const bool query = point_query || scan_query;
+-    const bool operation_csv = ycsba || query;
++    const bool operation_csv = ycsb || query;
+     const bool cluster = kind == "cluster";
+     std::vector<std::string> paths;
+     for (const auto& path : StringSplit(
+@@ -5178,6 +5194,8 @@
+     uint64_t found = 0;
+     uint64_t scanned_records = 0;
+     uint64_t nonempty_scans = 0;
++    uint64_t scans = 0, inserts = 0, updates = 0;
++    uint64_t rmws = 0, rmw_found = 0, rmw_writes = 0;
+     const uint64_t total = operation_csv ? FLAGS_ycsb_num : static_cast<uint64_t>(num_);
+     const uint64_t per_file = total / paths.size();
+     for (size_t index = 0; index < paths.size(); ++index) {
+@@ -5213,6 +5231,19 @@
+           fprintf(stderr, "Invalid CSV row: %s\n", line.c_str());
+           ErrorExit();
+         }
++        const std::string operation = operation_csv ? trim(row[0]) : "INSERT";
++        bool allowed = !operation_csv;
++        if (point_query || kind == "ycsbc") allowed = operation == "READ";
++        else if (scan_query) allowed = operation == "SCAN";
++        else if (kind == "ycsba" || kind == "ycsbb")
++          allowed = operation == "READ" || operation == "UPDATE";
++        else if (kind == "ycsbd") allowed = operation == "READ" || operation == "INSERT";
++        else if (kind == "ycsbe") allowed = operation == "SCAN" || operation == "INSERT";
++        else if (kind == "ycsbf") allowed = operation == "READ" || operation == "RMW";
++        if (!allowed) {
++          fprintf(stderr, "Unexpected operation for %s: %s\n", kind.c_str(), operation.c_str());
++          ErrorExit();
++        }
+         std::string key = trim(row[cluster || operation_csv ? 1 : 0]);
+         if (key.empty() || key.find_first_not_of("0123456789") != std::string::npos) {
+           fprintf(stderr, "Non-numeric CSV key: %s\n", key.c_str());
+@@ -5225,7 +5256,7 @@
+           fprintf(stderr, "CSV key outside uint64 range: %s\n", key.c_str());
+           ErrorExit();
+         }
+-        if (scan_query) {
++        if (operation == "SCAN") {
+           if (numeric_key > std::numeric_limits<uint64_t>::max() - FLAGS_csv_scan_key_offset) {
+             fprintf(stderr, "SCAN key offset overflow\n");
+             ErrorExit();
+@@ -5236,12 +5267,7 @@
+         if (key.size() < static_cast<size_t>(key_size_)) {
+           key.insert(0, key_size_ - key.size(), '0');
+         }
+-        const std::string operation = operation_csv ? trim(row[0]) : "INSERT";
+-        if ((point_query && operation != "READ") || (scan_query && operation != "SCAN")) {
+-          fprintf(stderr, "Unexpected operation for %s: %s\n", kind.c_str(), operation.c_str());
+-          ErrorExit();
+-        }
+-        uint64_t operation_bytes = query ? 0 : key.size() + FLAGS_value_size_;
++        uint64_t operation_bytes = operation_csv ? 0 : key.size() + FLAGS_value_size_;
+         Status status;
+         if (operation == "READ") {
+           std::string value;
+@@ -5249,7 +5275,7 @@
+           ++reads;
+           if (status.ok()) {
+             ++found;
+-            if (query) operation_bytes = key.size() + value.size();
++            if (operation_csv) operation_bytes = key.size() + value.size();
+           }
+           if (!status.ok() && !status.IsNotFound()) {
+             fprintf(stderr, "Get failed: %s\n", status.ToString().c_str());
+@@ -5257,7 +5283,8 @@
+           }
+           workload_stats.FinishedOps(nullptr, db_.db, 1, kRead);
+           thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+-        } else if (operation == "SCAN" && scan_query) {
++        } else if (operation == "SCAN") {
++          ++scans;
+           std::unique_ptr<Iterator> iter(db_.db->NewIterator(read_options_));
+           iter->Seek(key);
+           if (iter->Valid()) ++nonempty_scans;
+@@ -5275,7 +5302,35 @@
+           }
+           workload_stats.FinishedOps(nullptr, db_.db, 1, kSeek);
+           thread->stats.FinishedOps(nullptr, db_.db, 1, kSeek);
++        } else if (operation == "RMW") {
++          // Match the existing RocksDB/PebblesDB CSV drivers: write only on hit.
++          ++rmws;
++          std::string value;
++          status = db_.db->Get(read_options_, key, &value);
++          if (!status.ok() && !status.IsNotFound()) {
++            fprintf(stderr, "RMW Get failed: %s\n", status.ToString().c_str());
++            ErrorExit();
++          }
++          if (status.ok()) {
++            ++rmw_found;
++            operation_bytes += key.size() + value.size();
++            batch.Clear();
++            batch.Put(key, gen.Generate(FLAGS_value_size_));
++            status = db_.db->Write(write_options_, &batch);
++            if (!status.ok()) {
++              fprintf(stderr, "RMW Write failed: %s\n", status.ToString().c_str());
++              ErrorExit();
++            }
++            ++rmw_writes;
++            operation_bytes += key.size() + FLAGS_value_size_;
++          }
++          // One CSV row is one measured operation, including the Get and Put.
++          workload_stats.FinishedOps(nullptr, db_.db, 1, kRead);
++          thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+         } else if (operation == "UPDATE" || operation == "INSERT") {
++          if (operation == "INSERT") ++inserts;
++          else ++updates;
++          operation_bytes = key.size() + FLAGS_value_size_;
+           batch.Clear();
+           batch.Put(key, gen.Generate(FLAGS_value_size_));
+           status = db_.db->Write(write_options_, &batch);
+@@ -5286,7 +5341,7 @@
+           workload_stats.FinishedOps(nullptr, db_.db, 1, kWrite);
+           thread->stats.FinishedOps(nullptr, db_.db, 1, kWrite);
+         } else {
+-          fprintf(stderr, "Unsupported YCSB-A operation: %s\n", operation.c_str());
++          fprintf(stderr, "Unsupported CSV operation: %s\n", operation.c_str());
+           ErrorExit();
+         }
+         bytes += operation_bytes;
+@@ -5294,7 +5349,7 @@
+       }
+       workload_stats.Stop();
+       workload_stats.AddMessage("file=" + path + " ops=" + std::to_string(count));
+-      const std::string benchmark = query ? kind : ycsba ? "ycsba" : cluster ? "fillcluster" : "fillzipf";
++      const std::string benchmark = operation_csv ? kind : cluster ? "fillcluster" : "fillzipf";
+       workload_stats.Report(benchmark + "_workload_" + std::to_string(index + 1));
+       std::string database_stats;
+       if (db_.db->GetProperty(DB::Properties::kStats, &database_stats)) {
+@@ -5305,12 +5360,18 @@
+       fflush(stdout);
+     }
+     thread->stats.AddBytes(bytes);
+-    if (scan_query) {
++    if (scan_query || kind == "ycsbe") {
+       thread->stats.AddMessage("scanned_records=" + std::to_string(scanned_records) +
+           " nonempty_scans=" + std::to_string(nonempty_scans) +
+           " exact_seek_matches=" + std::to_string(found));
+     }
+-    if (ycsba || point_query) {
++    if (ycsb) {
++      thread->stats.AddMessage("read_ops=" + std::to_string(reads) +
++          " update_ops=" + std::to_string(updates) + " insert_ops=" + std::to_string(inserts) +
++          " scan_ops=" + std::to_string(scans) + " rmw_ops=" + std::to_string(rmws) +
++          " rmw_found=" + std::to_string(rmw_found) + " rmw_writes=" + std::to_string(rmw_writes));
++    }
++    if ((ycsb && kind != "ycsbe") || point_query) {
+       thread->stats.AddMessage(std::to_string(found) + " of " +
+                               std::to_string(reads) + " reads found");
+     }
+@@ -8917,10 +8978,12 @@
+ 
+   // Refuse query runs that could destroy or initialize a preload database.
+   for (const auto& name : StringSplit(FLAGS_benchmarks, ',')) {
+-    if (name == "readcsv" || name == "scancsv" || name == "ycsbe") {
++    const bool ycsb = name.size() == 5 && name.compare(0, 4, "ycsb") == 0 &&
++                      name[4] >= 'a' && name[4] <= 'f';
++    if (name == "readcsv" || name == "scancsv" || ycsb) {
+       if (!FLAGS_use_existing_db || FLAGS_readonly || FLAGS_seek_nexts < 0 ||
+           FLAGS_ycsb_num == 0 || FLAGS_threads != 1 || FLAGS_batch_size != 1) {
+-        fprintf(stderr, "CSV queries require --use_existing_db=true, --readonly=false, "
++        fprintf(stderr, "CSV queries/YCSB require --use_existing_db=true, --readonly=false, "
+                         "--threads=1, --batch_size=1, positive ycsb_num and nonnegative seek_nexts\n");
+         return 1;
+       }
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1546,6 +1546,16 @@
+   target_link_directories(db_bench_read_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_LIB_DIR})
+   target_include_directories(db_bench_read_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_INCLUDE_DIR})
+ 
++  # Separate executable for A-F experiments; existing preload/read binaries stay usable.
++  add_executable(db_bench_ycsb_csv${ARTIFACT_SUFFIX}
++    tools/simulated_hybrid_file_system.cc
++    tools/db_bench.cc
++    tools/db_bench_tool.cc)
++  target_link_libraries(db_bench_ycsb_csv${ARTIFACT_SUFFIX}
++    ${ROCKSDB_LIB} ${THIRDPARTY_LIBS} ralt autotuner tbb)
++  target_link_directories(db_bench_ycsb_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_LIB_DIR})
++  target_include_directories(db_bench_ycsb_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_INCLUDE_DIR})
++
+   add_executable(cache_bench${ARTIFACT_SUFFIX}
+     cache/cache_bench.cc
+     cache/cache_bench_tool.cc)

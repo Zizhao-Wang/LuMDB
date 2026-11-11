@@ -46,7 +46,7 @@ class WritableFile;
 static uint64_t MaxFileSizeForLevel(int level) {
   assert(level < leveldb::config::kNumLevels);
   static const uint64_t bytes[] = {5 * 1048576,
-                                   10 * 1048576,
+                                   25 * 1048576,
                                    64 * 1048576,
                                    64 * 1048576,
                                    128 * 1048576,
@@ -360,8 +360,6 @@ class VersionSet {
   uint64_t PrevLogNumber() const { return prev_log_number_; }
 
   void UpdateCompactionSpaces();
-
-  bool DetermineLevel0Compaction(int& level);
 
   bool DetermineCompaction(int& level);
 

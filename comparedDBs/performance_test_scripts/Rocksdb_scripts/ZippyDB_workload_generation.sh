@@ -31,7 +31,7 @@ fi
   -sine_a=45000 \
   -sine_b=0.000023 \
   -sine_d=4500 \
-  --perf_level=2 \
+  --perf_level=1 \
   -reads=420000000 \
   --compression_type=none \
   -num=50000000 \

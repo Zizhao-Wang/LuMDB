@@ -1,0 +1,175 @@
+--- a/tools/db_bench_tool.cc
++++ b/tools/db_bench_tool.cc
+@@ -3643,6 +3643,9 @@
+       } else if (name == "fillcluster") {
+         fresh_db = true;
+         method = &Benchmark::WriteClusterCSV;
++      } else if (name == "twitterexecutedynamic") {
++        fresh_db = true;
++        method = &Benchmark::ExecuteTwitterDynamicCSV;
+       } else if (name == "readcsv") {
+         method = &Benchmark::ReadCSV;
+       } else if (name == "scancsv") {
+@@ -5163,6 +5166,130 @@
+   void YCSBDCSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbd"); }
+   void YCSBECSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbe"); }
+   void YCSBFCSV(ThreadState* thread) { RunCSVWorkload(thread, "ycsbf"); }
++
++  // Execute mixed operations in file order against one initially empty DB.
++  // Match RocksDB's DoDynamicTwitterExecute: key column 1, operation column 5,
++  // 24-digit ASCII keys, fixed-size values, and targets counted as valid ops.
++  void ExecuteTwitterDynamicCSV(ThreadState* thread) {
++    std::vector<std::string> paths;
++    for (const auto& raw : StringSplit(FLAGS_YCSB_data_file, ',')) {
++      if (!trim(raw).empty()) paths.push_back(trim(raw));
++    }
++    if (paths.empty() || static_cast<uint64_t>(num_) < paths.size()) {
++      fprintf(stderr, "twitterexecutedynamic requires CSV files and num >= file count\n");
++      ErrorExit();
++    }
++    const uint64_t total = static_cast<uint64_t>(num_);
++    const uint64_t per_file = total / paths.size();
++    RandomGenerator gen;
++    WriteBatch batch;
++    uint64_t all_reads = 0, all_writes = 0, all_deletes = 0;
++    uint64_t all_found = 0, all_skipped = 0;
++    for (size_t index = 0; index < paths.size(); ++index) {
++      std::ifstream input(paths[index]);
++      if (!input) {
++        fprintf(stderr, "Unable to open workload file: %s\n", paths[index].c_str());
++        ErrorExit();
++      }
++      const uint64_t target = index + 1 == paths.size()
++          ? total - per_file * index : per_file;
++      uint64_t done = 0, reads = 0, writes = 0, deletes = 0;
++      uint64_t found = 0, skipped = 0, line_number = 0;
++      fprintf(stderr, "Loading cluster execute workload [%zu/%zu]: %s target_ops=%" PRIu64 "\n",
++              index + 1, paths.size(), paths[index].c_str(), target);
++      Stats file_stats;
++      file_stats.Start(thread->tid);
++      file_stats.SetEnableIntervalSideEffects(false);
++      file_stats.SetIntervalReportPrefix("[workload " + std::to_string(index + 1) +
++          "/" + std::to_string(paths.size()) + "] ");
++      thread->stats.ResetLastOpTime();
++      auto skip_row = [&](const char* reason) {
++        ++skipped;
++        if (skipped <= 5) {
++          fprintf(stderr, "Skipped %s:%" PRIu64 ": %s\n", paths[index].c_str(), line_number, reason);
++        }
++      };
++      std::string line;
++      while (done < target && std::getline(input, line)) {
++        ++line_number;
++        const auto row = StringSplit(line, ',');
++        if (row.size() != 7) { skip_row("expected seven fields"); continue; }
++        const std::string operation = trim(row[5]);
++        const bool read = operation == "get" || operation == "gets";
++        const bool write = operation == "set" || operation == "add" || operation == "cas";
++        const bool remove = operation == "delete";
++        if (!read && !write && !remove) { skip_row("unsupported operation"); continue; }
++        std::string key = trim(row[1]);
++        if (key.empty() || key.find_first_not_of("0123456789") != std::string::npos) {
++          skip_row("non-numeric key"); continue;
++        }
++        try { key = std::to_string(std::stoull(key)); }
++        catch (const std::exception&) { skip_row("key outside uint64 range"); continue; }
++        key.insert(0, 24 - key.size(), '0');
++        Status status;
++        uint64_t bytes = key.size();
++        OperationType type;
++        if (read) {
++          std::string value;
++          status = db_.db->Get(read_options_, key, &value);
++          if (status.ok()) { ++found; bytes += value.size(); }
++          else if (!status.IsNotFound()) {
++            fprintf(stderr, "Get error at %s:%" PRIu64 ": %s\n", paths[index].c_str(), line_number, status.ToString().c_str());
++            ErrorExit();
++          }
++          ++reads;
++          type = kRead;
++        } else {
++          batch.Clear();
++          if (write) {
++            batch.Put(key, gen.Generate(FLAGS_value_size_));
++            bytes += FLAGS_value_size_;
++            ++writes;
++            type = kWrite;
++          } else {
++            batch.Delete(key);
++            ++deletes;
++            type = kDelete;
++          }
++          status = db_.db->Write(write_options_, &batch);
++          if (!status.ok()) {
++            fprintf(stderr, "Write error at %s:%" PRIu64 ": %s\n", paths[index].c_str(), line_number, status.ToString().c_str());
++            ErrorExit();
++          }
++        }
++        ++done;
++        file_stats.AddBytes(bytes);
++        thread->stats.AddBytes(bytes);
++        file_stats.FinishedOps(nullptr, db_.db, 1, type);
++        thread->stats.FinishedOps(nullptr, db_.db, 1, type);
++      }
++      if (done != target) {
++        fprintf(stderr, "Workload file ended early: %s executed=%" PRIu64 " target=%" PRIu64 " skipped=%" PRIu64 "\n",
++                paths[index].c_str(), done, target, skipped);
++        ErrorExit();
++      }
++      file_stats.Stop();
++      file_stats.AddMessage("file=" + paths[index] + " reads=" + std::to_string(reads) +
++          " writes=" + std::to_string(writes) + " deletes=" + std::to_string(deletes) +
++          " found=" + std::to_string(found) + " skipped=" + std::to_string(skipped));
++      file_stats.Report("twitterexecutedynamic_workload_" + std::to_string(index + 1));
++      fprintf(stderr, "Finished workload [%zu/%zu]: %s ops=%" PRIu64 " reads=%" PRIu64
++                      " writes=%" PRIu64 " deletes=%" PRIu64 " found=%" PRIu64 " skipped=%" PRIu64 "\n",
++              index + 1, paths.size(), paths[index].c_str(), done, reads, writes, deletes, found, skipped);
++      std::string stats;
++      if (db_.db->GetProperty(DB::Properties::kStats, &stats)) {
++        fprintf(stdout, "\n=== Database stats after workload %zu/%zu (cumulative): %s ===\n%s\n",
++                index + 1, paths.size(), paths[index].c_str(), stats.c_str());
++      }
++      fflush(stdout);
++      all_reads += reads; all_writes += writes; all_deletes += deletes;
++      all_found += found; all_skipped += skipped;
++    }
++    thread->stats.AddMessage("(reads:" + std::to_string(all_reads) +
++        " writes:" + std::to_string(all_writes) + " deletes:" + std::to_string(all_deletes) +
++        " total:" + std::to_string(all_reads + all_writes + all_deletes) +
++        " found:" + std::to_string(all_found) + " skipped:" + std::to_string(all_skipped) + ")");
++  }
+ 
+   void RunCSVWorkload(ThreadState* thread, const std::string& kind) {
+     // These trace-driven experiments use one worker and one operation per batch,
+@@ -8980,6 +9107,13 @@
+   for (const auto& name : StringSplit(FLAGS_benchmarks, ',')) {
+     const bool ycsb = name.size() == 5 && name.compare(0, 4, "ycsb") == 0 &&
+                       name[4] >= 'a' && name[4] <= 'f';
++    if (name == "twitterexecutedynamic" &&
++        (FLAGS_use_existing_db || FLAGS_readonly || FLAGS_threads != 1 ||
++         FLAGS_batch_size != 1 || FLAGS_key_size != 24 || FLAGS_num <= 0 || FLAGS_value_size_ <= 0)) {
++      fprintf(stderr, "twitterexecutedynamic requires --use_existing_db=false --readonly=false "
++                      "--threads=1 --batch_size=1 --key_size=24 and positive num/value_size_\n");
++      return 1;
++    }
+     if (name == "readcsv" || name == "scancsv" || ycsb) {
+       if (!FLAGS_use_existing_db || FLAGS_readonly || FLAGS_seek_nexts < 0 ||
+           FLAGS_ycsb_num == 0 || FLAGS_threads != 1 || FLAGS_batch_size != 1) {
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1556,6 +1556,15 @@
+   target_link_directories(db_bench_ycsb_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_LIB_DIR})
+   target_include_directories(db_bench_ycsb_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_INCLUDE_DIR})
+ 
++  add_executable(db_bench_cluster_execute_csv${ARTIFACT_SUFFIX}
++    tools/simulated_hybrid_file_system.cc
++    tools/db_bench.cc
++    tools/db_bench_tool.cc)
++  target_link_libraries(db_bench_cluster_execute_csv${ARTIFACT_SUFFIX}
++    ${ROCKSDB_LIB} ${THIRDPARTY_LIBS} ralt autotuner tbb)
++  target_link_directories(db_bench_cluster_execute_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_LIB_DIR})
++  target_include_directories(db_bench_cluster_execute_csv${ARTIFACT_SUFFIX} PUBLIC ${RALT_INCLUDE_DIR})
++
+   add_executable(cache_bench${ARTIFACT_SUFFIX}
+     cache/cache_bench.cc
+     cache/cache_bench_tool.cc)

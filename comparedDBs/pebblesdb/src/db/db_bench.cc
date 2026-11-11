@@ -1224,7 +1224,7 @@ random_double(void)
     PrintHeader();
     Open();
     printf("Write buffer: %.2f KB\n", FLAGS_write_buffer_size / 1024.0);
-    system("echo fb0-=0-= | sudo -S bash -c 'echo 1 > /proc/sys/vm/drop_caches'");
+    system("sudo bash -c 'echo 1 > /proc/sys/vm/drop_caches'");
     const char* benchmarks = FLAGS_benchmarks.c_str();
     int num_write_threads = FLAGS_write_threads;
     int num_read_threads = FLAGS_read_threads;
@@ -1356,6 +1356,8 @@ random_double(void)
         HeapProfile();
       } else if (name == Slice("twitterexecute")) {
         method = &Benchmark::twitter_traces_execute;
+      } else if (name == Slice("twitterexecutedynamic")) {
+        method = &Benchmark::twitter_traces_execute_dynamic;
       } else if (name == Slice("ycsba")) {
         FLAGS_ycsb_type = kYCSB_A;
         method = &Benchmark::YCSB_A;
@@ -1994,6 +1996,201 @@ random_double(void)
     thread->stats.AddBytes(bytes);
   }
 
+  void twitter_traces_execute_dynamic(ThreadState* thread) {
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+    RandomGenerator gen;
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+    ReadOptions options;
+    std::string value;
+    uint64_t found = 0;
+    uint64_t read_ops = 0;
+    uint64_t write_ops = 0;
+    uint64_t delete_ops = 0;
+    uint64_t skipped_ops = 0;
+
+    std::vector<std::string> workload_files;
+    std::stringstream workload_path_stream(FLAGS_YCSB_data_file);
+    std::string raw_path;
+    while (std::getline(workload_path_stream, raw_path, ',')) {
+      size_t start = raw_path.find_first_not_of(" \t");
+      if (start == std::string::npos) {
+        continue;
+      }
+      size_t end = raw_path.find_last_not_of(" \t");
+      workload_files.push_back(raw_path.substr(start, end - start + 1));
+    }
+
+    if (workload_files.empty()) {
+      fprintf(stderr,
+              "No workload file specified in --YCSB_data_file for twitterexecutedynamic\n");
+      return;
+    }
+
+    const uint64_t workload_count =
+        static_cast<uint64_t>(workload_files.size());
+    const uint64_t total_target_ops = static_cast<uint64_t>(num_);
+    const uint64_t ops_per_workload =
+        workload_count == 0 ? 0 : total_target_ops / workload_count;
+    uint64_t total_ops_done = 0;
+
+    fprintf(stderr,
+            "Processing dynamic twitter workload, num_=%" PRIu64
+            " workload_count=%" PRIu64 " ops_per_workload=%" PRIu64 "\n",
+            total_target_ops, workload_count, ops_per_workload);
+
+    for (size_t workload_index = 0; workload_index < workload_files.size();
+         ++workload_index) {
+      const std::string& workload_file = workload_files[workload_index];
+      std::ifstream csv_file(workload_file.c_str());
+      if (!csv_file.is_open()) {
+        fprintf(stderr, "Unable to open workload file: %s\n",
+                workload_file.c_str());
+        return;
+      }
+
+      uint64_t target_ops_this_file = ops_per_workload;
+      if (workload_index + 1 == workload_files.size()) {
+        target_ops_this_file = total_target_ops - total_ops_done;
+      }
+
+      uint64_t current_workload_ops = 0;
+      uint64_t current_workload_reads = 0;
+      uint64_t current_workload_writes = 0;
+      uint64_t current_workload_deletes = 0;
+      uint64_t current_workload_skipped = 0;
+      uint64_t current_workload_found = 0;
+
+      std::string line;
+      std::stringstream line_stream;
+      std::string cell;
+      std::vector<std::string> row_data;
+
+      fprintf(stderr,
+              "Loading dynamic twitter workload [%zu/%zu]: %s target_ops=%" PRIu64
+              "\n",
+              workload_index + 1, workload_files.size(),
+              workload_file.c_str(), target_ops_this_file);
+
+      while (current_workload_ops < target_ops_this_file &&
+             std::getline(csv_file, line)) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+
+        if (row_data.size() != 7) {
+          fprintf(stderr, "Invalid CSV row format: %s\n", line.c_str());
+          ++skipped_ops;
+          ++current_workload_skipped;
+          continue;
+        }
+
+        const std::string& op_type = row_data[5];
+        const uint64_t k = std::stoull(row_data[1]);
+        char key[100];
+        std::snprintf(key, sizeof(key), "%024llu",
+                      (unsigned long long)k);
+
+        if (op_type == "get" || op_type == "gets") {
+          Status get_status = db_->Get(options, key, &value);
+          int64_t op_bytes = static_cast<int64_t>(std::strlen(key));
+          if (get_status.ok()) {
+            ++found;
+            ++current_workload_found;
+            op_bytes += static_cast<int64_t>(value.size());
+          } else if (!get_status.IsNotFound()) {
+            fprintf(stderr, "Get error: %s\n", get_status.ToString().c_str());
+            std::exit(1);
+          }
+
+          bytes += op_bytes;
+          ++read_ops;
+          ++current_workload_reads;
+          ++current_workload_ops;
+          ++total_ops_done;
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedSingleOp(db_);
+        } else if (op_type == "set" || op_type == "add" || op_type == "cas") {
+          batch.Clear();
+          batch.Put(key, gen.Generate(value_size_));
+          s = db_->Write(write_options_, &batch);
+          if (!s.ok()) {
+            fprintf(stderr, "Put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+
+          int64_t op_bytes =
+              static_cast<int64_t>(value_size_ + std::strlen(key));
+          bytes += op_bytes;
+          ++write_ops;
+          ++current_workload_writes;
+          ++current_workload_ops;
+          ++total_ops_done;
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedSingleOp(db_);
+        } else if (op_type == "delete") {
+          batch.Clear();
+          batch.Delete(key);
+          s = db_->Write(write_options_, &batch);
+          if (!s.ok()) {
+            fprintf(stderr, "Delete error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+
+          int64_t op_bytes = static_cast<int64_t>(std::strlen(key));
+          bytes += op_bytes;
+          ++delete_ops;
+          ++current_workload_deletes;
+          ++current_workload_ops;
+          ++total_ops_done;
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedSingleOp(db_);
+        } else {
+          ++skipped_ops;
+          ++current_workload_skipped;
+        }
+      }
+
+      if (current_workload_ops < target_ops_this_file) {
+        fprintf(stderr,
+                "Workload file ended early: %s executed=%" PRIu64
+                " target=%" PRIu64 "\n",
+                workload_file.c_str(), current_workload_ops,
+                target_ops_this_file);
+        return;
+      }
+
+      fprintf(stdout,
+              "Finished workload [%zu/%zu]: %s ops=%" PRIu64
+              " reads=%" PRIu64 " writes=%" PRIu64 " deletes=%" PRIu64
+              " found=%" PRIu64 " skipped=%" PRIu64 "\n",
+              workload_index + 1, workload_files.size(),
+              workload_file.c_str(), current_workload_ops,
+              current_workload_reads, current_workload_writes,
+              current_workload_deletes, current_workload_found,
+              current_workload_skipped);
+    }
+
+    fprintf(stdout,
+            "Dynamic twitter workload summary: reads=%" PRIu64
+            " writes=%" PRIu64 " deletes=%" PRIu64 " total=%" PRIu64
+            " found=%" PRIu64 " skipped=%" PRIu64 "\n",
+            read_ops, write_ops, delete_ops,
+            read_ops + write_ops + delete_ops, found, skipped_ops);
+    thread->stats.AddBytes(bytes);
+  }
+
 
 
   void YCSB_A(ThreadState* thread) {
@@ -2406,6 +2603,118 @@ random_double(void)
       thread->stats.AddMessage(msg);
     }
 
+    std::vector<std::string> workload_files;
+    std::stringstream workload_path_stream(FLAGS_data_file);
+    std::string raw_path;
+    while (std::getline(workload_path_stream, raw_path, ',')) {
+      size_t start = raw_path.find_first_not_of(" \t");
+      if (start == std::string::npos) {
+        continue;
+      }
+      size_t end = raw_path.find_last_not_of(" \t");
+      workload_files.push_back(raw_path.substr(start, end - start + 1));
+    }
+
+    if (workload_files.size() > 1) {
+      RandomGenerator gen;
+      WriteBatch batch;
+      Status s;
+      const uint64_t workload_count =
+          static_cast<uint64_t>(workload_files.size());
+      const uint64_t total_target_ops = static_cast<uint64_t>(num_);
+      const uint64_t ops_per_workload =
+          workload_count == 0 ? 0 : total_target_ops / workload_count;
+      uint64_t total_ops_written = 0;
+
+      entries_per_batch_ = 1;
+      std::fprintf(stdout,
+                   "start benchmarking num_ = %ld entries(batches:%ld) in "
+                   "DoWrite_WriteTwitter with %" PRIu64 " workload files\n",
+                   num_, entries_per_batch_, workload_count);
+
+      for (size_t workload_index = 0; workload_index < workload_files.size();
+           ++workload_index) {
+        const std::string& workload_file = workload_files[workload_index];
+        std::ifstream csv_file(workload_file.c_str());
+        std::string line;
+        if (!csv_file.is_open()) {
+          fprintf(stderr, "Unable to open CSV file: %s\n",
+                  workload_file.c_str());
+          return;
+        }
+
+        std::getline(csv_file, line);
+
+        uint64_t target_ops_this_file = ops_per_workload;
+        if (workload_index + 1 == workload_files.size()) {
+          target_ops_this_file = total_target_ops - total_ops_written;
+        }
+
+        uint64_t current_workload_ops = 0;
+        std::stringstream line_stream;
+        std::string cell;
+        std::vector<std::string> row_data;
+
+        fprintf(stdout,
+                "Loading twitter workload file [%zu/%zu]: %s target_ops=%" PRIu64
+                "\n",
+                workload_index + 1, workload_files.size(),
+                workload_file.c_str(), target_ops_this_file);
+
+        while (current_workload_ops < target_ops_this_file &&
+               std::getline(csv_file, line)) {
+          batch.Clear();
+          line_stream.clear();
+          line_stream.str("");
+          row_data.clear();
+
+          line_stream << line;
+          while (getline(line_stream, cell, ',')) {
+            row_data.push_back(cell);
+          }
+          if (row_data.size() != 7) {
+            fprintf(stderr, "Invalid CSV row format: %s\n", line.c_str());
+            continue;
+          }
+
+          const uint64_t k = std::stoull(row_data[1]);
+          char key[100];
+          snprintf(key, sizeof(key), "%024llu", (unsigned long long)k);
+          batch.Put(key, gen.Generate(value_size_));
+
+          const int64_t op_bytes =
+              static_cast<int64_t>(value_size_ + strlen(key));
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedSingleOp(db_);
+
+          s = db_->Write(write_options_, &batch);
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+
+          ++current_workload_ops;
+          ++total_ops_written;
+        }
+
+        if (current_workload_ops < target_ops_this_file) {
+          fprintf(stderr,
+                  "Workload file ended early: %s executed=%" PRIu64
+                  " target=%" PRIu64 "\n",
+                  workload_file.c_str(), current_workload_ops,
+                  target_ops_this_file);
+          return;
+        }
+
+        fprintf(stdout,
+                "Finished twitter workload [%zu/%zu]: %s ops=%" PRIu64 "\n",
+                workload_index + 1, workload_files.size(),
+                workload_file.c_str(), current_workload_ops);
+      }
+
+      return;
+    }
+
     RandomGenerator gen;
     WriteBatch batch;
     Status s;
@@ -2475,6 +2784,121 @@ random_double(void)
       char msg[100];
       std::snprintf(msg, sizeof(msg), "(%d ops)", num_);
       thread->stats.AddMessage(msg);
+    }
+
+    std::vector<std::string> workload_files;
+    std::stringstream workload_path_stream(FLAGS_data_file);
+    std::string raw_path;
+    while (std::getline(workload_path_stream, raw_path, ',')) {
+      size_t start = raw_path.find_first_not_of(" \t");
+      if (start == std::string::npos) {
+        continue;
+      }
+      size_t end = raw_path.find_last_not_of(" \t");
+      workload_files.push_back(raw_path.substr(start, end - start + 1));
+    }
+
+    if (workload_files.size() > 1) {
+      RandomGenerator gen;
+      WriteBatch batch;
+      Status s;
+      int64_t bytes = 0;
+      const uint64_t workload_count =
+          static_cast<uint64_t>(workload_files.size());
+      const uint64_t total_target_ops = static_cast<uint64_t>(num_);
+      const uint64_t ops_per_workload =
+          workload_count == 0 ? 0 : total_target_ops / workload_count;
+      uint64_t total_ops_written = 0;
+
+      entries_per_batch_ = 1;
+      std::fprintf(stdout,
+                   "start benchmarking num_ = %ld entries(batches:%ld) in "
+                   "DoWrite_zipf() with %" PRIu64 " workload files\n",
+                   num_, entries_per_batch_, workload_count);
+
+      for (size_t workload_index = 0; workload_index < workload_files.size();
+           ++workload_index) {
+        const std::string& workload_file = workload_files[workload_index];
+        std::ifstream csv_file(workload_file.c_str());
+        std::string line;
+        if (!csv_file.is_open()) {
+          fprintf(stderr, "Unable to open CSV file: %s\n",
+                  workload_file.c_str());
+          return;
+        }
+
+        std::getline(csv_file, line);
+
+        uint64_t target_ops_this_file = ops_per_workload;
+        if (workload_index + 1 == workload_files.size()) {
+          target_ops_this_file = total_target_ops - total_ops_written;
+        }
+
+        uint64_t current_workload_ops = 0;
+        std::stringstream line_stream;
+        std::string cell;
+        std::vector<std::string> row_data;
+
+        fprintf(stdout,
+                "Loading zipf workload file [%zu/%zu]: %s target_ops=%" PRIu64
+                "\n",
+                workload_index + 1, workload_files.size(),
+                workload_file.c_str(), target_ops_this_file);
+
+        while (current_workload_ops < target_ops_this_file &&
+               std::getline(csv_file, line)) {
+          batch.Clear();
+          line_stream.clear();
+          line_stream.str("");
+          row_data.clear();
+
+          line_stream << line;
+          while (getline(line_stream, cell, ',')) {
+            row_data.push_back(cell);
+          }
+          if (row_data.size() != 1) {
+            fprintf(stderr, "Invalid CSV row format: %s\n", line.c_str());
+            continue;
+          }
+
+          const uint64_t k = std::stoull(row_data[0]);
+          char key[100];
+          snprintf(key, sizeof(key), "%016llu", (unsigned long long)k);
+          batch.Put(key, gen.Generate(value_size_));
+
+          const int64_t op_bytes =
+              static_cast<int64_t>(value_size_ + strlen(key));
+          bytes += op_bytes;
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedSingleOp(db_);
+
+          s = db_->Write(write_options_, &batch);
+          if (!s.ok()) {
+            std::fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+            std::exit(1);
+          }
+
+          ++current_workload_ops;
+          ++total_ops_written;
+        }
+
+        if (current_workload_ops < target_ops_this_file) {
+          fprintf(stderr,
+                  "Workload file ended early: %s executed=%" PRIu64
+                  " target=%" PRIu64 "\n",
+                  workload_file.c_str(), current_workload_ops,
+                  target_ops_this_file);
+          return;
+        }
+
+        fprintf(stdout,
+                "Finished zipf workload [%zu/%zu]: %s ops=%" PRIu64 "\n",
+                workload_index + 1, workload_files.size(),
+                workload_file.c_str(), current_workload_ops);
+      }
+
+      thread->stats.AddBytes(bytes);
+      return;
     }
 
     RandomGenerator gen;

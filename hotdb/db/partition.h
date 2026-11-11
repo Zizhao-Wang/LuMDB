@@ -123,6 +123,7 @@ namespace leveldb {
     }
   };
 
+  
   struct HotRangesContext {
     std::set<hot_range, HotRangeComparator> hot_ranges_;
     hot_range* largest_intensity_range;
@@ -130,7 +131,9 @@ namespace leveldb {
 
     std::string largestindensity_start_str;
     std::string largestindensity_end_str;
-    
+
+    std::atomic<bool> hotranges_updating_{false};
+
   };
 
 

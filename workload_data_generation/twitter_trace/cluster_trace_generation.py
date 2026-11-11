@@ -2,7 +2,7 @@ import pandas as pd
 import logging
 
 # Step 1: 全局定义文件路径
-CLUSTER_NUM = 1 # 这里可以修改为任何需要的 cluster 数字
+CLUSTER_NUM = 12 # 这里可以修改为任何需要的 cluster 数字
 file_path = f'/mnt/nvm/cluster{CLUSTER_NUM}.sort'  # 根据全局定义的 CLUSTER_NUM 来确定文件路径
 
 # 定义输出日志文件路径

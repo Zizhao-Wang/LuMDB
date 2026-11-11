@@ -221,6 +221,8 @@ DEFINE_string(
     "the old version and putting the new version\n\n"
     "\ttimeseries            -- 1 writer generates time series data "
     "and multiple readers doing random reads on id\n\n"
+    "\ttwitterexecutedynamic -- execute mixed Twitter cluster workloads "
+    "from one or more workload files in order\n\n"
     "Meta operations:\n"
     "\tcompact     -- Compact the entire DB; If multiple, randomly choose one\n"
     "\tcompactall  -- Compact the entire DB\n"
@@ -260,6 +262,8 @@ DEFINE_int64(merge_keys, -1,
              "ReadRandomMergeRandom. "
              "If negative, there will be FLAGS_num keys.");
 DEFINE_int32(num_column_families, 1, "Number of Column Families to use.");
+
+DEFINE_int64(workload_num, 1000000, "Number of key/values to place in database");
 
 DEFINE_int32(
     num_hot_column_families, 0,
@@ -2212,7 +2216,10 @@ class Stats {
       hist_;
   std::string message_;
   bool exclude_from_merge_;
-  ReporterAgent* reporter_agent_;  // does not own
+  bool suppress_interval_report_ = false;
+  bool enable_interval_side_effects_ = true;
+  std::string interval_report_prefix_;
+  ReporterAgent* reporter_agent_ = nullptr;  // does not own
   friend class CombinedStats;
 
  public:
@@ -2280,6 +2287,15 @@ class Stats {
 
   void SetId(int id) { id_ = id; }
   void SetExcludeFromMerge() { exclude_from_merge_ = true; }
+  void SetSuppressIntervalReport(bool suppress) {
+    suppress_interval_report_ = suppress;
+  }
+  void SetEnableIntervalSideEffects(bool enable) {
+    enable_interval_side_effects_ = enable;
+  }
+  void SetIntervalReportPrefix(const std::string& prefix) {
+    interval_report_prefix_ = prefix;
+  }
 
   void PrintThreadStatus() {
     std::vector<ThreadStatus> thread_list;
@@ -2403,7 +2419,8 @@ class Stats {
     }
 
     done_ += num_ops;
-    if (done_ >= next_report_ && FLAGS_progress_reports) {
+    if (!suppress_interval_report_ && done_ >= next_report_ &&
+        FLAGS_progress_reports) {
       if (!FLAGS_stats_interval) {
         if (next_report_ < 1000) {
           next_report_ += 100;
@@ -2435,17 +2452,21 @@ class Stats {
 
         } else {
           fprintf(stderr,
-                  "%s ... thread %d: (%" PRIu64 ",%" PRIu64
+                  "%s ... %sthread %d: (%" PRIu64 ",%" PRIu64
                   ") ops and "
                   "(%.1f,%.1f) ops/second in (%.6f,%.6f) seconds\n",
-                  clock_->TimeToString(now / 1000000).c_str(), id_,
+                  clock_->TimeToString(now / 1000000).c_str(),
+                  interval_report_prefix_.c_str(), id_,
                   done_ - last_report_done_, done_,
                   (done_ - last_report_done_) / (usecs_since_last / 1000000.0),
                   done_ / ((now - start_) / 1000000.0),
                   (now - last_report_finish_) / 1000000.0,
                   (now - start_) / 1000000.0);
-          print_mem_usage();
-          if (id_ == 0 && FLAGS_stats_per_interval) {
+          if (enable_interval_side_effects_) {
+            print_mem_usage();
+          }
+          if (enable_interval_side_effects_ && id_ == 0 &&
+              FLAGS_stats_per_interval) {
             std::string stats;
 
             if (db_with_cfh && db_with_cfh->num_created.load()) {
@@ -2499,7 +2520,8 @@ class Stats {
           last_report_done_ = done_;
         }
       }
-      if (id_ == 0 && FLAGS_thread_status_per_interval) {
+      if (enable_interval_side_effects_ && id_ == 0 &&
+          FLAGS_thread_status_per_interval) {
         PrintThreadStatus();
       }
       fflush(stderr);
@@ -3637,6 +3659,9 @@ class Benchmark {
       } else if (name == "fillcluster08") {
         fresh_db = true;
         method = &Benchmark::WriteCluster08;
+      } else if (name == "fillcluster") {
+        fresh_db = true;
+        method = &Benchmark::WriteCluster;
       } else if (name == Slice("ycsba")) {
         method = &Benchmark::YCSB_A;
       } else if (name == Slice("ycsbb")) {
@@ -3651,6 +3676,9 @@ class Benchmark {
         method = &Benchmark::YCSB_F;
       } else if (name == Slice("twitterexecute")) {
         method = &Benchmark::twitter_traces_execute;
+      } else if (name == Slice("twitterexecutedynamic")) {
+        fresh_db = true;
+        method = &Benchmark::twitter_traces_execute_dynamic;
       } else if (name == "filluniquerandom" ||
                  name == "fillanddeleteuniquerandom") {
         fresh_db = true;
@@ -5158,6 +5186,13 @@ class Benchmark {
   void WriteZippy(ThreadState* thread) { DoWrite_zippy(thread, RANDOM); }
 
   void WriteCluster08(ThreadState* thread) { DoWrite_cluster08(thread, RANDOM); }
+
+  void WriteCluster(ThreadState* thread) { DoWrite_cluster(thread, RANDOM); }
+
+  void twitter_traces_execute_dynamic(ThreadState* thread) {
+    DoDynamicTwitterExecute(thread);
+  }
+
   void WriteUniqueRandom(ThreadState* thread) {
     DoWrite(thread, UNIQUE_RANDOM);
   }
@@ -5413,6 +5448,266 @@ class Benchmark {
     thread->stats.AddBytes(bytes);
   }
 
+  // 预加载函数 - 在benchmark开始前调用一次
+  bool PreloadWorkloadData(std::vector<uint64_t>& workload_keys, std::vector<int>& workload_operations) {
+    fprintf(stderr, "Starting to preload workload from: %s\n", FLAGS_data_file_path.c_str());
+    
+    std::ifstream csv_file(FLAGS_data_file_path);
+    if (!csv_file.is_open()) {
+      fprintf(stderr, "Unable to open file: %s\n", FLAGS_data_file_path.c_str());
+      return false;
+    }
+    
+    std::string line;
+    std::getline(csv_file, line); // 跳过标题行
+    
+    // 预分配空间
+    workload_keys.reserve(FLAGS_workload_num);
+    workload_operations.reserve(FLAGS_workload_num);
+    
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+    int64_t loaded_count = 0;
+    
+    while (std::getline(csv_file, line) && loaded_count < FLAGS_workload_num+10) {
+      line_stream.clear();
+      line_stream.str("");
+      row_data.clear();
+      
+      line_stream << line;
+      while (getline(line_stream, cell, ',')) {
+        row_data.push_back(cell);
+      }
+      
+      if (row_data.size() != 7) {
+        fprintf(stderr, "Invalid CSV row format: %s\n", line.c_str());
+        continue;
+      }
+      
+      // 解析操作类型
+      int op_type = -1;
+      if (row_data[5] == "get" || row_data[5] == "gets") {
+        op_type = 0; // GET
+      } else if (row_data[5] == "add" || row_data[5] == "set") {
+        op_type = 1; // SET
+      } else if (row_data[5] == "cas") {
+        op_type = 2; // CAS
+      }
+      
+      if (op_type >= 0) {
+        uint64_t key_id = std::stoull(row_data[1]);
+        workload_keys.push_back(key_id);
+        workload_operations.push_back(op_type);
+        loaded_count++;
+      }
+    }
+    
+    csv_file.close();
+    fprintf(stderr, "Successfully preloaded %ld operations\n", loaded_count);
+    return true;
+  }
+
+
+  void DoWrite_cluster(ThreadState* thread, WriteMode write_mode) {
+    uint64_t num_written = 0;
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%" PRIu64 " ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
+                      FLAGS_write_batch_protection_bytes_per_key,
+                      user_timestamp_size_);
+    Status s;
+    int64_t bytes = 0;
+    int id = 0;
+
+    std::vector<std::string> data_file_paths;
+    for (const auto& raw_path :
+         ROCKSDB_NAMESPACE::StringSplit(FLAGS_data_file_path, ',')) {
+      std::string path = ROCKSDB_NAMESPACE::trim(raw_path);
+      if (!path.empty()) {
+        data_file_paths.push_back(path);
+      }
+    }
+    if (data_file_paths.empty()) {
+      fprintf(stderr, "No workload file specified in --data_file_path\n");
+      return ;
+    }
+    const uint64_t workload_count = static_cast<uint64_t>(data_file_paths.size());
+    const uint64_t ops_per_workload =
+        workload_count == 0 ? 0 : num_ / workload_count;
+    auto target_ops_for_workload = [&](size_t workload_index) -> uint64_t {
+      if (workload_index + 1 == data_file_paths.size()) {
+        return static_cast<uint64_t>(num_) -
+               ops_per_workload * static_cast<uint64_t>(workload_index);
+      }
+      return ops_per_workload;
+    };
+
+    Stats workload_stats;
+    size_t active_workload_index = 0;
+    uint64_t current_workload_ops = 0;
+    auto start_workload_stats = [&](size_t workload_index) {
+      active_workload_index = workload_index;
+      current_workload_ops = 0;
+      workload_stats.Start(thread->tid);
+      workload_stats.SetId(thread->tid);
+      workload_stats.SetEnableIntervalSideEffects(false);
+      workload_stats.SetIntervalReportPrefix(
+          "[workload " + std::to_string(workload_index + 1) + "/" +
+          std::to_string(data_file_paths.size()) + "] ");
+    };
+    auto report_current_workload = [&]() {
+      if (current_workload_ops == 0) {
+        return;
+      }
+      workload_stats.Stop();
+      std::string report_name =
+          "fillcluster_workload_" + std::to_string(active_workload_index + 1);
+      std::string report_msg =
+          "file=" + data_file_paths[active_workload_index] + " ops=" +
+          std::to_string(current_workload_ops);
+      workload_stats.AddMessage(report_msg);
+      workload_stats.Report(report_name);
+    };
+
+    std::ifstream csv_file;
+    std::string line;
+    size_t current_file_index = 0;
+    auto open_next_csv_file = [&]() -> bool {
+      while (current_file_index < data_file_paths.size()) {
+        if (current_workload_ops > 0) {
+          report_current_workload();
+        }
+        const size_t workload_index = current_file_index;
+        const std::string& current_file = data_file_paths[current_file_index];
+        csv_file.close();
+        csv_file.clear();
+        csv_file.open(current_file);
+        if (!csv_file.is_open()) {
+          fprintf(stderr, "Unable to open file: %s\n", current_file.c_str());
+          return false;
+        }
+        fprintf(stderr, "Loading cluster workload file [%zu/%zu]: %s\n",
+                current_file_index + 1, data_file_paths.size(),
+                current_file.c_str());
+        ++current_file_index;
+        if (std::getline(csv_file, line)) {
+          start_workload_stats(workload_index);
+          return true;
+        }
+        fprintf(stderr, "Workload file is empty: %s\n", current_file.c_str());
+      }
+      return false;
+    };
+
+    if (!open_next_csv_file()) {
+      fprintf(stderr, "Unable to initialize workload files: %s\n",
+              FLAGS_data_file_path.c_str());
+      return;
+    }
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+
+    fprintf(stderr,
+            "num_: %ld entries_per_batch_:%ld workload_count:%" PRIu64
+            " ops_per_workload:%" PRIu64
+            "\n The key size:%d value size:%d \n",
+            num_, entries_per_batch_, workload_count, ops_per_workload,
+            FLAGS_key_size, FLAGS_value_size);
+
+    const int32_t k_size=FLAGS_key_size;
+    const int32_t v_size=FLAGS_value_size_;
+    fprintf(stderr, "The k_size:%d The v_size:%d \n", k_size, v_size);
+
+    for (int64_t i = 0; i < num_; i += entries_per_batch_) {
+      batch.Clear();
+      int64_t batch_bytes = 0;
+
+      for (int64_t j = 0; j < entries_per_batch_; j++) {
+        int64_t rand_num = 0;
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+
+        while (current_workload_ops >=
+                   target_ops_for_workload(active_workload_index) &&
+               active_workload_index + 1 < data_file_paths.size()) {
+          if (!open_next_csv_file()) {
+            report_current_workload();
+            fprintf(stderr,
+                    "Error switching workload files after %" PRIu64 " ops\n",
+                    num_written);
+            return;
+          }
+        }
+
+        while (!std::getline(csv_file, line)) {
+          if (!open_next_csv_file()) {
+            report_current_workload();
+            fprintf(stderr,
+                    "Error reading key from workload files after %" PRIu64
+                    " ops\n",
+                    num_written);
+            return;
+          }
+        }
+
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+
+        if (row_data.size() != 7) {
+          fprintf(stderr, "Invalid CSV row format: %s\n", line.c_str());
+          continue;
+        }
+
+        if(i<=10){
+          fprintf(stdout,"the row_data[5] is:%s\n",row_data[5].c_str());
+        }
+
+        char format[20];
+        char key[100];
+        const uint64_t k = std::stoull(row_data[1]);
+        std::snprintf(format, sizeof(format), "%%0%dllu", k_size);
+        std::snprintf(key, sizeof(key), format, (unsigned long long)k);
+        Slice val = gen.Generate(v_size);
+
+        // fprintf(stderr, "Writing key: %s, value size: %zu\n", key, val.size()); // 输出写入的键和值大小
+        batch.Put(key, val);
+          
+        batch_bytes += val.size() + k_size + user_timestamp_size_;
+        bytes += val.size() + k_size + user_timestamp_size_;
+        ++num_written;
+        workload_stats.FinishedOps(nullptr, db_.db, entries_per_batch_, kWrite);
+        workload_stats.AddBytes(val.size() + k_size + user_timestamp_size_);
+        current_workload_ops += static_cast<uint64_t>(entries_per_batch_);
+        thread->stats.FinishedOps(nullptr, db_.db, entries_per_batch_, kWrite);
+      }
+
+      s = db_.db->Write(write_options_, &batch);
+
+      if (!s.ok()) {
+        fprintf(stderr, "Put error: %s\n", s.ToString().c_str());
+        ErrorExit();
+      } 
+      // else {
+      //   fprintf(stderr, "Batch write successful. Bytes written: %ld\n", batch_bytes); // 输出批处理成功信息
+      // }
+    }
+
+    report_current_workload();
+    fprintf(stderr, "Total bytes written: %ld\n", bytes); // 输出总写入字节数
+    thread->stats.AddBytes(bytes);
+  }
+
   void DoWrite_cluster_removetopk(ThreadState* thread, WriteMode write_mode) {
     uint64_t num_written = 0;
     uint64_t un_written = 0;
@@ -5527,19 +5822,92 @@ class Benchmark {
     int64_t bytes = 0;
     int id = 0;
 
-      // 打开 CSV 文件
-    std::ifstream csv_file(FLAGS_data_file_path);
-    std::string line;
-    if (!csv_file.is_open()) {
-      fprintf(stderr, "Unable to open file: %s\n", FLAGS_data_file_path.c_str());
+    std::vector<std::string> data_file_paths;
+    for (const auto& raw_path :
+         ROCKSDB_NAMESPACE::StringSplit(FLAGS_data_file_path, ',')) {
+      std::string path = ROCKSDB_NAMESPACE::trim(raw_path);
+      if (!path.empty()) {
+        data_file_paths.push_back(path);
+      }
+    }
+    if (data_file_paths.empty()) {
+      fprintf(stderr, "No workload file specified in --data_file_path\n");
       return;
     }
-    std::getline(csv_file, line); // 读取并丢弃 CSV 文件的标题行
+    const uint64_t workload_count = static_cast<uint64_t>(data_file_paths.size());
+    const uint64_t ops_per_workload =
+        workload_count == 0 ? 0 : num_ / workload_count;
+
+    Stats workload_stats;
+    size_t active_workload_index = 0;
+    uint64_t current_workload_ops = 0;
+    auto start_workload_stats = [&](size_t workload_index) {
+      active_workload_index = workload_index;
+      current_workload_ops = 0;
+      workload_stats.Start(thread->tid);
+      workload_stats.SetId(thread->tid);
+      workload_stats.SetEnableIntervalSideEffects(false);
+      workload_stats.SetIntervalReportPrefix(
+          "[workload " + std::to_string(workload_index + 1) + "/" +
+          std::to_string(data_file_paths.size()) + "] ");
+    };
+    auto report_current_workload = [&]() {
+      if (current_workload_ops == 0) {
+        return;
+      }
+      workload_stats.Stop();
+      std::string report_name =
+          "fillzipf_workload_" + std::to_string(active_workload_index + 1);
+      std::string report_msg =
+          "file=" + data_file_paths[active_workload_index] + " ops=" +
+          std::to_string(current_workload_ops);
+      workload_stats.AddMessage(report_msg);
+      workload_stats.Report(report_name);
+    };
+
+    std::ifstream csv_file;
+    std::string line;
+    size_t current_file_index = 0;
+    auto open_next_csv_file = [&]() -> bool {
+      while (current_file_index < data_file_paths.size()) {
+        if (current_workload_ops > 0) {
+          report_current_workload();
+        }
+        const size_t workload_index = current_file_index;
+        const std::string& current_file = data_file_paths[current_file_index];
+        csv_file.close();
+        csv_file.clear();
+        csv_file.open(current_file);
+        if (!csv_file.is_open()) {
+          fprintf(stderr, "Unable to open file: %s\n", current_file.c_str());
+          return false;
+        }
+        fprintf(stderr, "Loading zipf workload file [%zu/%zu]: %s\n",
+                current_file_index + 1, data_file_paths.size(),
+                current_file.c_str());
+        ++current_file_index;
+        if (std::getline(csv_file, line)) {
+          start_workload_stats(workload_index);
+          return true;
+        }
+        fprintf(stderr, "Workload file is empty: %s\n", current_file.c_str());
+      }
+      return false;
+    };
+
+    if (!open_next_csv_file()) {
+      fprintf(stderr, "Unable to initialize workload files: %s\n",
+              FLAGS_data_file_path.c_str());
+      return;
+    }
     std::stringstream line_stream;
     std::string cell;
     std::vector<std::string> row_data;
 
-    fprintf(stderr, "num_: %ld entries_per_batch_:%ld\n", num_, entries_per_batch_);
+    fprintf(stderr,
+            "num_: %ld entries_per_batch_:%ld workload_count:%" PRIu64
+            " ops_per_workload:%" PRIu64 "\n",
+            num_, entries_per_batch_, workload_count, ops_per_workload);
     for (int64_t i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       int64_t batch_bytes = 0;
@@ -5550,9 +5918,15 @@ class Benchmark {
         line_stream.str("");
         row_data.clear();
 
-        if (!std::getline(csv_file, line)) { 
-          fprintf(stderr, "Error reading key from file\n");
-          return;
+        while (!std::getline(csv_file, line)) {
+          if (!open_next_csv_file()) {
+            report_current_workload();
+            fprintf(stderr,
+                    "Error reading key from workload files after %" PRIu64
+                    " ops\n",
+                    num_written);
+            return;
+          }
         }
 
         line_stream << line;
@@ -5581,6 +5955,9 @@ class Benchmark {
         batch_bytes += val.size() + key_size_ + user_timestamp_size_;
         bytes += val.size() + key_size_ + user_timestamp_size_;
         ++num_written;
+        workload_stats.FinishedOps(nullptr, db_.db, entries_per_batch_, kWrite);
+        workload_stats.AddBytes(val.size() + key_size_ + user_timestamp_size_);
+        current_workload_ops += static_cast<uint64_t>(entries_per_batch_);
         thread->stats.FinishedOps(nullptr, db_.db, entries_per_batch_, kWrite);
       }
 
@@ -5595,6 +5972,7 @@ class Benchmark {
       // }
     }
 
+    report_current_workload();
     fprintf(stderr, "Total bytes written: %ld\n", bytes); // 输出总写入字节数
     thread->stats.AddBytes(bytes);
   }
@@ -5671,11 +6049,9 @@ class Benchmark {
 
   void YCSB_A(ThreadState* thread) {
     fprintf(stderr,"Enter YCSB_A\n");
-    if (num_ != FLAGS_num) {
-      char msg[100];
-      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
-      thread->stats.AddMessage(msg);
-    }
+    char msg[100];
+    std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+    thread->stats.AddMessage(msg);
     RandomGenerator gen;
     WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
                       FLAGS_write_batch_protection_bytes_per_key,
@@ -5846,6 +6222,205 @@ class Benchmark {
       }
     }
     
+  }
+
+  void DoDynamicTwitterExecute(ThreadState* thread) {
+    fprintf(stderr, "Enter DoDynamicTwitterExecute\n");
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      std::snprintf(msg, sizeof(msg), "(%ld ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    WriteBatch batch(/*reserved_bytes=*/0, /*max_bytes=*/0,
+                     FLAGS_write_batch_protection_bytes_per_key,
+                     user_timestamp_size_);
+    Status s;
+    int64_t bytes = 0;
+    ReadOptions options = read_options_;
+    std::string value;
+    uint64_t found = 0;
+    uint64_t reads_done = 0;
+    uint64_t writes_done = 0;
+    uint64_t deletes_done = 0;
+    uint64_t skipped_ops = 0;
+
+    std::vector<std::string> workload_files;
+    for (const auto& raw_path :
+         ROCKSDB_NAMESPACE::StringSplit(FLAGS_YCSB_data_file, ',')) {
+      std::string path = ROCKSDB_NAMESPACE::trim(raw_path);
+      if (!path.empty()) {
+        workload_files.push_back(path);
+      }
+    }
+    if (workload_files.empty()) {
+      fprintf(stderr, "No workload file specified in --YCSB_data_file\n");
+      return;
+    }
+
+    std::string line;
+    std::stringstream line_stream;
+    std::string cell;
+    std::vector<std::string> row_data;
+    const uint64_t workload_count =
+        static_cast<uint64_t>(workload_files.size());
+    const uint64_t total_target_ops = static_cast<uint64_t>(num_);
+    const uint64_t ops_per_workload =
+        workload_count == 0 ? 0 : total_target_ops / workload_count;
+    uint64_t total_ops_done = 0;
+
+    fprintf(stderr,
+            "Processing dynamic cluster execute workload, entries_per_batch_=%ld "
+            "num_=%" PRIu64 " workload_count=%" PRIu64
+            " ops_per_workload=%" PRIu64 "\n",
+            entries_per_batch_, total_target_ops,
+            workload_count,
+            ops_per_workload);
+
+    for (size_t workload_index = 0; workload_index < workload_files.size();
+         ++workload_index) {
+      const std::string& workload_file = workload_files[workload_index];
+      std::ifstream csv_file(workload_file);
+      if (!csv_file.is_open()) {
+        fprintf(stderr, "Unable to open workload file: %s\n",
+                workload_file.c_str());
+        return;
+      }
+
+      uint64_t target_ops_this_file = ops_per_workload;
+      if (workload_index + 1 == workload_files.size()) {
+        target_ops_this_file = total_target_ops - total_ops_done;
+      }
+
+      uint64_t current_workload_ops = 0;
+      uint64_t current_workload_reads = 0;
+      uint64_t current_workload_writes = 0;
+      uint64_t current_workload_deletes = 0;
+      uint64_t current_workload_skipped = 0;
+      uint64_t current_workload_found = 0;
+
+      fprintf(stderr,
+              "Loading cluster execute workload [%zu/%zu]: %s target_ops=%" PRIu64
+              "\n",
+              workload_index + 1, workload_files.size(),
+              workload_file.c_str(), target_ops_this_file);
+
+      while (current_workload_ops < target_ops_this_file &&
+             std::getline(csv_file, line)) {
+        line_stream.clear();
+        line_stream.str("");
+        row_data.clear();
+
+        line_stream << line;
+        while (getline(line_stream, cell, ',')) {
+          row_data.push_back(cell);
+        }
+        if (row_data.size() != 7) {
+          fprintf(stderr, "Invalid CSV row format: %s\n", line.c_str());
+          ++skipped_ops;
+          ++current_workload_skipped;
+          continue;
+        }
+
+        const std::string& op_type = row_data[5];
+        const uint64_t k = std::stoull(row_data[1]);
+        char key_buffer[100];
+        std::snprintf(key_buffer, sizeof(key_buffer), "%024llu",
+                      (unsigned long long)k);
+        Slice key(key_buffer);
+
+        if (op_type == "get" || op_type == "gets") {
+          std::string* ts_ptr = nullptr;
+          auto status = db_.db->Get(options, key, &value, ts_ptr);
+          int64_t op_bytes = static_cast<int64_t>(key.size());
+          if (status.ok()) {
+            ++found;
+            ++current_workload_found;
+            op_bytes += static_cast<int64_t>(value.size());
+          } else if (!status.IsNotFound()) {
+            fprintf(stderr, "Get error: %s\n", status.ToString().c_str());
+            ErrorExit();
+          }
+
+          bytes += op_bytes;
+          ++reads_done;
+          ++current_workload_reads;
+          ++current_workload_ops;
+          ++total_ops_done;
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kRead);
+        } else if (op_type == "set" || op_type == "add" || op_type == "cas") {
+          batch.Clear();
+          Slice val = gen.Generate(FLAGS_value_size_);
+          batch.Put(key, val);
+          s = db_.db->Write(write_options_, &batch);
+          if (!s.ok()) {
+            fprintf(stderr, "Put error: %s\n", s.ToString().c_str());
+            ErrorExit();
+          }
+
+          const int64_t op_bytes = static_cast<int64_t>(
+              key.size() + val.size() + user_timestamp_size_);
+          bytes += op_bytes;
+          ++writes_done;
+          ++current_workload_writes;
+          ++current_workload_ops;
+          ++total_ops_done;
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kWrite);
+        } else if (op_type == "delete") {
+          batch.Clear();
+          batch.Delete(key);
+          s = db_.db->Write(write_options_, &batch);
+          if (!s.ok()) {
+            fprintf(stderr, "Delete error: %s\n", s.ToString().c_str());
+            ErrorExit();
+          }
+
+          const int64_t op_bytes =
+              static_cast<int64_t>(key.size() + user_timestamp_size_);
+          bytes += op_bytes;
+          ++deletes_done;
+          ++current_workload_deletes;
+          ++current_workload_ops;
+          ++total_ops_done;
+          thread->stats.AddBytes(op_bytes);
+          thread->stats.FinishedOps(nullptr, db_.db, 1, kDelete);
+        } else {
+          ++skipped_ops;
+          ++current_workload_skipped;
+        }
+      }
+
+      if (current_workload_ops < target_ops_this_file) {
+        fprintf(stderr,
+                "Workload file ended early: %s executed=%" PRIu64
+                " target=%" PRIu64 "\n",
+                workload_file.c_str(), current_workload_ops,
+                target_ops_this_file);
+        return;
+      }
+
+      fprintf(stderr,
+              "Finished workload [%zu/%zu]: %s ops=%" PRIu64
+              " reads=%" PRIu64 " writes=%" PRIu64 " deletes=%" PRIu64
+              " found=%" PRIu64 " skipped=%" PRIu64 "\n",
+              workload_index + 1, workload_files.size(),
+              workload_file.c_str(), current_workload_ops,
+              current_workload_reads, current_workload_writes,
+              current_workload_deletes, current_workload_found,
+              current_workload_skipped);
+    }
+
+    fprintf(stderr, "Total bytes processed: %ld\n", bytes);
+    char msg[200];
+    snprintf(msg, sizeof(msg),
+             "(reads:%" PRIu64 " writes:%" PRIu64 " deletes:%" PRIu64
+             " total:%" PRIu64 " found:%" PRIu64 " skipped:%" PRIu64 ")",
+             reads_done, writes_done, deletes_done,
+             reads_done + writes_done + deletes_done, found, skipped_ops);
+    thread->stats.AddMessage(msg);
   }
 
   void YCSB_E(ThreadState* thread) {

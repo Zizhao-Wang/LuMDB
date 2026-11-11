@@ -1,4 +1,4 @@
-z# Check if the KV_stores/hotdb/twitter_release directory exists
+# Check if the KV_stores/hotdb/twitter_release directory exists
 if [ -d "../hotdb/twitter_release" ]; then
     # If it exists, remove the directory
     rm -rf ../hotdb/twitter_release

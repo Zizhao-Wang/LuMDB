@@ -58,11 +58,14 @@ def analyze_single_cluster_file(file_path, max_lines, output_dir):
     
     # 任务1: 计算unique key的百分位数
     unique_key_count = len(key_counter)
-    percentiles = [1, 5, 10, 15, 20, 30, 35, 40, 45, 50]
+    percentiles = [ 1, 5, 10, 15, 20, 30, 35, 40, 45, 50]
     
     # 任务2: 分析高频key的占比
     most_common_keys = key_counter.most_common()
-    top_n_list = [10, 100, 500, 1000, 2000, 5000, 10000, 20000,35465, 50000,70000, 100000, 462547, 500000,600000]
+    top_n_list = [10, 100, 500, 1000, 2000, 5000, 10000, 20000, 35465, 50000, 70000, 100000, 462547, 500000, 600000]
+    
+    # 新增任务3: 按数据比例统计需要多少个key
+    data_percentage_list = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
     
     # 创建输出文件
     output_filename = f"{cluster_name}_analysis_results.txt"
@@ -82,10 +85,10 @@ def analyze_single_cluster_file(file_path, max_lines, output_dir):
         key_count = math.ceil(unique_key_count * p / 100)
         print(f"前 {p:2d}%: {key_count:,} 个key")
     
-    print("\n任务2: 高频Key占比分析")
-    print("-" * 40)
+    print("\n任务2: 高频Key占比分析（按key数量排名）")
+    print("-" * 50)
     print("排名范围        总出现次数    占总数据比例")
-    print("-" * 45)
+    print("-" * 50)
     
     for n in top_n_list:
         if n <= len(most_common_keys):
@@ -94,6 +97,28 @@ def analyze_single_cluster_file(file_path, max_lines, output_dir):
             print(f"前 {n:6,} 个key: {top_n_total:12,} 次  {percentage:6.2f}%")
         else:
             print(f"前 {n:6,} 个key: 数据不足（总共只有 {len(most_common_keys):,} 个unique key）")
+    
+    print("\n任务3: 按数据比例统计需要的Key数量")
+    print("-" * 60)
+    print("数据比例    需要Key数量    累计出现次数    实际数据比例")
+    print("-" * 60)
+    
+    # 计算每个数据比例需要多少个key
+    for target_percentage in data_percentage_list:
+        target_count = math.ceil(lines_processed * target_percentage / 100)
+        
+        cumulative_count = 0
+        keys_needed = 0
+        
+        for key, count in most_common_keys:
+            cumulative_count += count
+            keys_needed += 1
+            
+            if cumulative_count >= target_count:
+                break
+        
+        actual_percentage = (cumulative_count / lines_processed) * 100
+        print(f"{target_percentage:2d}%       {keys_needed:8,} 个    {cumulative_count:12,}    {actual_percentage:6.2f}%")
     
     print("\n出现次数最多的前10个Key详情:")
     print("-" * 40)
@@ -119,10 +144,10 @@ def analyze_single_cluster_file(file_path, max_lines, output_dir):
             key_count = math.ceil(unique_key_count * p / 100)
             f.write(f"前 {p:2d}%: {key_count:,} 个key\n")
         
-        f.write("\n任务2: 高频Key占比分析\n")
-        f.write("-" * 40 + "\n")
+        f.write("\n任务2: 高频Key占比分析（按key数量排名）\n")
+        f.write("-" * 50 + "\n")
         f.write("排名范围        总出现次数    占总数据比例\n")
-        f.write("-" * 45 + "\n")
+        f.write("-" * 50 + "\n")
         
         for n in top_n_list:
             if n <= len(most_common_keys):
@@ -131,6 +156,28 @@ def analyze_single_cluster_file(file_path, max_lines, output_dir):
                 f.write(f"前 {n:6,} 个key: {top_n_total:12,} 次  {percentage:6.2f}%\n")
             else:
                 f.write(f"前 {n:6,} 个key: 数据不足（总共只有 {len(most_common_keys):,} 个unique key）\n")
+        
+        f.write(f"\n任务3: 按数据比例统计需要的Key数量\n")
+        f.write("-" * 60 + "\n")
+        f.write("数据比例    需要Key数量    累计出现次数    实际数据比例\n")
+        f.write("-" * 60 + "\n")
+        
+        # 计算每个数据比例需要多少个key
+        for target_percentage in data_percentage_list:
+            target_count = math.ceil(lines_processed * target_percentage / 100)
+            
+            cumulative_count = 0
+            keys_needed = 0
+            
+            for key, count in most_common_keys:
+                cumulative_count += count
+                keys_needed += 1
+                
+                if cumulative_count >= target_count:
+                    break
+            
+            actual_percentage = (cumulative_count / lines_processed) * 100
+            f.write(f"{target_percentage:2d}%       {keys_needed:8,} 个    {cumulative_count:12,}    {actual_percentage:6.2f}%\n")
         
         f.write(f"\n出现次数最多的前10个Key详情:\n")
         f.write("-" * 40 + "\n")
@@ -193,7 +240,8 @@ if __name__ == "__main__":
     directory_path = "/mnt/nvm"
     
     # 要分析的cluster文件编号
-    cluster_numbers = [49,35,40,30,25,51,1,13]
+    cluster_numbers = [40,30,13,1]
+    # cluster_numbers = [40]
     
     # 每个文件要处理的行数
     max_lines_per_file = 500_000_000  # 5亿行

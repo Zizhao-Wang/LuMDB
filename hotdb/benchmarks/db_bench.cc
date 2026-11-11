@@ -163,12 +163,18 @@ DEFINE_double(compression_ratio, 0.5, "Arrange to generate values that shrink"
 DEFINE_bool(histogram, false, "Print histogram of operation timings");
 DEFINE_bool(print_wa, false, "Print write amplification every stats interval");
 DEFINE_bool(comparisons, false, "Count the number of string comparisons performed");
+DEFINE_bool(use_pl_or_2ppl, false, "Print write amplification every stats interval");
 
 // Number of bytes to buffer in memtable before compacting
 // (initialized to default value by "main")
 DEFINE_int64(write_buffer_size, 67108864,
              "Number of bytes to buffer in all memtables before compacting");
 
+DEFINE_int64(hot_buffer_size, 4194304,
+             "Number of bytes to buffer in all memtables before compacting");
+
+DEFINE_int64(min_partition_size, 41943040,
+             "Number of bytes to buffer in all memtables before compacting");
 
 // Number of bytes to buffer in memtable before compacting
 // (initialized to default value by "main")
@@ -1839,7 +1845,11 @@ class Benchmark {
     options.env = g_env;
     options.create_if_missing = !FLAGS_use_existing_db;
     options.block_cache = cache_;
+
     options.write_buffer_size = FLAGS_write_buffer_size;
+    options.write_hot_buffer_size = FLAGS_hot_buffer_size;
+    options.min_file_size= FLAGS_min_partition_size;
+
     options.max_file_size = FLAGS_max_file_size;
     options.block_size = FLAGS_block_size;
     options.hotdb_name = FLAGS_hotdb;
@@ -1854,6 +1864,8 @@ class Benchmark {
     
     options.hot_file_path = FLAGS_hot_file;
     options.percentages = FLAGS_percentages;
+
+    options.pl_or_2ppl = FLAGS_use_pl_or_2ppl;
 
     fprintf(stdout, "Some selected options of LuMDB\n");
     fprintf(stdout, "------------------------------------------------\n");

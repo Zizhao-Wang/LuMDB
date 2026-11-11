@@ -2967,60 +2967,6 @@ void VersionSet::UpdateCompactionSpaces() {
 
 
 
-bool VersionSet::DetermineLevel0Compaction(int& level) {
-
-  assert(level == 0);
-  int leveling_files = current_->leveling_files_[0].size();
-  int tiering_files = current_->NumTieringFilesInLevel(0);
-  int total_files = leveling_files + tiering_files;
-
-  Log(options_->info_log, "Level 0: leveling_files = %d, tiering_files = %d, total_files = %d", leveling_files, tiering_files, total_files);
-
-  if (current_->compaction_score_ >= 1.00 || current_->tieirng_compaction_score_ >= 1.00) {
-    int file_diff = std::abs(leveling_files - tiering_files);
-    int adjust_amount = file_diff / 2;
-
-    if (file_diff > 1) {
-    } else if (file_diff == 1) {
-      adjust_amount = 1;
-    } else if (file_diff < 1) {
-      return true;
-    }
-    
-    bool adjusted = false;
-    if (leveling_files > tiering_files) {
-      // 如果 leveling 文件更多，减少 leveling 增加 tiering
-      if (config::kL0_StopWritesTrigger + adjust_amount >= 2 && config::kTiering_and_leveling_Multiplier - adjust_amount >= 2) {   
-        config::kL0_StopWritesTrigger += adjust_amount;
-        config::kTiering_and_leveling_Multiplier -= adjust_amount;
-        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files > tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d, adjust_amount = %d",
-            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier, adjust_amount);
-        adjusted = true;
-      }
-    } else {
-      // 调整 kL0_StopWritesTrigger 和 kTiering_and_leveling_Multiplier
-      if (config::kL0_StopWritesTrigger - adjust_amount >= 2 && config::kTiering_and_leveling_Multiplier + adjust_amount >= 2) {
-        config::kL0_StopWritesTrigger -= adjust_amount;
-        config::kTiering_and_leveling_Multiplier += adjust_amount;
-        Log(options_->info_log, "Level 0: Adjusting ratios - leveling_files <= tiering_files, new kL0_StopWritesTrigger = %d, new kTiering_and_leveling_Multiplier = %d, adjust_amount = %d",
-            config::kL0_StopWritesTrigger, config::kTiering_and_leveling_Multiplier, adjust_amount);
-        adjusted = true;
-      }
-    }
-
-    if (adjusted) {
-      // 更新 compaction_score
-      Finalize(current_);
-      Log(options_->info_log, "Level 0: Updated compaction scores - compaction_score_ = %f, tieirng_compaction_score_ = %f", current_->compaction_score_, current_->tieirng_compaction_score_);
-      return false;
-    }
-
-    return true;
-  }
-  return false; // 表明不需要进行 compaction
-}
-
-
 bool VersionSet::DetermineCompaction(int& level) {
   
   if(level == -1){

@@ -358,6 +358,8 @@ class DBImpl : public DB {
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void CompactTieringMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  
+  void CompactTieringMemTable2() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   void CompactLevelingMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 

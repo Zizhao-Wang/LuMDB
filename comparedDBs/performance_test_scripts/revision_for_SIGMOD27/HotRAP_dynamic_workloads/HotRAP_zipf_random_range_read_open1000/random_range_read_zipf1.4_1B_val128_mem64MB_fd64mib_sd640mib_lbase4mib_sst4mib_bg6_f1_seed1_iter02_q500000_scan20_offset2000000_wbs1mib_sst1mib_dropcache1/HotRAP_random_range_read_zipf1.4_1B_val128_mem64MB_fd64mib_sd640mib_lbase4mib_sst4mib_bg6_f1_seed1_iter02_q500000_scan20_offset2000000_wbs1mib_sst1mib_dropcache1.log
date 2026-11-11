@@ -1,0 +1,280 @@
+Preload config: /home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/revision_for_SIGMOD27/HotRAP_dynamic_workloads/1B_HotRAP_ReadPreload_zipf_PM_NVM_PaperRatio_open1000/read_preload_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02/preload_config.env
+Query file: /mnt/workloads/range_read_workload1.4.csv
+Operations: 500000
+DROP_CACHES: 1
+Command: /home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/revision_for_SIGMOD27/HotRAP_dynamic_workloads/../../../share/hotrap/build-experiments/db_bench_read_csv --db=/mnt/nvm/hotrap1B_read_preload/db/read_preload_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02 --db_paths=\[\{/mnt/pmem0/hotrap1B_read_preload/tier0/read_preload_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02\,67108864\}\,\{/mnt/nvm/hotrap1B_read_preload/tier1/read_preload_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02\,671088640\}\] --ralt_path=/mnt/pmem0/hotrap1B_read_preload/ralt/read_preload_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02 --use_existing_db=true --readonly=false --max_hot_set_size=33554432 --max_ralt_size=10066329 --compaction_style=0 --ttl_seconds=0 --level_compaction_dynamic_level_bytes=false --max_bytes_for_level_base=4194304 --target_file_size_base=1048576 --num=1000000000 --threads=1 --batch_size=1 --seed=1 --key_size=16 --value_size=128 --value_size_=128 --benchmarks=scancsv\,stats --YCSB_data_file=/mnt/workloads/range_read_workload1.4.csv --ycsb_num=500000 --seek_nexts=20 --csv_scan_key_offset=2000000 --bloom_bits=10 --cache_size=8388608 --open_files=1000 --max_background_jobs=7 --max_background_compactions=6 --max_background_flushes=1 --compression_type=none --write_buffer_size=1048576 --stats_interval=100000000 --stats_per_interval=1 --histogram=1 --mem_log_file=/home/jeff-wang/LuMDB/comparedDBs/performance_test_scripts/revision_for_SIGMOD27/HotRAP_dynamic_workloads/HotRAP_zipf_random_range_read_open1000/random_range_read_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02_q500000_scan20_offset2000000_wbs1mib_sst1mib_dropcache1/HotRAP_random_range_read_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02_q500000_scan20_offset2000000_wbs1mib_sst1mib_dropcache1_memory.log 
+Page cache cleared before query: sync + drop_caches=1 (2026-11-06T04:09:06+08:00)
+[2026-11-06 04:09:07.9]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:LSM bloom filter BPK: 14 bits.
+RocksDB:    version 8.7.3
+Date:       Fri Nov  6 04:09:07 2026
+CPU:        112 * Intel(R) Xeon(R) Gold 6348 CPU @ 2.60GHz
+CPUCache:   43008 KB
+Initializing RocksDB Options from the specified file
+Initializing RocksDB Options from command-line flags
+Integrated BlobDB: blob cache disabled
+Keys:       16 bytes each (+ 0 bytes user-defined timestamp)
+Values:     128 bytes each (64 bytes after compression)
+Entries:    1000000000
+Prefix:    0 bytes
+Keys per prefix:    0
+RawSize:    137329.1 MB (estimated)
+FileSize:   76293.9 MB (estimated)
+Write rate: 0 bytes/second
+Read rate: 0 ops/second
+Compression: NoCompression
+Compression sampling rate: 0
+Memtablerep: SkipListFactory
+Perf Level: 1
+------------------------------------------------
+DB path: [/mnt/nvm/hotrap1B_read_preload/db/read_preload_zipf1.4_1B_val128_mem64MB_fd64mib_sd640mib_lbase4mib_sst4mib_bg6_f1_seed1_iter02]
+Initial max hot set size: 33554432
+Initial hot set size limit: 33554432
+Initial physical size limit: 10066329
+Update max_bytes_for_level_multiplier_additional: 1:1.15881:0.300539:100
+Loading scancsv workload [1/1]: /mnt/workloads/range_read_workload1.4.csv (500000 ops)
+scancsv_workload_1 :      23.872 micros/op 41890 ops/sec 11.936 seconds 500000 operations;  115.1 MB/s file=/mnt/workloads/range_read_workload1.4.csv ops=500000
+Microseconds per seek:
+Count: 500000 Average: 23.8718  StdDev: 31.61
+Min: 8  Median: 17.9372  Max: 4379
+Percentiles: P50: 17.94 P75: 20.31 P99: 174.78 P99.9: 326.62 P99.99: 532.78
+------------------------------------------------------
+(       6,      10 ]     1652   0.330%   0.330% 
+(      10,      15 ]    93884  18.777%  19.107% ####
+(      15,      22 ]   368127  73.625%  92.733% ###############
+(      22,      34 ]     6037   1.207%  93.940% 
+(      34,      51 ]      161   0.032%  93.972% 
+(      51,      76 ]     1456   0.291%  94.263% 
+(      76,     110 ]    17452   3.490%  97.754% #
+(     110,     170 ]     5981   1.196%  98.950% 
+(     170,     250 ]     4183   0.837%  99.787% 
+(     250,     380 ]      962   0.192%  99.979% 
+(     380,     580 ]       72   0.014%  99.993% 
+(     580,     870 ]       16   0.003%  99.997% 
+(     870,    1300 ]       10   0.002%  99.999% 
+(    1300,    1900 ]        2   0.000%  99.999% 
+(    1900,    2900 ]        1   0.000%  99.999% 
+(    2900,    4400 ]        4   0.001% 100.000% 
+
+
+=== Database stats after workload 1/1 (cumulative): /mnt/workloads/range_read_workload1.4.csv ===
+
+** Compaction Stats [default] **
+Level    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  L1      1/0    2.93 MB   0.7      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+  L2     13/0   39.71 MB   1.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+  L3     39/0   136.97 MB   0.3      0.0     0.0      0.0       0.0      0.0       0.0   1.3     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+  L4    109/0   421.33 MB   0.1      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+ Sum    162/0   600.94 MB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+ Int      0/0    0.00 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0 4265025.0     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+
+** Compaction Stats [default] **
+Priority    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Low      0/0    0.00 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+
+Blob file count: 0, total size: 0.0 GB, garbage size: 0.0 GB, space amp: 0.0
+
+Uptime(secs): 12.0 total, 11.9 interval
+Flush(GB): cumulative 0.000, interval 0.000
+AddFile(GB): cumulative 0.000, interval 0.000
+AddFile(Total Files): cumulative 0, interval 0
+AddFile(L0 Files): cumulative 0, interval 0
+AddFile(Keys): cumulative 0, interval 0
+Cumulative compaction: 0.00 GB write, 0.34 MB/s write, 0.01 GB read, 0.60 MB/s read, 0.1 seconds
+Interval compaction: 0.00 GB write, 0.34 MB/s write, 0.01 GB read, 0.61 MB/s read, 0.1 seconds
+Write Stall (count): cf-l0-file-count-limit-delays-with-ongoing-compaction: 0, cf-l0-file-count-limit-stops-with-ongoing-compaction: 0, db-paths-size-limit-delays: 0, db-paths-size-limit-stops: 0, l0-file-count-limit-delays: 0, l0-file-count-limit-stops: 0, memtable-limit-delays: 0, memtable-limit-stops: 0, pending-compaction-bytes-delays: 0, pending-compaction-bytes-stops: 0, total-delays: 0, total-stops: 0
+Block cache LRUCache@0x64934cec8ea0#1018297 capacity: 8.00 MB seed: 1 usage: 0.09 KB table_size: 256 occupancy: 1 collections: 1 last_copies: 0 last_secs: 1.4e-05 secs_since: 11
+Block cache entry stats(count,size,portion): Misc(1,0.00 KB,0%)
+Timers of hotrap
+[
+	{"name": "UpdateFilesByCompactionPri", "count": 5, "time(sec)": 0.000429},
+	{"name": "Compaction", "count": 1, "time(sec)": 0.111440},
+	{"name": "GetKeyValueFromLevelsBelow", "count": 0, "time(sec)": 0.000000},
+	{"name": "InvalidateOld", "count": 0, "time(sec)": 0.000000},
+	{"name": "TakeRange", "count": 0, "time(sec)": 0.000000},
+	{"name": "ScheduleSwitchMut", "count": 0, "time(sec)": 0.000000},
+	{"name": "SwitchMutablePromotionBuffer", "count": 0, "time(sec)": 0.000000},
+	{"name": "CheckStablyHot", "count": 0, "time(sec)": 0.000000},
+	{"name": "CheckNewerVersion", "count": 0, "time(sec)": 0.000000},
+	{"name": "WriteBackToMutablePromotionBuffer", "count": 0, "time(sec)": 0.000000},
+],
+Per level timers of hotrap
+[
+	{
+		"level": 0,
+		"timers": [
+			{"name": "kPickSST", "count": 0, "time(sec)": 0.000000},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+	{
+		"level": 1,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000008},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+	{
+		"level": 2,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000038},
+			{"name": "ProcessKeyValueCompaction", "count": 1, "time(sec)": 0.113310},
+		],
+	},
+	{
+		"level": 3,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000104},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+	{
+		"level": 4,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000254},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+]
+Block cache usage 8362488, pinned usage 88
+
+** File Read Latency Histogram By Level [default] **
+
+** DB Stats **
+Uptime(secs): 12.0 total, 11.9 interval
+Cumulative writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 GB, 0.00 MB/s
+Cumulative WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
+Cumulative stall: 00:00:0.000 H:M:S, 0.0 percent
+Interval writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 MB, 0.00 MB/s
+Interval WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
+Interval stall: 00:00:0.000 H:M:S, 0.0 percent
+Write Stall (count): write-buffer-manager-limit-stops: 0
+
+scancsv      :      23.884 micros/op 41869 ops/sec 11.942 seconds 500000 operations;  115.0 MB/s scanned_records=9999905 nonempty_scans=500000 exact_seek_matches=26605
+Microseconds per seek:
+Count: 500000 Average: 23.8718  StdDev: 31.61
+Min: 7  Median: 17.9406  Max: 4380
+Percentiles: P50: 17.94 P75: 20.32 P99: 174.74 P99.9: 326.45 P99.99: 532.78
+------------------------------------------------------
+(       6,      10 ]     1587   0.317%   0.317% 
+(      10,      15 ]    93636  18.727%  19.045% ####
+(      15,      22 ]   368444  73.689%  92.733% ###############
+(      22,      34 ]     6034   1.207%  93.940% 
+(      34,      51 ]      158   0.032%  93.972% 
+(      51,      76 ]     1459   0.292%  94.264% 
+(      76,     110 ]    17452   3.490%  97.754% #
+(     110,     170 ]     5982   1.196%  98.950% 
+(     170,     250 ]     4184   0.837%  99.787% 
+(     250,     380 ]      959   0.192%  99.979% 
+(     380,     580 ]       72   0.014%  99.993% 
+(     580,     870 ]       16   0.003%  99.997% 
+(     870,    1300 ]       10   0.002%  99.999% 
+(    1300,    1900 ]        2   0.000%  99.999% 
+(    1900,    2900 ]        1   0.000%  99.999% 
+(    2900,    4400 ]        4   0.001% 100.000% 
+
+
+
+** Compaction Stats [default] **
+Level    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  L1      1/0    2.93 MB   0.7      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+  L2     13/0   39.71 MB   1.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+  L3     39/0   136.97 MB   0.3      0.0     0.0      0.0       0.0      0.0       0.0   1.3     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+  L4    109/0   421.33 MB   0.1      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+ Sum    162/0   600.94 MB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+ Int      0/0    0.00 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0 4265025.0     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+
+** Compaction Stats [default] **
+Priority    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Low      0/0    0.00 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0     63.9     35.9      0.11              0.04         1    0.113     52K    22K       0.0       0.0
+
+Blob file count: 0, total size: 0.0 GB, garbage size: 0.0 GB, space amp: 0.0
+
+Uptime(secs): 20.1 total, 20.0 interval
+Flush(GB): cumulative 0.000, interval 0.000
+AddFile(GB): cumulative 0.000, interval 0.000
+AddFile(Total Files): cumulative 0, interval 0
+AddFile(L0 Files): cumulative 0, interval 0
+AddFile(Keys): cumulative 0, interval 0
+Cumulative compaction: 0.00 GB write, 0.20 MB/s write, 0.01 GB read, 0.36 MB/s read, 0.1 seconds
+Interval compaction: 0.00 GB write, 0.20 MB/s write, 0.01 GB read, 0.36 MB/s read, 0.1 seconds
+Write Stall (count): cf-l0-file-count-limit-delays-with-ongoing-compaction: 0, cf-l0-file-count-limit-stops-with-ongoing-compaction: 0, db-paths-size-limit-delays: 0, db-paths-size-limit-stops: 0, l0-file-count-limit-delays: 0, l0-file-count-limit-stops: 0, memtable-limit-delays: 0, memtable-limit-stops: 0, pending-compaction-bytes-delays: 0, pending-compaction-bytes-stops: 0, total-delays: 0, total-stops: 0
+Block cache LRUCache@0x64934cec8ea0#1018297 capacity: 8.00 MB seed: 1 usage: 0.09 KB table_size: 256 occupancy: 1 collections: 1 last_copies: 0 last_secs: 1.4e-05 secs_since: 20
+Block cache entry stats(count,size,portion): Misc(1,0.00 KB,0%)
+Timers of hotrap
+[
+	{"name": "UpdateFilesByCompactionPri", "count": 5, "time(sec)": 0.000429},
+	{"name": "Compaction", "count": 1, "time(sec)": 0.111440},
+	{"name": "GetKeyValueFromLevelsBelow", "count": 0, "time(sec)": 0.000000},
+	{"name": "InvalidateOld", "count": 0, "time(sec)": 0.000000},
+	{"name": "TakeRange", "count": 0, "time(sec)": 0.000000},
+	{"name": "ScheduleSwitchMut", "count": 0, "time(sec)": 0.000000},
+	{"name": "SwitchMutablePromotionBuffer", "count": 0, "time(sec)": 0.000000},
+	{"name": "CheckStablyHot", "count": 0, "time(sec)": 0.000000},
+	{"name": "CheckNewerVersion", "count": 0, "time(sec)": 0.000000},
+	{"name": "WriteBackToMutablePromotionBuffer", "count": 0, "time(sec)": 0.000000},
+],
+Per level timers of hotrap
+[
+	{
+		"level": 0,
+		"timers": [
+			{"name": "kPickSST", "count": 0, "time(sec)": 0.000000},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+	{
+		"level": 1,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000008},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+	{
+		"level": 2,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000038},
+			{"name": "ProcessKeyValueCompaction", "count": 1, "time(sec)": 0.113310},
+		],
+	},
+	{
+		"level": 3,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000104},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+	{
+		"level": 4,
+		"timers": [
+			{"name": "kPickSST", "count": 4, "time(sec)": 0.000254},
+			{"name": "ProcessKeyValueCompaction", "count": 0, "time(sec)": 0.000000},
+		],
+	},
+]
+Block cache usage 8362488, pinned usage 88
+
+** File Read Latency Histogram By Level [default] **
+
+** DB Stats **
+Uptime(secs): 20.1 total, 8.1 interval
+Cumulative writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 GB, 0.00 MB/s
+Cumulative WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
+Cumulative stall: 00:00:0.000 H:M:S, 0.0 percent
+Interval writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 MB, 0.00 MB/s
+Interval WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
+Interval stall: 00:00:0.000 H:M:S, 0.0 percent
+Write Stall (count): write-buffer-manager-limit-stops: 0
+
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:all. read bytes: 0 B, 0.000000 GB
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:all. write bytes: 0 B, 0.000000 GB
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:all. input bytes: 0 B, 0.000000 GB
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:tier 0. hit: 0, access: 0
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:tier 0. write bytes: 0 B, 0.000000 GB
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:tier 0. compact time: 0 ns, 0.000000 s
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:tier 0. flush time: 0 ns, 0.000000 s
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:tier 0. decay scan time: 0 ns, 0.000000 s
+[2026-11-06 04:09:27.96]/home/jeff-wang/LuMDB/comparedDBs/share/RALT/include/logging.hpp@32:tier 0. decay write time: 0 ns, 0.000000 s

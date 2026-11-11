@@ -213,7 +213,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       db_lock_(nullptr),
       shutting_down_(false),
       pending_tasks_(0),
-      pl_or_2ppl(true),
+      pl_or_2ppl(raw_options.pl_or_2ppl),
       background_work_finished_signal_(&mutex_),
       mem_(nullptr),
       imm_(nullptr),
@@ -869,6 +869,38 @@ void DBImpl::CompactTieringMemTable() {
   mutex_.Unlock();
 }
 
+void DBImpl::CompactTieringMemTable2() {
+  // mutex_.AssertHeld();
+  mutex_.Lock();
+  // Compact the hot immutable memtable
+  VersionEdit hot_edit;
+  Version* hot_base = versions_->current();
+  hot_base->Ref();
+  Status hot_s = WriteLevel0Table(hot_imm_, &hot_edit, hot_base);
+  hot_base->Unref();
+
+  if (hot_s.ok() && shutting_down_.load(std::memory_order_acquire)) {
+    hot_s = Status::IOError("Deleting DB during hot memtable compaction");
+  }
+
+  if (hot_s.ok()) {
+    hot_edit.SetPrevLogNumber(0);
+    hot_edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+    hot_edit.set_is_tiering();
+    hot_s = versions_->LogAndApply(&hot_edit, &mutex_);
+  }
+
+  if (hot_s.ok()) {
+    // Commit to the new state
+    hot_imm_->Unref();
+    hot_imm_ = nullptr;
+    has_hot_imm_.store(false, std::memory_order_release);
+  } else {
+    RecordBackgroundError(hot_s);
+  }
+  TieringRemoveObsoleteFiles();
+  mutex_.Unlock();
+}
 
 Status DBImpl::WriteLevel0Table_NoPartition(MemTable* mem, VersionEdit* edit, Version* base) {
   mutex_.AssertHeld();
@@ -2659,7 +2691,7 @@ void DBImpl::BackgroundColdCompaction() {
       }
       bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
       // bool is_first_L0flush = false;
-      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<524288){
+      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1048576){
         std::vector<uint64_t> deleted_partition_nums;
         Merge_all_supersmall_partitions(deleted_partition_nums);
         versions_->RePickCompaction(c, deleted_partition_nums);
@@ -2958,7 +2990,7 @@ void DBImpl::BackgroundCompactionMultiThread() {
       }
       bool is_first_L0flush = partition_first_L0flush_map_[need_partition_num];
       // bool is_first_L0flush = false;
-      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1024){
+      if (is_first_L0flush && c->level()==0 && temp_partition->GetAverageFileSize()<1048576){
         std::vector<uint64_t> deleted_partition_nums;
         // ================== DEBUG 日志 3: 执行合并 ==================
         fprintf(stderr, "       Partition %lu is merging super-small partitions.\n", c->partition_num());
@@ -4592,13 +4624,13 @@ Status DBImpl::DoTieringCompactionWork(TieringCompactionState* compact) {
     // Prioritize immutable compaction work
     if (has_hot_imm_.load(std::memory_order_relaxed)) {
       const uint64_t imm_start = env_->NowMicros();
-      mutex_.Lock();
+      // mutex_.Lock();
       if (hot_imm_ != nullptr) {
-        CompactTieringMemTable();
+        CompactTieringMemTable2();
         // Wake up MakeRoomForWrite() if necessary.
         background_work_finished_signal_.SignalAll();
       }
-      mutex_.Unlock();
+      // mutex_.Unlock();
       imm_micros += (env_->NowMicros() - imm_start);
     }
 
@@ -6098,7 +6130,7 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
             val_queues_.pop();
           }
           // Close output file if it is big enough 30M 31457280 20M 20971520 compact->compaction->MinOutputFileSize()
-          if (compact->builder->FileSize() >= compact->compaction->MaxOutputFileSize(compact->compaction->level())) {
+          if (compact->builder->FileSize() >= compact->compaction->MaxOutputFileSize(compact->compaction->level()+1)) {
             status = FinishCompactionOutputFile(compact, input);
             if (!status.ok()) {
               Log(options_.leveling_compaction_info_log, "Do_L0CompactionWork_With_Identification: Error finishing compaction output file: %s", status.ToString().c_str());
@@ -6251,6 +6283,8 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
 
   mutex_.Lock();
 
+  HotRanges->hotranges_updating_.store(true);
+
   for (auto& s : local_range_boundaries) {
     range_boundaries.push_back(std::move(s));
   }
@@ -6335,6 +6369,9 @@ Status DBImpl::Do_L0CompactionWork_With_Identification(CompactionState* compact,
   config::kInitialPartitionLevelingCompactionTrigger = 24;
   pending_tasks_.fetch_add(-1);
   // fprintf(stderr,"one task is finished! the pending_tasks_:%d time consumed: %.3f \n",pending_tasks_.load(),stats.total_micros/1e6 );
+
+  HotRanges->hotranges_updating_.store(false);
+
   mutex_.Unlock();
   return status;
 }
@@ -7522,12 +7559,12 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
 
-    } else if (versions_->Num_Level_maxPartitionleveling_Files(0) >= (config::kInitialPartitionLevelingCompactionTrigger+10) ) {
+    } else if (versions_->Num_Level_maxPartitionleveling_Files(0) >= (config::kInitialPartitionLevelingCompactionTrigger+30) ) {
       // There are too many level-0 leveling files.
       Log(options_.info_log, "Too many L0 leveling files; waiting...\n");
       background_work_finished_signal_.Wait();
 
-    }else if (versions_->Num_Level_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier) {
+    }else if (versions_->Num_Level_tiering_Files(0) >= config::kTiering_and_leveling_Multiplier+30) {
       // There are too many level-0 tiering files.
       Log(options_.info_log, "Too many L0 tiering files; waiting... NumLevel_tiering_Files = %d, kTiering_and_leveling_Multiplier = %d\n",
           versions_->Num_Level_tiering_Files(0), config::kTiering_and_leveling_Multiplier);
